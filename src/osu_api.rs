@@ -39,7 +39,7 @@ pub struct OsuBeatmap {
 
 impl OsuBeatmap {
     pub fn metadata(&self) -> String {
-        format!("{} - {}[{}]", self.beatmapset.artist, self.beatmapset.title, self.version)
+        format!("{} - {} [{}]", self.beatmapset.artist, self.beatmapset.title, self.version)
     }
 }
 

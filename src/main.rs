@@ -12,7 +12,7 @@ use std::env;
 
 use serenity::async_trait;
 use serenity::model::application::command::{Command, CommandOptionType};
-use serenity::model::application::interaction::{Interaction};
+use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
@@ -40,7 +40,7 @@ impl EventHandler for Handler {
 
         let _glob_commands = Command::create_global_application_command(&ctx.http, |command| {
             command
-                .name("test")
+                .name("leaderboard")
                 .description("Show country leaderboard")
                 .create_option(|option| {
                     option

@@ -20,6 +20,8 @@ struct LeaderboardListing<'a> {
 
     scores: &'a Vec<OsuScore>,
     beatmap: &'a OsuBeatmap,
+
+    embed: CreateEmbed,
 }
 
 impl<'a> LeaderboardListing<'a> {
@@ -30,12 +32,28 @@ impl<'a> LeaderboardListing<'a> {
             (s.len() as i32) / 10
         };
 
-        LeaderboardListing {
+        let mut embed = CreateEmbed::default();
+        embed.author(|a| {
+            a.name(b.metadata());
+            a.url(format!("https://osu.ppy.sh/b/{}", b.id))
+        });
+        embed.thumbnail(format!(
+            "https://assets.ppy.sh/beatmaps/{}/covers/list.jpg",
+            b.beatmapset_id
+        ));
+        embed.color(Colour::new(865846));
+
+        let mut lb = LeaderboardListing {
             pages,
             curr_page: 1,
             scores: s,
             beatmap: b,
-        }
+            embed,
+        };
+
+        lb.update_embed();
+
+        lb
     }
 
     fn next_page(&mut self) {
@@ -67,33 +85,18 @@ impl<'a> LeaderboardListing<'a> {
         })
     }
 
-    fn create_embed<'b>(&self, embed: &'b mut CreateEmbed) -> &'b mut CreateEmbed {
-        embed.author(|a| {
-            a.name(format!(
-                "Total scores: 50 [{}/{}]",
-                self.curr_page, self.pages
-            ))
-        });
-
-        embed.thumbnail(format!(
-            "https://assets.ppy.sh/beatmaps/{}/covers/list.jpg",
-            self.beatmap.beatmapset_id
-        ));
-
-        embed.color(Colour::new(865846));
-
-        embed.footer(|f| {
-            f.text(self.beatmap.metadata())
+    fn update_embed(&mut self) {
+        self.embed.footer(|f| {
+            f.text(format!("Page {}/{}", self.curr_page, self.pages))
         });
 
         let mut st = String::new();
+        
+        let start_index = (self.curr_page-1)*10;
 
         let mut count = 10;
-        let mut index = 1 + (self.curr_page - 1) * 10;
-        for s in self
-            .scores
-            .iter()
-            .skip(((self.curr_page - 1) * 10) as usize)
+        let mut index = 1 + start_index;
+        for s in self.scores.iter().skip(start_index as usize)
         {
             if count == 0 {
                 break;
@@ -104,26 +107,21 @@ impl<'a> LeaderboardListing<'a> {
             st.push_str(
                 format!(
                     "{}. [{}](https://osu.ppy.sh/u/{}) 
-                    {} • {:.1} • {:.2}pp 
-                    {} 
+                    {} • {:.1} • {:.2}pp • {} 
                     <t:{}:R>\n",
-                    index,
-                    s.user.username,
-                    s.user.id,
-                    s.rank,
-                    s.accuracy * 100.0,
-                    pp,
+                    index, s.user.username, s.user.id,
+                    s.rank, s.accuracy * 100.0, pp,
                     s.score.to_formatted_string(&Locale::en),
                     s.created_at.timestamp()
-                )
+                    )
                 .as_str(),
-            );
+                );
 
             index += 1;
             count -= 1;
         }
 
-        embed.description(st)
+        self.embed.description(st);
     }
 }
 
@@ -166,7 +164,6 @@ fn find_link(msg: &Message) -> Option<&String> {
 }
 
 pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
-    /*
     let mut bid: i32 = -1;
 
     command
@@ -192,6 +189,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
             }
         }
     } else {
+        // Iterating through message history
         let mut messages = command.channel_id.messages_iter(&ctx).boxed();
         while let Some(message_result) = messages.next().await {
             match message_result {
@@ -248,10 +246,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
     // Initial message
     command
         .edit_original_interaction_response(&ctx.http, |m| {
-            m.embed(|e| {
-                lb.create_embed(e);
-                e
-            })
+            m.set_embed(lb.embed.clone())
             .components(|c| lb.create_components(c))
         })
         .await
@@ -272,12 +267,11 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
             _ => break,
         };
 
+        lb.update_embed();
+
         command
             .edit_original_interaction_response(&ctx.http, |m| {
-                m.content("placeholder").embed(|e| {
-                    lb.create_embed(e);
-                    e
-                })
+                m.content("placeholder").set_embed(lb.embed.clone())
             })
             .await
             .unwrap();
@@ -290,5 +284,4 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
         .edit_original_interaction_response(&ctx.http, |m| m.components(|c| c))
         .await
         .unwrap();
-    */
 }
