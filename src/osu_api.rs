@@ -1,15 +1,89 @@
+use crate::config::BotConfig;
+
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
 use reqwest::StatusCode;
-use serde::Deserialize;
+
 use serenity::async_trait;
 
 use crate::datetime::deserialize_local_datetime;
 
 use chrono::prelude::*;
 
-use crate::config::BotConfig;
 use anyhow::Result;
+
+use serde::Deserialize;
+use serde::de::{ Unexpected, Visitor, Deserializer, Error };
+use std::fmt;
+
+#[derive(Debug)]
+pub enum OsuRank {
+    GradeXH,
+    GradeSH,
+    GradeX,
+    GradeS,
+    GradeA,
+    GradeB,
+    GradeC,
+    GradeD,
+    GradeF,
+}
+
+impl fmt::Display for OsuRank {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OsuRank::GradeXH => write!(f, "XH"),
+            OsuRank::GradeSH => write!(f, "SH"),
+            OsuRank::GradeX => write!(f, "X"),
+            OsuRank::GradeS => write!(f, "S"),
+            OsuRank::GradeA => write!(f, "A"),
+            OsuRank::GradeB => write!(f, "B"),
+            OsuRank::GradeC => write!(f, "C"),
+            OsuRank::GradeD => write!(f, "D"),
+            OsuRank::GradeF => write!(f, "F"),
+        }
+    }
+}
+
+
+struct OsuRankVisitor;
+
+impl<'de> Visitor<'de> for OsuRankVisitor {
+    type Value = OsuRank;
+
+    #[inline]
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a valid rank string")
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        let rank = match v {
+            "XH" => OsuRank::GradeXH,
+            "SH" => OsuRank::GradeSH,
+            "X" => OsuRank::GradeX,
+            "S" => OsuRank::GradeS,
+            "A" => OsuRank::GradeA,
+            "B" => OsuRank::GradeB,
+            "C" => OsuRank::GradeC,
+            "D" => OsuRank::GradeD,
+            "F" => OsuRank::GradeF,
+            _ => return Err(
+                Error::invalid_value(
+                    Unexpected::Str(v),
+                    &r#""#)
+                ),
+        };
+
+        Ok(rank)
+    }
+}
+
+impl<'de> Deserialize<'de> for OsuRank {
+    #[inline]
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_any(OsuRankVisitor)
+    }
+}
 
 #[derive(Deserialize, Debug)]
 struct OauthResponse {
@@ -23,7 +97,6 @@ pub struct OsuBeatmapsetCompact {
     title: String,
     artist: String,
     creator: String,
-
 }
 
 #[derive(Deserialize, Debug)]
@@ -55,7 +128,7 @@ pub struct OsuScore {
     pub perfect: bool,
     pub passed: bool,
     pub pp: Option<f32>,
-    pub rank: String,
+    pub rank: OsuRank,
 
     #[serde(deserialize_with = "deserialize_local_datetime")]
     pub created_at: DateTime<Utc>,
