@@ -104,18 +104,27 @@ impl<'a> LeaderboardListing<'a> {
 
             let pp = s.pp.unwrap_or(0.0);
 
+            let profile_text = format!("{}. [{}](https://osu.ppy.sh/u/{}) +**{}**\n",
+                                       index, s.user.username, s.user.id,
+                                       s.mods.to_string());
+            let stats_text = format!("{} • {:.2}% • {:.2}pp • {}\n",
+                                     s.rank.to_emoji(), s.accuracy * 100.0, pp,
+                                     s.score.to_formatted_string(&Locale::en));
+            let combo_text = format!("[{}x/{}x] [{}/{}/{}/{}]\n",
+                s.max_combo, self.beatmap.max_combo,
+                s.stats.count300, s.stats.count100, s.stats.count50,
+                s.stats.countmiss
+            );
+            let timestamp_text = format!("<t:{}:R>\n", s.created_at.timestamp());
+
             st.push_str(
-                format!(
-                    "{}. [{}](https://osu.ppy.sh/u/{}) 
-                    {} • {:.1} • {:.2}pp • {} 
-                    <t:{}:R>\n",
-                    index, s.user.username, s.user.id,
-                    s.rank, s.accuracy * 100.0, pp,
-                    s.score.to_formatted_string(&Locale::en),
-                    s.created_at.timestamp()
-                    )
-                .as_str(),
-                );
+                format!("{}{}{}{}",
+                        profile_text,
+                        stats_text,
+                        combo_text,
+                        timestamp_text
+                ).as_str()
+            );
 
             index += 1;
             count -= 1;
@@ -208,7 +217,9 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
 
     if bid == -1 {
         command
-            .edit_original_interaction_response(&ctx.http, |m| m.content("Can't find any beatmap!"))
+            .edit_original_interaction_response(&ctx.http, |m| 
+                m.content("Can't find any beatmap!"
+            ))
             .await
             .unwrap();
     }
@@ -271,7 +282,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
 
         command
             .edit_original_interaction_response(&ctx.http, |m| {
-                m.content("placeholder").set_embed(lb.embed.clone())
+                m.set_embed(lb.embed.clone())
             })
             .await
             .unwrap();

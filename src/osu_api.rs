@@ -13,8 +13,12 @@ use chrono::prelude::*;
 use anyhow::Result;
 
 use serde::Deserialize;
-use serde::de::{ Unexpected, Visitor, Deserializer, Error };
+use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
+
+use std::string::ToString;
 use std::fmt;
+
+use bitflags::bitflags;
 
 #[derive(Debug)]
 pub enum OsuRank {
@@ -27,6 +31,22 @@ pub enum OsuRank {
     GradeC,
     GradeD,
     GradeF,
+}
+
+impl OsuRank {
+    pub fn to_emoji(&self) -> &str {
+        match self {
+            OsuRank::GradeXH => "<:r_XH:1004444329365999766>",
+            OsuRank::GradeSH => "<:r_SH:1004444326669066270>",
+            OsuRank::GradeX => "<:r_X:1004444328082538546>",
+            OsuRank::GradeS => "<:r_S:1004444324840349759>",
+            OsuRank::GradeA => "<:r_A:1004444322365702204>",
+            OsuRank::GradeB => "<:r_B:1004444032149233696>",
+            OsuRank::GradeC => "<:r_C:1004444033524957235>",
+            OsuRank::GradeD => "<:r_D:1004444323703701545>",
+            OsuRank::GradeF => "<:r_D:1004444323703701545>",
+        }
+    }
 }
 
 impl fmt::Display for OsuRank {
@@ -70,7 +90,7 @@ impl<'de> Visitor<'de> for OsuRankVisitor {
             _ => return Err(
                 Error::invalid_value(
                     Unexpected::Str(v),
-                    &r#""#)
+                    &r#""XH", "SH", "X", "S", "A", "B", "C", "D" or "F""#)
                 ),
         };
 
@@ -85,11 +105,145 @@ impl<'de> Deserialize<'de> for OsuRank {
     }
 }
 
+bitflags! {
+    #[derive(Default)]
+    pub struct OsuMods: u32 {
+        const NOMOD = 0;
+        const NOFAIL = 1;
+        const EASY = 2;
+        const TOUCHDEVICE = 4;
+        const HIDDEN = 8;
+        const HARDROCK = 16;
+        const SUDDENDEATH = 32;
+        const DOUBLETIME = 64;
+        const RELAX = 128;
+        const HALFTIME = 256;
+        const NIGHTCORE = 512 | Self::DOUBLETIME.bits;
+        const FLASHLIGHT = 1024;
+        const SPUNOUT = 4096;
+        const PERFECT = 16_384 | Self::SUDDENDEATH.bits;
+        const FADEIN = 1_048_576;
+        const SCOREV2 = 536_870_912;
+        const MIRROR = 1_073_741_824;
+    }
+}
+
+impl ToString for OsuMods {
+    fn to_string(&self) -> String {
+        let mut res = String::new();
+
+        if self.bits == 0 {
+            res.push_str("NM");
+            return res
+        }
+
+        if self.contains(OsuMods::NOFAIL) {
+            res.push_str("NF")
+        }
+        if self.contains(OsuMods::EASY) {
+            res.push_str("EZ")
+        }
+        if self.contains(OsuMods::TOUCHDEVICE) {
+            res.push_str("TD")
+        }
+        if self.contains(OsuMods::HIDDEN) {
+            res.push_str("HD")
+        }
+        if self.contains(OsuMods::DOUBLETIME) {
+            if self.contains(OsuMods::NIGHTCORE) {
+                res.push_str("NC")
+            } else {
+                res.push_str("DT")
+            }
+        }
+        if self.contains(OsuMods::HARDROCK) {
+            res.push_str("HR")
+        }
+        if self.contains(OsuMods::SUDDENDEATH) {
+            res.push_str("SD")
+        }
+
+
+        res
+    }
+}
+
+struct OsuModsVisitor;
+
+impl<'de> Visitor<'de> for OsuModsVisitor {
+    type Value = OsuMods;
+
+    #[inline]
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        let mut mods = OsuMods::default();
+
+        while let Some(next) = seq.next_element()? {
+            mods |= next;
+        }
+
+        Ok(mods)
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        let mods = match v {
+            "NM" => OsuMods::NOMOD,
+            "NF" => OsuMods::NOFAIL,
+            "EZ" => OsuMods::EASY,
+            "TD" => OsuMods::TOUCHDEVICE,
+            "HD" => OsuMods::HIDDEN,
+            "HR" => OsuMods::HARDROCK,
+            "SD" => OsuMods::SUDDENDEATH,
+            "DT" => OsuMods::DOUBLETIME,
+            "RX" => OsuMods::RELAX,
+            "HT" => OsuMods::HALFTIME,
+            "NC" => OsuMods::NIGHTCORE,
+            "FL" => OsuMods::FLASHLIGHT,
+            "SO" => OsuMods::SPUNOUT,
+            "PF" => OsuMods::PERFECT,
+            "FD" => OsuMods::FADEIN,
+            _ => return Err(
+                Error::invalid_value(
+                    Unexpected::Str(v),
+                    &r#"valid mods acronym"#)
+                ),
+        };
+
+        Ok(mods)
+    }
+}
+
+impl<'de> Deserialize<'de> for OsuMods {
+    #[inline]
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_any(OsuModsVisitor)
+    }
+}
+
 #[derive(Deserialize, Debug)]
 struct OauthResponse {
     token_type: String,
     expires_in: i32,
     access_token: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OsuScoreStatistics {
+    #[serde(rename = "count_50")]
+    pub count50: i32,
+    #[serde(rename = "count_100")]
+    pub count100: i32,
+    #[serde(rename = "count_300")]
+    pub count300: i32,
+    #[serde(rename = "count_geki")]
+    pub countgeki: i32,
+    #[serde(rename = "count_katu")]
+    pub countkatu: i32,
+    #[serde(rename = "count_miss")]
+    pub countmiss: i32,
 }
 
 #[derive(Deserialize, Debug)]
@@ -108,6 +262,8 @@ pub struct OsuBeatmap {
     pub version: String,
 
     pub beatmapset: OsuBeatmapsetCompact,
+
+    pub max_combo: i32,
 }
 
 impl OsuBeatmap {
@@ -122,16 +278,22 @@ pub struct OsuScore {
     pub best_id: i64,
     pub user_id: i64,
     pub accuracy: f32,
-    //mods
+    pub mods: OsuMods,
     pub score: i64,
-    pub max_combo: i32,
     pub perfect: bool,
     pub passed: bool,
     pub pp: Option<f32>,
+
+    #[serde(rename = "max_combo")]
+    pub max_combo: i32,
+
     pub rank: OsuRank,
 
     #[serde(deserialize_with = "deserialize_local_datetime")]
     pub created_at: DateTime<Utc>,
+
+    #[serde(rename = "statistics")]
+    pub stats: OsuScoreStatistics,
 
     pub mode: String,
     pub mode_int: i16,
@@ -303,5 +465,29 @@ mod tests {
 
         op = api.get_beatmap(12).await;
         assert!(op.is_none());
+    }
+
+    #[test]
+    fn mods_test() {
+        let mods = OsuMods::NOMOD;
+        assert_eq!(mods.to_string(), "NM");
+
+        let mods = OsuMods::NOMOD | OsuMods::HIDDEN;
+        assert_eq!(mods.to_string(), "HD");
+
+        let mods = OsuMods::HARDROCK | OsuMods::HIDDEN;
+        assert_eq!(mods.to_string(), "HDHR");
+
+        let mods = OsuMods::DOUBLETIME | OsuMods::HIDDEN;
+        assert_eq!(mods.to_string(), "HDDT");
+
+        let mods = OsuMods::NIGHTCORE;
+        assert_eq!(mods.to_string(), "NC");
+
+        let mods = OsuMods::NIGHTCORE | OsuMods::HIDDEN;
+        assert_eq!(mods.to_string(), "HDNC");
+
+        let mods = OsuMods::NIGHTCORE | OsuMods::HIDDEN | OsuMods::HARDROCK;
+        assert_eq!(mods.to_string(), "HDNCHR");
     }
 }

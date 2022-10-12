@@ -308,6 +308,7 @@ name = "fumo_potato"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitflags",
  "chrono",
  "dotenv",
  "num-format",
