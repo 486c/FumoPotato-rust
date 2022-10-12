@@ -182,6 +182,19 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
         .await
         .unwrap();
 
+    if let Some(targed_id) = command.data.target_id {
+        let msg = ctx.http.get_message(
+            command.channel_id.0,
+            targed_id.0,
+        ).await.unwrap();
+
+        if let Some(link) = find_link(&msg) {
+            if let Some(id) = parse_bid(link) {
+                bid = id;
+            }
+        }
+    }
+
     if let Some(link_command) = command.data.options.get(0) {
         if let Some(link) = &link_command.value.as_ref().unwrap().as_str() {
             match parse_bid(link) {

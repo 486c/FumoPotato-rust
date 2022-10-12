@@ -11,8 +11,8 @@ use dotenv::dotenv;
 use std::env;
 
 use serenity::async_trait;
-use serenity::model::application::command::{Command, CommandOptionType};
-use serenity::model::application::interaction::Interaction;
+use serenity::model::application::command::{Command, CommandOptionType, CommandType};
+use serenity::model::application::interaction::{ Interaction, InteractionType };
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
@@ -27,8 +27,7 @@ struct Handler;
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
-            println!("Application interaction");
-            match command.data.name.as_str() {
+            match command.data.name.to_lowercase().as_str() {
                 "leaderboard" => commands::country_leaderboard::run(&ctx, &command).await,
                 _ => (),
             };
@@ -38,7 +37,7 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
 
-        let _glob_commands = Command::create_global_application_command(&ctx.http, |command| {
+        Command::create_global_application_command(&ctx.http, |command| {
             command
                 .name("leaderboard")
                 .description("Show country leaderboard")
@@ -47,10 +46,17 @@ impl EventHandler for Handler {
                         .name("link")
                         .description("Direct link to beatmap")
                         .kind(CommandOptionType::String)
-                        .required(false)
+                        .required(true)
                 })
         })
-        .await;
+        .await.unwrap();
+
+        Command::create_global_application_command(&ctx.http, |command| {
+            command
+                .name("Leaderboard")
+                .kind(CommandType::Message)
+        })
+        .await.unwrap();
     }
 }
 
