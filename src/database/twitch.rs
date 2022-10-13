@@ -92,4 +92,11 @@ impl Database {
             Err(_) => None
         }
     }
+
+    pub async fn toggle_online(&self, name: &str) {
+        sqlx::query!(
+            "UPDATE twitch_streamers SET online = NOT online WHERE name = $1",
+            name
+        ).execute(&self.pool).await;
+    }
 }

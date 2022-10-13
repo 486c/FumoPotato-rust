@@ -1,7 +1,7 @@
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use anyhow::Result;
 
-mod twitch;
+pub mod twitch;
 
 pub struct Database {
     pool: PgPool,

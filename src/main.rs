@@ -1,6 +1,7 @@
 mod commands;
 mod config;
 mod datetime;
+mod fumo_context;
 
 pub mod database;
 
@@ -26,12 +27,13 @@ use config::BotConfig;
 
 use osu_api::OsuApi;
 use twitch_api::TwitchApi;
+use fumo_context::FumoContext;
 
 static OSU_API: OnceCell<OsuApi> = OnceCell::new();
 
 struct Handler {
     is_twitch_loop_running: AtomicBool,
-    db: Arc<database::Database>,
+    fumo_ctx: Arc<FumoContext>,
 }
 
 #[async_trait]
@@ -39,9 +41,9 @@ impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
             match command.data.name.to_lowercase().as_str() {
-                "leaderboard" => commands::country_leaderboard::run(&ctx, &command).await,
-                "twitch_add" => commands::twitch::twitch_add(&ctx, &command, &self.db).await,
-                "twitch_remove" => commands::twitch::twitch_remove(&ctx, &command, &self.db).await,
+                "leaderboard" => commands::country_leaderboard::run(&ctx, &self.fumo_ctx, &command).await,
+                "twitch_add" => commands::twitch::twitch_add(&ctx, &self.fumo_ctx, &command).await,
+                "twitch_remove" => commands::twitch::twitch_remove(&ctx, &self.fumo_ctx, &command).await,
                 _ => (),
             };
         }
@@ -49,6 +51,7 @@ impl EventHandler for Handler {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
+
 
         Command::set_global_application_commands(&ctx.http, |commands| {
             commands
@@ -65,10 +68,12 @@ impl EventHandler for Handler {
                 })
                 .create_application_command(|c| {
                     c.name("Leaderboard")
+                        .description("")
                         .kind(CommandType::Message)
                 })
                 .create_application_command(|c| {
                     c.name("twitch_add")
+                        .description("Add twitch channel to tracking")
                         .create_option(|option| {
                             option
                                 .name("name")
@@ -78,7 +83,8 @@ impl EventHandler for Handler {
                         })
                 })
                 .create_application_command(|c| {
-                    c.name("twitch remove")
+                    c.name("twitch_remove")
+                        .description("Remove twitch channel from tracking")
                         .create_option(|option| {
                             option
                                 .name("name")
@@ -89,18 +95,19 @@ impl EventHandler for Handler {
                 })
         }).await.unwrap();
 
-        let ctx = Arc::new(ctx);
-        let db = Arc::clone(&self.db);
+        let ctx2 = Arc::new(ctx);
+        let fctx = Arc::clone(&self.fumo_ctx);
 
         if !self.is_twitch_loop_running.load(Ordering::Relaxed) {
             tokio::spawn(async move {
-                commands::twitch::status_update_worker(
-                    Arc::clone(&ctx), Arc::clone(&db)
+                commands::twitch::twitch_checker(
+                    Arc::clone(&ctx2), Arc::clone(&fctx)
                 ).await;
             });
         }
 
         self.is_twitch_loop_running.swap(true, Ordering::Relaxed);
+        
     }
 }
 
@@ -120,7 +127,7 @@ async fn main() {
     ).await.unwrap();
 
     // Init osu_api helper
-    let api = OsuApi::init(
+    let osu_api = OsuApi::init(
         env::var("CLIENT_ID").unwrap().parse().unwrap(),
         env::var("CLIENT_SECRET").unwrap().as_str(),
     ).await.unwrap();
@@ -129,17 +136,21 @@ async fn main() {
         env::var("DATABASE_URL").unwrap().as_str()
     ).await.unwrap();
 
-    let db = Arc::new(db);
+    // Create context
+    let ctx = FumoContext{
+        osu_api,
+        twitch_api,
+        db
+    };
 
-    //TODO dirty way to pass osu_api handler, please consider changing this later...
-    OSU_API.set(api).unwrap();
+    let ctx = Arc::new(ctx);
 
     let token = env::var("DISCORD_TOKEN").unwrap();
 
     let mut client = Client::builder(token, GatewayIntents::empty())
         .event_handler(Handler {
             is_twitch_loop_running: AtomicBool::new(false),
-            db
+            fumo_ctx: ctx,
         })
         .await
         .expect("Error creating client");

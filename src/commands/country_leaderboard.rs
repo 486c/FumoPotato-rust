@@ -13,6 +13,7 @@ use num_format::{Locale, ToFormattedString};
 use crate::osu_api::Body;
 use crate::osu_api::{OsuBeatmap, OsuScore};
 use crate::OSU_API;
+use crate::fumo_context::FumoContext;
 
 struct LeaderboardListing<'a> {
     pages: i32,
@@ -172,7 +173,11 @@ fn find_link(msg: &Message) -> Option<&String> {
     None
 }
 
-pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
+pub async fn run(
+    ctx: &Context, 
+    fumo_ctx: &FumoContext,
+    command: &ApplicationCommandInteraction
+) {
     let mut bid: i32 = -1;
 
     command
@@ -237,9 +242,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
             .unwrap();
     }
 
-    let api = OSU_API.get().unwrap();
-
-    let cb = match api.get_countryleaderboard(bid).await {
+    let cb = match fumo_ctx.osu_api.get_countryleaderboard(bid).await {
         Some(id) => id,
         None => {
             command
@@ -252,7 +255,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
         }
     };
 
-    let b = match api.get_beatmap(bid).await {
+    let b = match fumo_ctx.osu_api.get_beatmap(bid).await {
         Some(id) => id,
         None => {
             command
