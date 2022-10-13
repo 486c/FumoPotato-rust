@@ -210,7 +210,7 @@ pub async fn run(ctx: &Context, command: &ApplicationCommandInteraction) {
                 }
             }
         }
-    } else {
+    } else if bid == -1 {
         // Iterating through message history
         let mut messages = command.channel_id.messages_iter(&ctx).boxed();
         while let Some(message_result) = messages.next().await {
