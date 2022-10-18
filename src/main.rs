@@ -8,19 +8,17 @@ pub mod database;
 pub mod osu_api;
 pub mod twitch_api;
 
-use once_cell::sync::OnceCell;
-
 use std::sync::Arc;
 
 use dotenv::dotenv;
 
 use std::env;
+use std::time::Duration;
 
 use serenity::async_trait;
 use serenity::model::application::command::{Command, CommandOptionType, CommandType};
 use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::Ready;
-use std::sync::atomic::{AtomicBool, Ordering};
 use serenity::prelude::*;
 
 use config::BotConfig;
@@ -29,10 +27,10 @@ use osu_api::OsuApi;
 use twitch_api::TwitchApi;
 use fumo_context::FumoContext;
 
-static OSU_API: OnceCell<OsuApi> = OnceCell::new();
+use tokio::signal;
+use tokio::sync::oneshot::channel;
 
 struct Handler {
-    is_twitch_loop_running: AtomicBool,
     fumo_ctx: Arc<FumoContext>,
 }
 
@@ -95,27 +93,16 @@ impl EventHandler for Handler {
                 })
         }).await.unwrap();
 
-        let ctx2 = Arc::new(ctx);
-        let fctx = Arc::clone(&self.fumo_ctx);
+        //let ctx = Arc::new(ctx);
+        //let fctx = Arc::clone(&self.fumo_ctx);
 
-        if !self.is_twitch_loop_running.load(Ordering::Relaxed) {
-            tokio::spawn(async move {
-                commands::twitch::twitch_checker(
-                    Arc::clone(&ctx2), Arc::clone(&fctx)
-                ).await;
-            });
-        }
-
-        self.is_twitch_loop_running.swap(true, Ordering::Relaxed);
         
     }
 }
 
-#[tokio::main]
+#[tokio::main(worker_threads = 8)]
 async fn main() {
     dotenv().unwrap();
-
-    // TODO make one big context that we pass to all commands 
 
     // Init config
     BotConfig::init();
@@ -126,12 +113,13 @@ async fn main() {
         env::var("TWITCH_CLIENT_ID").unwrap().as_str()
     ).await.unwrap();
 
-    // Init osu_api helper
+    // Init osu api
     let osu_api = OsuApi::init(
         env::var("CLIENT_ID").unwrap().parse().unwrap(),
         env::var("CLIENT_SECRET").unwrap().as_str(),
     ).await.unwrap();
-
+    
+    // Init database
     let db = database::Database::init(
         env::var("DATABASE_URL").unwrap().as_str()
     ).await.unwrap();
@@ -142,20 +130,53 @@ async fn main() {
         twitch_api,
         db
     };
-
     let ctx = Arc::new(ctx);
 
     let token = env::var("DISCORD_TOKEN").unwrap();
 
     let mut client = Client::builder(token, GatewayIntents::empty())
         .event_handler(Handler {
-            is_twitch_loop_running: AtomicBool::new(false),
-            fumo_ctx: ctx,
+            fumo_ctx: Arc::clone(&ctx),
         })
         .await
         .expect("Error creating client");
 
-    if let Err(why) = client.start().await {
-        println!("Client error: {:?}", why);
+
+    // spawn twitch checker
+    let (tx, recv) = channel::<()>();
+    let http = client.cache_and_http.http.clone();
+
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = commands::twitch::twitch_checker(
+                Arc::clone(&http), Arc::clone(&ctx)
+            ) => {
+                println!("Twitch checker loop sudenly ended!")
+            }
+            _ = recv => ()
+        }
+
+        println!("Twitch loop closed!");
+    });
+    
+    // Run
+    tokio::select! {
+        _ = client.start() => println!(""),
+        res = signal::ctrl_c() => match res {
+            Ok(_) => println!("\nGot Ctrl+C"),
+            Err(_) => println!("Can't get Cntrl+C signal for some reason"),
+        }
     }
+
+    if tx.send(()).is_err() {
+        println!("Failed channel send!")
+    }
+    
+    let shard_manager = client.shard_manager.clone();
+    shard_manager.lock().await.shutdown_all().await;
+
+    drop(client);
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    println!("Bye!!!");
 }

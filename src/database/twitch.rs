@@ -1,4 +1,4 @@
-use anyhow::{Result, Error};
+use anyhow::Result;
 
 use crate::database::Database;
 
@@ -45,7 +45,7 @@ impl Database {
 
         match streamer {
             Ok(streamer) => Some(streamer),
-            Err(_) => return None,
+            Err(_) => None,
         }
     }
 

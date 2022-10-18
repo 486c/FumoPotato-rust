@@ -10,9 +10,7 @@ use std::time::Duration;
 
 use num_format::{Locale, ToFormattedString};
 
-use crate::osu_api::Body;
 use crate::osu_api::{OsuBeatmap, OsuScore};
-use crate::OSU_API;
 use crate::fumo_context::FumoContext;
 
 struct LeaderboardListing<'a> {

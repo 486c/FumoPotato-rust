@@ -3,68 +3,77 @@ use std::sync::Arc;
 
 
 use serenity::prelude::Context;
+use serenity::http::client::Http;
 use serenity::model::prelude::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::application::interaction::InteractionResponseType;
+use serenity::model::channel::Channel;
 
 use crate::fumo_context::FumoContext;
-use crate::database::twitch::TwitchChannel;
+use crate::twitch_api::TwitchStream;
 
-pub async fn announce_channel(ctx: &Context, c: &TwitchChannel) {
-    let channel = match ctx.http.get_channel(c.id as u64).await {
-        Ok(c) => c,
-        Err(_) => {
-            eprintln!("Failed to recieve channel!");
-            return;
-        }
-    };
+pub async fn announce_channel(http: &Http, channel: Channel, c: &TwitchStream) {
 
-    channel.id().send_message(&ctx.http, |m| {
+    channel.id().send_message(&http, |m| {
         m.embed(|e| {
             e.author(|a| {
-                a.name(format!("{} is live!", c.name))
-                    .url(format!("https://twitch.tv/{}", c.name))
+                a.name(format!("{} is live!", &c.user_name))
+                    .url(format!("https://twitch.tv/{}", &c.user_name))
             })
+            .description(&c.title)
             .color(0x97158a)
             .image(format!(
                 "https://static-cdn.jtvnw.net/previews-ttv/live_user_{}-1280x720.jpg",
-                c.name
+                &c.user_name
             ))
+
+            .footer(|f| {
+                f.text(&c.game_name);
+                f.icon_url(format!(
+                    "https://static-cdn.jtvnw.net/ttv-boxart/{}-250x250.jpg",
+                    c.game_id
+                ))
+            })
         })
     }).await.unwrap();
-
 }
 
-pub async fn twitch_checker(ctx: Arc<Context>, fumo_ctx: Arc<FumoContext>) {
+pub async fn twitch_checker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
     loop {
         if let Ok(streamers) = fumo_ctx.db.get_streamers().await {
             for streamer_db in streamers.iter() {
-                match fumo_ctx.twitch_api.get_stream(&streamer_db.name).await {
-                    Some(s) => {
-                        if s.stream_type == "live" && streamer_db.online == false {
-                            fumo_ctx.db.toggle_online(&streamer_db.name).await; //TODO we should
-                                                                                //handle error
-                            if let Ok(channels) = fumo_ctx.db.get_channels(
-                                &streamer_db.name
-                            ).await 
-                            {
-                                for channel in channels.iter() {
-                                    announce_channel(&ctx, channel).await;
-                                }
+                let name = &streamer_db.name;
+                let online = streamer_db.online;
+
+                if let Some(streamer) = fumo_ctx.twitch_api.get_stream(name).await {
+                    if streamer.stream_type == "live" && !online {
+
+                        fumo_ctx.db.toggle_online(name).await; //TODO handle error
+                                                               //
+                        if let Ok(channels) = fumo_ctx.db.get_channels(name).await 
+                        {
+                            for channel in channels.iter() {
+                                let channel_id = match http.get_channel(channel.id as u64).await {
+                                    Ok(c) => c,
+                                    Err(_) => {
+                                        eprintln!("Failed to recieve channel!");
+                                        return;
+                                    }
+                                };
+                                
+                                announce_channel(&http, channel_id, &streamer).await;
                             }
                         }
                     }
-                    None => {
-                        if streamer_db.online == true {
-                            fumo_ctx.db.toggle_online(&streamer_db.name).await; //TODO ^
-                        }
-                    }
-                };
+                } 
+                else if online {
+                    fumo_ctx.db.toggle_online(&streamer_db.name).await; //TODO ^
+                }
             }       
         } else {
             println!("failed to get streamers!");
         }
 
-        tokio::time::sleep(Duration::from_secs(20)).await;
+        tokio::time::sleep(Duration::from_secs(120)).await;
     }
 }
 
@@ -90,24 +99,32 @@ pub async fn twitch_remove(
                 Ok(_) =>  {
                     command
                         .edit_original_interaction_response(&ctx.http, |m| {
-                            m.content("Successfully removed user from current channel!") //TODO format name
+                            m.content(
+                                format!("Successfully removed `{}` from current channel!",
+                                       streamer_name)
+                            )
                         })
                     .await.unwrap();
                 }
                 Err(_) => {
                     command
                         .edit_original_interaction_response(&ctx.http, |m| {
-                            m.content("Can't remove user from current channel!") //TODO format name
+                            m.content(
+                                format!("Can't remove `{}` from current channel!",
+                                        streamer_name)
+                            ) 
                         })
                     .await.unwrap();
-                    return;
                 }
             }
         },
         None => {
             command
                 .edit_original_interaction_response(&ctx.http, |m| {
-                    m.content("User doesn't exists on current channel!") //TODO format name
+                    m.content(
+                        format!("`{}` doesn't exists on current channel!",
+                            streamer_name)
+                    )
                 })
             .await.unwrap();
         }
@@ -165,7 +182,6 @@ pub async fn twitch_add(
                     m.content("User already added to current channel!") //TODO format name
                 })
             .await.unwrap();
-            return;
         },
         None => {
             match fumo_ctx.db.add_tracking(&streamer, channel_id).await {
@@ -182,7 +198,6 @@ pub async fn twitch_add(
                             m.content("Error occured during adding user to tracking!") //TODO format name
                         })
                     .await.unwrap();
-                    return;
                 }
             }
         }

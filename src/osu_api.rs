@@ -4,8 +4,6 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client;
 use reqwest::StatusCode;
 
-use serenity::async_trait;
-
 use crate::datetime::deserialize_local_datetime;
 
 use chrono::prelude::*;
@@ -16,9 +14,15 @@ use serde::Deserialize;
 use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
 
 use std::string::ToString;
+use std::sync::Arc;
 use std::fmt;
+use std::time::Duration;
+
+use tokio::sync::RwLock;
 
 use bitflags::bitflags;
+
+use tokio::sync::oneshot::{ channel, Receiver, Sender };
 
 #[derive(Debug)]
 pub enum OsuRank {
@@ -323,24 +327,31 @@ pub struct OsuUserCompact {
 }
 
 #[derive(Debug)]
-pub struct OsuApi {
+pub struct OsuToken {
     client: Client,
+
     client_id: i32,
     secret: String,
-
-    token: String,
+    token: RwLock<String>,
 }
 
-#[async_trait]
-pub trait Body {
-    async fn update_token(&mut self) -> Result<()>;
-    async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap>;
-    async fn get_countryleaderboard(&self, bid: i32) -> Option<OsuLeaderboard>;
+#[derive(Debug)]
+pub struct OsuApi {
+    inner: Arc<OsuToken>,
+    loop_drop_tx: Option<Sender<()>>,
 }
 
-#[async_trait]
-impl Body for OsuApi {
-    async fn update_token(&mut self) -> Result<()> {
+impl Drop for OsuApi {
+    fn drop(&mut self) {
+        if let Some(tx) = self.loop_drop_tx.take() {
+            let _ = tx.send(());
+        }
+    }
+}
+
+
+impl OsuToken {
+    async fn request_oauth(&self) -> Result<OauthResponse> {
         let data = format!(
             r#"{{
             "client_id":"{}",
@@ -362,20 +373,23 @@ impl Body for OsuApi {
             .unwrap();
 
         let json_data = r.json::<OauthResponse>().await?;
-        self.token = json_data.access_token;
 
-        Ok(())
+        Ok(json_data)
     }
+}
 
-    async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap> {
+impl OsuApi {
+
+    pub async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap> {
         let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{}", bid);
+        let token = self.inner.token.read().await;
 
-        let r = self
+        let r = self.inner
             .client
             .get(link)
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", self.token))
+            .header(AUTHORIZATION, format!("Bearer {}", token))
             .send()
             .await
             .unwrap();
@@ -391,7 +405,7 @@ impl Body for OsuApi {
 
     // This method works only if FALLBACK_API variable
     // is set.
-    async fn get_countryleaderboard(&self, bid: i32) -> Option<OsuLeaderboard> {
+    pub async fn get_countryleaderboard(&self, bid: i32) -> Option<OsuLeaderboard> {
         let cfg = match BotConfig::get_res() {
             Some(c) => c,
             None => return None,
@@ -403,12 +417,14 @@ impl Body for OsuApi {
             bid
         );
 
-        let r = self
+        let token = self.inner.token.read().await;
+
+        let r = self.inner
             .client
             .get(link)
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", self.token))
+            .header(AUTHORIZATION, format!("Bearer {}", token))
             .send()
             .await
             .unwrap();
@@ -425,17 +441,60 @@ impl Body for OsuApi {
 
 impl OsuApi {
     pub async fn init(client_id: i32, secret: &str) -> Result<OsuApi> {
-        let mut api: OsuApi = OsuApi {
+        let inner = Arc::new(OsuToken {
             client: Client::new(),
             client_id,
             secret: secret.to_string(),
-
             token: Default::default(),
+        });
+
+        let response = inner.request_oauth().await.unwrap();
+        let mut token = inner.token.write().await;
+        *token = response.access_token;
+        drop(token);
+
+        let (tx, rx) = channel::<()>();
+
+        OsuApi::update_token(
+            Arc::clone(&inner), 
+            response.expires_in as u64,
+            rx
+        ).await;
+
+        let api = OsuApi {
+            loop_drop_tx: Some(tx),
+            inner,
         };
 
-        api.update_token().await?;
-
         Ok(api)
+    }
+
+    async fn update_token(osu: Arc<OsuToken>, expire: u64, rx: Receiver<()>) {
+        tokio::spawn(async move {
+            OsuApi::token_loop(Arc::clone(&osu), expire, rx).await;
+            println!("osu!api token loop is closed!");
+        });
+    }
+
+    async fn token_loop(osu: Arc<OsuToken>, mut expire: u64, mut rx: Receiver<()>) {
+        loop {
+            expire /= 2;
+            println!("Token update scheduled in {} seconds", expire);
+            tokio::select!{
+                _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
+                _ = &mut rx => {
+                    return;
+                }
+            }
+
+            let response = osu.request_oauth().await.unwrap();
+
+            let mut token = osu.token.write().await;
+            *token = response.access_token;
+
+            expire = response.expires_in as u64;
+            println!("Successfully updated osu! token!");
+        }
     }
 }
 

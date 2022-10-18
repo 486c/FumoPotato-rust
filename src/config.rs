@@ -16,10 +16,12 @@ impl BotConfig {
 
         CONFIG.set(cfg).unwrap();
     }
-
+    
+    /*
     pub fn get() -> &'static BotConfig {
         CONFIG.get().unwrap()
     }
+    */
 
     pub fn get_res() -> Option<&'static BotConfig> {
         CONFIG.get()

@@ -1,0 +1,12 @@
+create table twitch_streamers (
+	name varchar PRIMARY KEY,
+	online boolean,
+)
+
+create table twitch_channels (
+	id bigint not null,
+	name varchar,
+	constraint fk_name
+		foreign key(name)
+		references twitch_streamers(name)
+)

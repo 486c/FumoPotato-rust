@@ -10,6 +10,11 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug, Clone)]
 pub struct TwitchStream {
     pub id: String,
+    pub user_login: String,
+    pub user_name: String,
+    pub game_name: String,
+    pub game_id: String,
+    pub title: String,
 
     #[serde(rename = "type")] //TODO to enum
     pub stream_type: String,
@@ -59,9 +64,9 @@ impl TwitchApi {
         let s = r.json::<TwitchResponse<TwitchStream>>().await.unwrap();
 
         if let Some(data) = s.data {
-            return Some(data.get(0)?.clone());
+            Some(data.get(0)?.clone())
         } else {
-            return None
+            None
         }
 
     }
