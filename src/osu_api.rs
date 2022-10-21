@@ -166,6 +166,9 @@ impl ToString for OsuMods {
         if self.contains(OsuMods::SUDDENDEATH) {
             res.push_str("SD")
         }
+        if self.contains(OsuMods::SPUNOUT) {
+            res.push_str("SO")
+        }
 
 
         res
