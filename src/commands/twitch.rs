@@ -92,8 +92,11 @@ pub async fn twitch_remove(
             response.kind(InteractionResponseType::DeferredChannelMessageWithSource)
         }).await.unwrap();
     
-    // Should never panic
-    let streamer_name = command.data.options.get(0).unwrap().value.as_ref().unwrap().as_str().unwrap();
+    // Should never panic //TODO so ugly lmao
+    let streamer_name = command.data.options.get(0).unwrap()
+        .value.as_ref().unwrap()
+        .as_str().unwrap();
+
     let channel_id = command.channel_id.0.try_into().unwrap();
 
     let track = fumo_ctx.db.get_tracking(streamer_name, channel_id).await;
@@ -180,11 +183,14 @@ pub async fn twitch_add(
 
     let channel_id: i64 = command.channel_id.0.try_into().unwrap();
 
-    match fumo_ctx.db.get_tracking(&streamer.name, channel_id).await {
+    match fumo_ctx.db.get_tracking(&streamer_name, channel_id).await {
         Some(_) => {
             command
                 .edit_original_interaction_response(&ctx.http, |m| {
-                    m.content("User already added to current channel!") //TODO format name
+                    m.content(format!(
+                        "`{}` already added to current channel!",
+                        &streamer_name
+                    ))
                 })
             .await.unwrap();
         },
@@ -193,14 +199,20 @@ pub async fn twitch_add(
                 Ok(_) => {
                     command
                         .edit_original_interaction_response(&ctx.http, |m| {
-                            m.content("Successfully added user to tracking!") //TODO format name
+                            m.content(format!(
+                                "Successfully added `{}` to tracking!",
+                                &streamer_name
+                            ))
                         })
                     .await.unwrap();
                 },
                 Err(_) => {
                     command
                         .edit_original_interaction_response(&ctx.http, |m| {
-                            m.content("Error occured during adding user to tracking!") //TODO format name
+                            m.content(format!(
+                                "Error occured during adding `{}` to tracking!",
+                                &streamer_name
+                            ))
                         })
                     .await.unwrap();
                 }
