@@ -1,7 +1,6 @@
 use std::time::Duration;
 use std::sync::Arc;
 
-
 use serenity::prelude::Context;
 use serenity::http::client::Http;
 use serenity::model::prelude::interaction::application_command::ApplicationCommandInteraction;
@@ -11,8 +10,9 @@ use serenity::model::channel::Channel;
 use crate::fumo_context::FumoContext;
 use crate::twitch_api::TwitchStream;
 
-pub async fn announce_channel(http: &Http, channel: Channel, c: &TwitchStream) {
+use anyhow::Result;
 
+pub async fn announce_channel(http: &Http, channel: Channel, c: &TwitchStream) -> Result<()> {
     channel.id().send_message(&http, |m| {
         m.embed(|e| {
             e.author(|a| {
@@ -34,47 +34,52 @@ pub async fn announce_channel(http: &Http, channel: Channel, c: &TwitchStream) {
                 ))
             })
         })
-    }).await.unwrap();
+    }).await?;
+
+    Ok(())
 }
 
-pub async fn twitch_checker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
+pub async fn twitch_worker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
     loop {
-        if let Ok(streamers) = fumo_ctx.db.get_streamers().await {
-            for streamer_db in streamers.iter() {
-                let name = &streamer_db.name;
-                let online = streamer_db.online;
-
-                if let Some(streamer) = fumo_ctx.twitch_api.get_stream(name).await {
-                    if streamer.stream_type == "live" && !online {
-
-                        fumo_ctx.db.toggle_online(name).await; //TODO handle error
-                                                               //
-                        if let Ok(channels) = fumo_ctx.db.get_channels(name).await 
-                        {
-                            for channel in channels.iter() {
-                                let channel_id = match http.get_channel(channel.id as u64).await {
-                                    Ok(c) => c,
-                                    Err(_) => {
-                                        eprintln!("Failed to recieve channel!");
-                                        return;
-                                    }
-                                };
-                                
-                                announce_channel(&http, channel_id, &streamer).await;
-                            }
-                        }
-                    }
-                } 
-                else if online {
-                    fumo_ctx.db.toggle_online(&streamer_db.name).await; //TODO ^
-                }
-            }       
-        } else {
-            println!("failed to get streamers!");
+        match twitch_check(&http, &fumo_ctx).await {
+            Ok(_) => (),
+            Err(e) => {
+                println!("Error occured inside twitch tracking loop!");
+                println!("{:?}", e);
+            }
         }
-
         tokio::time::sleep(Duration::from_secs(120)).await;
     }
+}
+
+pub async fn twitch_check(http: &Http, fumo_ctx: &FumoContext) -> Result<()> {
+    let streamers  = fumo_ctx.db.get_streamers().await?;
+
+    for streamer_db in streamers.iter() {
+        let name = &streamer_db.name;
+        let online = streamer_db.online;
+
+        match fumo_ctx.twitch_api.get_stream(name).await {
+            Some(streamer) => {
+                if streamer.stream_type == "live" && !online {
+
+                    fumo_ctx.db.toggle_online(name).await?;
+
+                    let channels = fumo_ctx.db.get_channels(name).await?;
+
+                    for channel in channels.iter() {
+                        let channel_id = http.get_channel(channel.id as u64).await?;
+                        announce_channel(&http, channel_id, &streamer).await?;
+                    }
+            }
+            }
+            None => {
+                fumo_ctx.db.toggle_online(&streamer_db.name).await?;
+            }
+        }
+    }       
+
+    Ok(())
 }
 
 pub async fn twitch_remove(

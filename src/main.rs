@@ -148,7 +148,7 @@ async fn main() {
 
     tokio::spawn(async move {
         tokio::select! {
-            _ = commands::twitch::twitch_checker(
+            _ = commands::twitch::twitch_worker(
                 Arc::clone(&http), Arc::clone(&ctx)
             ) => {
                 println!("Twitch checker loop sudenly ended!")

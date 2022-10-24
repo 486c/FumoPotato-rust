@@ -14,7 +14,7 @@ pub struct TwitchChannel {
 }
 
 impl Database {
-    /* Rename everyting to something like TwitchTrackingStreamer & TwitchTrackingChannel or idk */
+    /* TODO Rename everyting to something like TwitchTrackingStreamer & TwitchTrackingChannel or idk */
     pub async fn get_channels(&self, name: &str) -> Result<Vec<TwitchChannel>> {
         let channels = sqlx::query_as!(
             TwitchChannel,
@@ -93,10 +93,12 @@ impl Database {
         }
     }
 
-    pub async fn toggle_online(&self, name: &str) {
+    pub async fn toggle_online(&self, name: &str) -> Result<()> {
         sqlx::query!(
             "UPDATE twitch_streamers SET online = NOT online WHERE name = $1",
             name
-        ).execute(&self.pool).await;
+        ).execute(&self.pool).await?;
+
+        Ok(())
     }
 }
