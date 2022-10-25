@@ -41,6 +41,7 @@ pub async fn announce_channel(http: &Http, channel: Channel, c: &TwitchStream) -
 
 pub async fn twitch_worker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
     loop {
+        dbg!("Twitch cheker loop!\n");
         match twitch_check(&http, &fumo_ctx).await {
             Ok(_) => (),
             Err(e) => {
@@ -74,7 +75,10 @@ pub async fn twitch_check(http: &Http, fumo_ctx: &FumoContext) -> Result<()> {
             }
             }
             None => {
-                fumo_ctx.db.toggle_online(&streamer_db.name).await?;
+                // Toggle online status if streamer status in db is online
+                if online {
+                    fumo_ctx.db.toggle_online(&streamer_db.name).await?;
+                }
             }
         }
     }       
