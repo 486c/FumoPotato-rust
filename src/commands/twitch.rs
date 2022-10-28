@@ -69,7 +69,7 @@ pub async fn twitch_check(http: &Http, fumo_ctx: &FumoContext) -> Result<()> {
 
                     for channel in channels.iter() {
                         let channel_id = http.get_channel(channel.id as u64).await?;
-                        announce_channel(&http, channel_id, &streamer).await?;
+                        announce_channel(http, channel_id, &streamer).await?;
                     }
             }
             }
@@ -186,7 +186,7 @@ pub async fn twitch_add(
 
     let channel_id: i64 = command.channel_id.0.try_into().unwrap();
 
-    match fumo_ctx.db.get_tracking(&streamer_name, channel_id).await {
+    match fumo_ctx.db.get_tracking(streamer_name, channel_id).await {
         Some(_) => {
             command
                 .edit_original_interaction_response(&ctx.http, |m| {
