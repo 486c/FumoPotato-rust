@@ -80,6 +80,7 @@ mod tests {
     use dotenv::dotenv;
 
     #[tokio::test]
+    #[should_panic]
     async fn test_get_stream() {
         dotenv().unwrap();
 
@@ -88,7 +89,7 @@ mod tests {
             env::var("TWITCH_CLIENT_ID").unwrap().as_str()
         ).await.unwrap();
 
-        twitch_api.get_stream("melharucos").await.unwrap();
+        twitch_api.get_stream("ITMUSTFAILASLDJKLSAKFJZMXCN123").await.unwrap();
     }
 }
 

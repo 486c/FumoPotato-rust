@@ -1,8 +1,7 @@
 use crate::config::BotConfig;
 
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::Client;
-use reqwest::StatusCode;
+use reqwest::{ Client, StatusCode, Method, Response };
 
 use crate::datetime::deserialize_local_datetime;
 
@@ -68,7 +67,6 @@ impl fmt::Display for OsuRank {
         }
     }
 }
-
 
 struct OsuRankVisitor;
 
@@ -363,7 +361,6 @@ impl Drop for OsuApi {
     }
 }
 
-
 impl OsuToken {
     async fn request_oauth(&self) -> Result<OauthResponse> {
         let data = format!(
@@ -394,20 +391,28 @@ impl OsuToken {
 
 impl OsuApi {
 
-    pub async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap> {
-        let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{}", bid);
+    pub async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
         let token = self.inner.token.read().await;
 
-        let r = self.inner
-            .client
-            .get(link)
+        let r = &self.inner.client;
+        let r = match method {
+            Method::GET => r.get(link),
+            Method::POST => r.post(link),
+            _ => unimplemented!(),
+        };
+
+        let r = r
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", token))
-            .send()
-            .await
-            .unwrap();
+            .header(AUTHORIZATION, format!("Bearer {}", token));
 
+        Ok(r.send().await?)
+    }
+
+    pub async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap> {
+        let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{}", bid);
+        let r = self.make_request(&link, Method::GET).await.unwrap();
+        
         if r.status() != StatusCode::OK {
             return None;
         }
@@ -431,17 +436,7 @@ impl OsuApi {
             bid
         );
 
-        let token = self.inner.token.read().await;
-
-        let r = self.inner
-            .client
-            .get(link)
-            .header(ACCEPT, "application/json")
-            .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", token))
-            .send()
-            .await
-            .unwrap();
+        let r = self.make_request(&link, Method::GET).await.unwrap();
 
         if r.status() != StatusCode::OK {
             return None;
@@ -454,7 +449,7 @@ impl OsuApi {
 }
 
 impl OsuApi {
-    pub async fn init(client_id: i32, secret: &str) -> Result<OsuApi> {
+    pub async fn init(client_id: i32, secret: &str, run_loop: bool) -> Result<OsuApi> {
         let inner = Arc::new(OsuToken {
             client: Client::new(),
             client_id,
@@ -463,17 +458,20 @@ impl OsuApi {
         });
 
         let response = inner.request_oauth().await.unwrap();
+
         let mut token = inner.token.write().await;
         *token = response.access_token;
         drop(token);
 
         let (tx, rx) = channel::<()>();
-
-        OsuApi::update_token(
-            Arc::clone(&inner), 
-            response.expires_in as u64,
-            rx
-        ).await;
+    
+        if run_loop {
+            OsuApi::update_token(
+                Arc::clone(&inner), 
+                response.expires_in as u64,
+                rx
+            ).await;
+        }
 
         let api = OsuApi {
             loop_drop_tx: Some(tx),
@@ -519,14 +517,14 @@ mod tests {
     use std::env;
     use dotenv::dotenv;
 
-
     #[tokio::test]
-    async fn test_something() {
+    async fn test_getbeatmap() {
         dotenv().unwrap();
 
         let api = OsuApi::init(
             env::var("CLIENT_ID").unwrap().parse().unwrap(),
             env::var("CLIENT_SECRET").unwrap().as_str(),
+            false
         ).await.unwrap();
 
         let mut op = api.get_beatmap(3153603).await;
@@ -538,6 +536,19 @@ mod tests {
 
         op = api.get_beatmap(12).await;
         assert!(op.is_none());
+    }
+    
+    #[tokio::test]
+    async fn test_makerequest() {
+        dotenv().unwrap();
+
+        let api = OsuApi::init(
+            env::var("CLIENT_ID").unwrap().parse().unwrap(),
+            env::var("CLIENT_SECRET").unwrap().as_str(),
+            false
+        ).await.unwrap();
+
+        api.make_request("https://google.com", Method::GET).await.unwrap();
     }
 
     #[test]

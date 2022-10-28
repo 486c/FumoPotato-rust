@@ -117,6 +117,7 @@ async fn main() {
     let osu_api = OsuApi::init(
         env::var("CLIENT_ID").unwrap().parse().unwrap(),
         env::var("CLIENT_SECRET").unwrap().as_str(),
+        true
     ).await.unwrap();
     
     // Init database
