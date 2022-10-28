@@ -160,6 +160,12 @@ impl ToString for OsuMods {
                 res.push_str("DT")
             }
         }
+        if self.contains(OsuMods::HALFTIME) {
+            res.push_str("HT")
+        }
+        if self.contains(OsuMods::FLASHLIGHT) {
+            res.push_str("FL")
+        }
         if self.contains(OsuMods::HARDROCK) {
             res.push_str("HR")
         }
@@ -169,7 +175,12 @@ impl ToString for OsuMods {
         if self.contains(OsuMods::SPUNOUT) {
             res.push_str("SO")
         }
-
+        if self.contains(OsuMods::PERFECT) {
+            res.push_str("PF")
+        }
+        if self.contains(OsuMods::MIRROR) {
+            res.push_str("MR")
+        }
 
         res
     }
