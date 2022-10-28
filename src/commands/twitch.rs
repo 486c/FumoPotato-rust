@@ -41,9 +41,8 @@ pub async fn announce_channel(http: &Http, channel: Channel, c: &TwitchStream) -
 
 pub async fn twitch_worker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
     loop {
-        dbg!("Twitch cheker loop!\n");
         match twitch_check(&http, &fumo_ctx).await {
-            Ok(_) => (),
+            Ok(_) => {},
             Err(e) => {
                 println!("Error occured inside twitch tracking loop!");
                 println!("{:?}", e);
