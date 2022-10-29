@@ -8,7 +8,7 @@ use serenity::model::application::interaction::InteractionResponseType;
 use serenity::model::channel::Channel;
 
 use crate::fumo_context::FumoContext;
-use crate::twitch_api::TwitchStream;
+use crate::twitch_api::{ TwitchStream, StreamType };
 
 use anyhow::Result;
 
@@ -48,11 +48,12 @@ pub async fn twitch_worker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
                 println!("{:?}", e);
             }
         }
-        tokio::time::sleep(Duration::from_secs(120)).await;
+        tokio::time::sleep(Duration::from_secs(15)).await;
     }
 }
 
 pub async fn twitch_check(http: &Http, fumo_ctx: &FumoContext) -> Result<()> {
+    dbg!("twitch check!\n");
     let streamers  = fumo_ctx.db.get_streamers().await?;
 
     for streamer_db in streamers.iter() {
@@ -61,8 +62,7 @@ pub async fn twitch_check(http: &Http, fumo_ctx: &FumoContext) -> Result<()> {
 
         match fumo_ctx.twitch_api.get_stream(name).await {
             Some(streamer) => {
-                if streamer.stream_type == "live" && !online {
-
+                if streamer.stream_type == StreamType::Live && !online {
                     fumo_ctx.db.toggle_online(name).await?;
 
                     let channels = fumo_ctx.db.get_channels(name).await?;
@@ -71,13 +71,15 @@ pub async fn twitch_check(http: &Http, fumo_ctx: &FumoContext) -> Result<()> {
                         let channel_id = http.get_channel(channel.id as u64).await?;
                         announce_channel(http, channel_id, &streamer).await?;
                     }
-            }
+                }
+    
+                if streamer.stream_type == StreamType::Offline && online {
+                    fumo_ctx.db.toggle_online(name).await?;
+                }
             }
             None => {
-                // Toggle online status if streamer status in db is online
-                if online {
-                    fumo_ctx.db.toggle_online(&streamer_db.name).await?;
-                }
+                println!("Got unexpected None during twitch_check iteration");
+                println!("{}", &name);
             }
         }
     }       

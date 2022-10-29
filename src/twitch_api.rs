@@ -6,11 +6,11 @@ use anyhow::Result;
 
 use serde::Deserialize;
 
-use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
+use serde::de::{ Visitor, Deserializer, Error };
 use std::fmt;
 
-#[derive(Debug, Clone)]
-enum StreamType {
+#[derive(Debug, Clone, PartialEq)]
+pub enum StreamType {
     Live,
     Offline,
 }
@@ -50,10 +50,8 @@ pub struct TwitchStream {
     pub game_id: String,
     pub title: String,
 
-    r#type: StreamType,
-
-    #[serde(rename = "type")] //TODO to enum
-    pub stream_type: String,
+    #[serde(rename = "type")] 
+    pub stream_type: StreamType,
 }
 
 #[derive(Deserialize, Debug)]
@@ -102,11 +100,30 @@ impl TwitchApi {
             return None;
         }
 
+        
         let s = r.json::<TwitchResponse<TwitchStream>>().await.unwrap();
 
         if let Some(data) = s.data {
-            Some(data.get(0)?.clone())
-        } else {
+
+            // Since twitch is returning just empty data instead of saying if streamer is online or not
+            // so we assuming that empty data = stream is offline 
+            if let Some(stream) = data.get(0) {
+                Some(stream.clone())
+            } 
+            else {
+                Some(TwitchStream {
+                    id: Default::default(),
+                    user_login: Default::default(),
+                    user_name: Default::default(),
+                    game_name: Default::default(),
+                    game_id: Default::default(),
+                    stream_type: StreamType::Offline,
+                    title: Default::default(),
+                })
+            }
+
+        } 
+        else {
             None
         }
 
