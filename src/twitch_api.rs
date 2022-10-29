@@ -6,6 +6,40 @@ use anyhow::Result;
 
 use serde::Deserialize;
 
+use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
+use std::fmt;
+
+#[derive(Debug, Clone)]
+enum StreamType {
+    Live,
+    Offline,
+}
+
+struct StreamTypeVisitor;
+
+impl<'de> Visitor<'de> for StreamTypeVisitor {
+    type Value = StreamType;
+
+    #[inline]
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a valid stream type string")
+    }
+
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        match v {
+            "live" => Ok(StreamType::Live),
+            _ => Ok(StreamType::Offline),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for StreamType {
+    #[inline]
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_any(StreamTypeVisitor)
+    }
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TwitchStream {
@@ -15,6 +49,8 @@ pub struct TwitchStream {
     pub game_name: String,
     pub game_id: String,
     pub title: String,
+
+    r#type: StreamType,
 
     #[serde(rename = "type")] //TODO to enum
     pub stream_type: String,
@@ -52,8 +88,13 @@ impl TwitchApi {
             .header(AUTHORIZATION, format!("Bearer {}", self.token))
             .header("Client-Id", &self.client_id)
             .send()
-            .await
-            .unwrap();
+            .await;
+    
+        // Handling worst case scenarios
+        let r = match r {
+            Ok(r) => r,
+            Err(_) => return None,
+        };
 
         if r.status() != StatusCode::OK {
             println!("status code!");
