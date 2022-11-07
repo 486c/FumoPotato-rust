@@ -92,11 +92,6 @@ impl EventHandler for Handler {
                         })
                 })
         }).await.unwrap();
-
-        //let ctx = Arc::new(ctx);
-        //let fctx = Arc::clone(&self.fumo_ctx);
-
-        
     }
 }
 

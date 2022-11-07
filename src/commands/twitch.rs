@@ -48,7 +48,7 @@ pub async fn twitch_worker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
                 println!("{:?}", e);
             }
         }
-        tokio::time::sleep(Duration::from_secs(15)).await;
+        tokio::time::sleep(Duration::from_secs(120)).await;
     }
 }
 
