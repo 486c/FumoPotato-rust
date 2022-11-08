@@ -53,7 +53,6 @@ pub async fn twitch_worker(http: Arc<Http>, fumo_ctx: Arc<FumoContext>) {
 }
 
 pub async fn twitch_check(http: &Http, fumo_ctx: &FumoContext) -> Result<()> {
-    dbg!("twitch check!\n");
     let streamers  = fumo_ctx.db.get_streamers().await?;
 
     for streamer_db in streamers.iter() {
@@ -168,6 +167,20 @@ pub async fn twitch_add(
         Some(name) => name,
         None => return,
     };
+
+    // Check if streamer with this name exists
+    let s = fumo_ctx.twitch_api.get_user_by_name(streamer_name).await;
+    if s.is_none() {
+        let msg = format!("User with name `{}` does not exists on twitch!",
+            streamer_name
+        );
+
+        command.edit_original_interaction_response(&ctx.http, |m| {
+            m.content(msg)
+        })
+        .await.unwrap();
+        return;
+    }
 
     let streamer = match fumo_ctx.db.get_streamer(streamer_name).await {
         Some(s) => s,

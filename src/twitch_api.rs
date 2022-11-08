@@ -1,6 +1,5 @@
-use reqwest::Client;
-use reqwest::StatusCode;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::{ Client, StatusCode, Method, Response };
 
 use anyhow::Result;
 
@@ -42,6 +41,15 @@ impl<'de> Deserialize<'de> for StreamType {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct TwitchUser {
+    pub id: String,
+    pub login: String,
+    pub display_name: String,
+    //type
+    pub broadcaster_type: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct TwitchStream {
     pub id: String,
     pub user_login: String,
@@ -74,20 +82,53 @@ impl TwitchApi {
             client_id: client_id.to_string(),
         })
     }
-    
-    pub async fn get_stream(&self, name: &str) -> Option<TwitchStream> {
-        let link = format!("https://api.twitch.tv/helix/streams?user_login={}", name);
 
-        let r = self
-            .client
-            .get(link)
+    async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
+        let r = &self.client;
+        let r = match method {
+            Method::GET => r.get(link),
+            Method::POST => r.post(link),
+            _ => unimplemented!(),
+        };
+
+        let r = r
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
             .header(AUTHORIZATION, format!("Bearer {}", self.token))
-            .header("Client-Id", &self.client_id)
-            .send()
-            .await;
-    
+            .header("Client-Id", &self.client_id);
+
+        Ok(r.send().await?)
+    }
+
+    pub async fn get_user_by_name(&self, name: &str) -> Option<TwitchUser> {
+        let link = format!("https://api.twitch.tv/helix/users?login={}", name);
+
+        let r = self.make_request(&link, Method::GET).await;
+
+        let r = match r {
+            Ok(r) => r,
+            Err(_) => return None,
+        };
+
+        if r.status() != StatusCode::OK {
+            return None;
+        }
+
+        let s = r.json::<TwitchResponse<TwitchUser>>().await.unwrap();
+
+        if let Some(data) = s.data {
+            Some(data.get(0)?.clone())
+        } else {
+            None
+        }
+    }
+
+    /* TODO fetch streams by vector of id's instead of fetching one by one */
+    pub async fn get_stream(&self, name: &str) -> Option<TwitchStream> {
+        let link = format!("https://api.twitch.tv/helix/streams?user_login={}", name);
+
+        let r = self.make_request(&link, Method::GET).await;
+
         // Handling worst case scenarios
         let r = match r {
             Ok(r) => r,
@@ -95,11 +136,9 @@ impl TwitchApi {
         };
 
         if r.status() != StatusCode::OK {
-            println!("status code!");
             println!("{:?}", r.text().await);
             return None;
         }
-
         
         let s = r.json::<TwitchResponse<TwitchStream>>().await.unwrap();
 
@@ -121,12 +160,10 @@ impl TwitchApi {
                     title: Default::default(),
                 })
             }
-
         } 
         else {
             None
         }
-
     }
 }
 
@@ -138,7 +175,6 @@ mod tests {
     use dotenv::dotenv;
 
     #[tokio::test]
-    #[should_panic]
     async fn test_get_stream() {
         dotenv().unwrap();
 
@@ -147,7 +183,22 @@ mod tests {
             env::var("TWITCH_CLIENT_ID").unwrap().as_str()
         ).await.unwrap();
 
-        twitch_api.get_stream("ITMUSTFAILASLDJKLSAKFJZMXCN123").await.unwrap();
+        let s = twitch_api.get_stream("ITMUSTFA11231ILASLDJKLSAKFJZMXCN123").await.unwrap();
+
+        assert_eq!(s.stream_type, StreamType::Offline);
+    }
+
+    #[tokio::test]
+    async fn test_get_user() {
+        dotenv().unwrap();
+
+        let twitch_api = TwitchApi::init(
+            env::var("TWITCH_TOKEN").unwrap().as_str(),
+            env::var("TWITCH_CLIENT_ID").unwrap().as_str()
+        ).await.unwrap();
+
+        let user = twitch_api.get_user_by_name("lopijb").await.unwrap();
+        println!("{:?}", user);
     }
 }
 

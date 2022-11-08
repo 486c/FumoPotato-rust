@@ -453,7 +453,7 @@ impl OsuToken {
 
 impl OsuApi {
 
-    pub async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
+    async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
         let token = self.inner.token.read().await;
 
         let r = &self.inner.client;
