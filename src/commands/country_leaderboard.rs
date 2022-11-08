@@ -7,10 +7,11 @@ use serenity::model::prelude::interaction::application_command::ApplicationComma
 use serenity::prelude::Context;
 use serenity::utils::Colour;
 use std::time::Duration;
+use std::fmt::Write;
 
 use num_format::{Locale, ToFormattedString};
 
-use crate::osu_api::{OsuBeatmap, OsuScore};
+use crate::osu_api::{OsuBeatmap, OsuScore, RankStatus};
 use crate::fumo_context::FumoContext;
 
 struct LeaderboardListing<'a> {
@@ -24,12 +25,8 @@ struct LeaderboardListing<'a> {
 }
 
 impl<'a> LeaderboardListing<'a> {
-    fn init(s: &'a Vec<OsuScore>, b: &'a OsuBeatmap) -> LeaderboardListing {
-        let pages: i32 = if (s.len() as f32) / 10.0 < 1.0 {
-            1
-        } else {
-            (s.len() as i32) / 10
-        };
+    fn new(s: &'a Vec<OsuScore>, b: &'a OsuBeatmap) -> LeaderboardListing {
+        let pages: i32 = (s.len() as f32 / 10.0 ).ceil() as i32;
 
         let mut embed = CreateEmbed::default();
         embed.author(|a| {
@@ -89,44 +86,37 @@ impl<'a> LeaderboardListing<'a> {
             f.text(format!("Page {}/{}", self.curr_page, self.pages))
         });
 
-        let mut st = String::new();
-        
-        let start_index = (self.curr_page-1)*10;
+        let mut st = String::with_capacity(1500);
 
-        let mut count = 10;
-        let mut index = 1 + start_index;
-        for s in self.scores.iter().skip(start_index as usize)
+        let start_at = (self.curr_page-1)*10;
+        for (index, s) in self.scores.iter()
+            .skip(start_at as usize)
+            .take(10)
+            .enumerate()
         {
-            if count == 0 {
-                break;
-            }
+            let _ = writeln!(st, "{}. [{}](https://osu.ppy.sh/u/{}) +**{}**",
+                index as i32 + 1  + start_at, s.user.username, s.user.id, s.mods.to_string()
+            );
 
-            let pp = s.pp.unwrap_or(0.0);
+            let pp: String = match self.beatmap.ranked {
+                RankStatus::Loved => "\\❤️".to_owned(),
+                _ => s.pp.unwrap_or(0.0).to_string() + "pp",
+            };
 
-            let profile_text = format!("{}. [{}](https://osu.ppy.sh/u/{}) +**{}**\n",
-                                       index, s.user.username, s.user.id,
-                                       s.mods.to_string());
-            let stats_text = format!("{} • {:.2}% • {:.2}pp • {}\n",
-                                     s.rank.to_emoji(), s.accuracy * 100.0, pp,
-                                     s.score.to_formatted_string(&Locale::en));
-            let combo_text = format!("[{}x/{}x] [{}/{}/{}/{}]\n",
+            let _ = writeln!(st, "{} • {:.2}% • {:.2} • {}",
+                s.rank.to_emoji(), s.accuracy * 100.0, pp,
+                s.score.to_formatted_string(&Locale::en)
+            );
+
+            let _  = writeln!(st, "[{}x/{}x] [{}/{}/{}/{}]",
                 s.max_combo, self.beatmap.max_combo,
                 s.stats.count300, s.stats.count100, s.stats.count50,
                 s.stats.countmiss
             );
-            let timestamp_text = format!("<t:{}:R>\n", s.created_at.timestamp());
 
-            st.push_str(
-                format!("{}{}{}{}",
-                        profile_text,
-                        stats_text,
-                        combo_text,
-                        timestamp_text
-                ).as_str()
+            let _  = writeln!(st, "<t:{}:R>",
+                s.created_at.timestamp()
             );
-
-            index += 1;
-            count -= 1;
         }
 
         self.embed.description(st);
@@ -185,6 +175,8 @@ pub async fn run(
         .await
         .unwrap();
 
+
+    // If message is app interaction
     if let Some(targed_id) = command.data.target_id {
         let msg = ctx.http.get_message(
             command.channel_id.0,
@@ -198,6 +190,7 @@ pub async fn run(
         }
     }
 
+    // If link to beatmap is provied
     if let Some(link_command) = command.data.options.get(0) {
         if let Some(link) = &link_command.value.as_ref().unwrap().as_str() {
             match parse_bid(link) {
@@ -213,9 +206,15 @@ pub async fn run(
                 }
             }
         }
-    } else if bid == -1 {
-        // Iterating through message history
+    } 
+
+    // If message is not a app interaction 
+    // and beatmap link is not provided.
+    // Iterate through all messages inside current
+    // channel and find a matching one
+    if bid == -1 {
         let mut messages = command.channel_id.messages_iter(&ctx).boxed();
+
         while let Some(message_result) = messages.next().await {
             match message_result {
                 Ok(msg) => {
@@ -226,7 +225,7 @@ pub async fn run(
                         }
                     }
                 }
-                Err(_e) => continue,
+                Err(_) => continue,
             }
         }
     }
@@ -266,7 +265,7 @@ pub async fn run(
         }
     };
 
-    let mut lb = LeaderboardListing::init(&cb.scores, &b);
+    let mut lb = LeaderboardListing::new(&cb.scores, &b);
 
     // Initial message
     command
