@@ -23,6 +23,67 @@ use bitflags::bitflags;
 
 use tokio::sync::oneshot::{ channel, Receiver, Sender };
 
+#[derive(Debug, PartialEq)]
+pub enum RankStatus {
+    Graveyard = -2,
+    Wip = -1,
+    Pending = 0,
+    Ranked = 1,
+    Approved = 2,
+    Qualified = 3,
+    Loved = 4,
+}
+
+struct RankStatusVisitor;
+
+impl<'de> Visitor<'de> for RankStatusVisitor {
+    type Value = RankStatus;
+
+    #[inline]
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a valid rank status integer")
+    }
+
+    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        match v {
+            0 => Ok(RankStatus::Pending),
+            1 => Ok(RankStatus::Ranked),
+            2 => Ok(RankStatus::Approved),
+            3 => Ok(RankStatus::Qualified),
+            4 => Ok(RankStatus::Loved),
+            _ => return Err(
+                Error::invalid_value(
+                    Unexpected::Unsigned(v.into()),
+                    &r#"0, 1, 2, 3 or 4"#)
+                ),
+        }
+    }
+
+    fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
+        match v {
+            -2 => Ok(RankStatus::Graveyard),
+            -1 => Ok(RankStatus::Wip),
+            0 => Ok(RankStatus::Pending),
+            1 => Ok(RankStatus::Ranked),
+            2 => Ok(RankStatus::Approved),
+            3 => Ok(RankStatus::Qualified),
+            4 => Ok(RankStatus::Loved),
+            _ => return Err(
+                Error::invalid_value(
+                    Unexpected::Signed(v.into()),
+                    &r#"-2, -1, 0, 1, 2, 3 or 4"#)
+                ),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for RankStatus {
+    #[inline]
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_any(RankStatusVisitor)
+    }
+}
+
 #[derive(Debug)]
 pub enum OsuRank {
     GradeXH,
@@ -280,6 +341,7 @@ pub struct OsuBeatmap {
     pub beatmapset: OsuBeatmapsetCompact,
 
     pub max_combo: i32,
+    pub ranked: RankStatus,
 }
 
 impl OsuBeatmap {
@@ -518,7 +580,7 @@ mod tests {
     use dotenv::dotenv;
 
     #[tokio::test]
-    async fn test_getbeatmap() {
+    async fn test_get_beatmap() {
         dotenv().unwrap();
 
         let api = OsuApi::init(
@@ -536,6 +598,15 @@ mod tests {
 
         op = api.get_beatmap(12).await;
         assert!(op.is_none());
+
+        let op = api.get_beatmap(1173889).await.unwrap();
+        assert_eq!(op.ranked, RankStatus::Loved);
+
+        let op = api.get_beatmap(3833489).await.unwrap();
+        assert_eq!(op.ranked, RankStatus::Graveyard);
+
+        let op = api.get_beatmap(3818011).await.unwrap();
+        assert_eq!(op.ranked, RankStatus::Ranked);
     }
     
     #[tokio::test]
