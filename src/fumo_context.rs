@@ -2,7 +2,12 @@ use crate::osu_api::OsuApi;
 use crate::twitch_api::TwitchApi;
 use twilight_gateway::cluster::Events;
 use twilight_http::Client;
+use twilight_http::client::InteractionClient;
 use twilight_gateway::{ EventTypeFlags, Intents, Cluster };
+use twilight_model::id::{
+    Id, 
+    marker::ApplicationMarker
+};
 
 use std::env;
 use std::sync::Arc;
@@ -12,6 +17,14 @@ pub struct FumoContext {
     pub twitch_api: TwitchApi,
     pub http: Arc<Client>,
     pub cluster: Cluster,
+
+    application_id: Id<ApplicationMarker>,
+}
+
+impl FumoContext {
+    pub fn interaction(&self) -> InteractionClient<'_> {
+        self.http.interaction(self.application_id)
+    }
 }
 
 impl FumoContext {
@@ -37,22 +50,34 @@ impl FumoContext {
 
         let http = Arc::new(http);
 
-        let (cluster, events) = Cluster::builder(token.to_owned(), Intents::GUILD_MESSAGES)
+        let (cluster, events) = Cluster::builder(
+            token.to_owned(), 
+            Intents::GUILD_MESSAGES
+        )
             .http_client(Arc::clone(&http))
             .event_types(
                 EventTypeFlags::INTERACTION_CREATE
                 | EventTypeFlags::MESSAGE_CREATE
                 | EventTypeFlags::MESSAGE_DELETE
                 | EventTypeFlags::MESSAGE_UPDATE
-            )
+                )
             .build()
             .await.unwrap();
+
+
+    let application_id = http.current_user()
+        .exec()
+        .await.unwrap()
+        .model()
+        .await.unwrap()
+        .id.cast();
 
         let ctx = FumoContext {
             osu_api,
             twitch_api,
             http,
             cluster,
+            application_id,
         };
 
         (ctx, events)

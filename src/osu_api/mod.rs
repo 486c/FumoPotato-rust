@@ -1,5 +1,5 @@
 mod datetime;
-mod models;
+pub mod models;
 
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };

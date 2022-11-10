@@ -21,6 +21,7 @@ twilight = "0.13.0"
 twilight-gateway = "0.13.3"
 twilight-http = "0.13.3"
 twilight-model = "0.13.7"
+twilight-util = { version = "0.13.3", features = ["builder"] }
 
 [profile.release]
 opt-level = 3
