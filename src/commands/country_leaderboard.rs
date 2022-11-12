@@ -1,6 +1,6 @@
 use crate::osu_api::models::{OsuBeatmap, OsuScore, RankStatus};
 use crate::fumo_context::FumoContext;
-use crate::handlers::InteractionCommand;
+use crate::utils::{ InteractionCommand, MessageBuilder };
 
 use twilight_model::application::interaction::application_command::{
     CommandOptionValue::String
@@ -31,20 +31,14 @@ fn parse_link(str: &str) -> Option<i32> {
     None
 }
 
-fn send_fail(text: &str) -> InteractionResponseData {
-    InteractionResponseDataBuilder::new()
-        .content(text)
-        .flags(MessageFlags::EPHEMERAL)
-        .build()
-}
-
 pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
+    command.defer(&ctx)
+        .await.unwrap();
 
-    command.create_response(
-        &ctx, 
-        &send_fail("test"),
-        InteractionResponseType::ChannelMessageWithSource
-    ).await.unwrap();
+    let mut msg = MessageBuilder::new();
+    msg = msg.content("Test!!!");
+
+    command.update(&ctx, &msg).await.unwrap();
 
     // If link to beatmap is provided as argument
     /*

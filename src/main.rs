@@ -3,6 +3,7 @@ pub mod twitch_api;
 pub mod fumo_context;
 mod handlers;
 mod commands;
+mod utils;
 
 use dotenv::dotenv;
 

@@ -9,53 +9,18 @@ use twilight_model::application::interaction::{
     Interaction, InteractionType, InteractionData,
     application_command::CommandData
 };
-use twilight_model::id::{
-    Id, 
-    marker::{ ChannelMarker, GuildMarker, InteractionMarker }
-};
 use twilight_model::application::command::Command;
 use twilight_util::builder::command::{ 
     CommandBuilder, StringBuilder
 };
 use twilight_model::application::command::CommandType;
-use twilight_model::http::interaction::{InteractionResponseData, InteractionResponse};
-use twilight_model::http::interaction::InteractionResponseType;
-use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 
 use crate::commands::country_leaderboard;
 
+use crate::utils::InteractionCommand;
+
 use anyhow::Result;
 
-#[derive(Debug)]
-pub struct InteractionCommand {
-    pub channel_id: Id<ChannelMarker>,
-    pub data: Box<CommandData>,
-    pub kind: InteractionType,
-    pub guild_id: Option<Id<GuildMarker>>,
-    pub id: Id<InteractionMarker>,
-    pub token: String
-}
-
-//
-// command.create_response(&ctx, )
-impl InteractionCommand {
-    pub fn create_response<'a> (
-        &self, ctx: &FumoContext, 
-        response: &'a InteractionResponseData,
-        kind: InteractionResponseType
-    ) -> ResponseFuture<EmptyBody> {
-        let response = InteractionResponse {
-            kind,
-            data: Some(response.clone())
-        };
-
-        ctx.interaction().create_response(
-            self.id,
-            &self.token,
-            &response,
-        ).exec()
-    }
-}
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     dbg!(&cmd);
