@@ -1,7 +1,10 @@
+use std::slice;
+
 use twilight_model::http::interaction::{InteractionResponseData, InteractionResponse};
 use twilight_model::http::interaction::InteractionResponseType;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::channel::message::Message;
+use twilight_model::application::component::Component;
 
 use twilight_model::id::{
     Id, 
@@ -12,18 +15,26 @@ use twilight_model::application::interaction::{
     Interaction, InteractionType, InteractionData,
     application_command::CommandData
 };
+use twilight_model::application::interaction::application_command::CommandDataOption;
+
+use twilight_model::application::interaction::application_command::{
+    CommandOptionValue
+};
+use twilight_model::channel::embed::Embed;
 
 use crate::fumo_context::FumoContext;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MessageBuilder {
     content: Option<String>,
+    embed: Option<Embed>,
+    pub components: Option<Vec<Component>>,
 }
 
 impl MessageBuilder {
     pub fn new() -> Self {
         MessageBuilder {
-            content: None,
+            ..Default::default()
         }
     }
 
@@ -31,6 +42,17 @@ impl MessageBuilder {
         self.content = Some(s.into());
         self
     }
+
+    pub fn embed(mut self, e: impl Into<Embed>) -> Self {
+        self.embed = Some(e.into());
+        self
+    }
+
+    pub fn components(mut self, components: Vec<Component>) -> Self {
+        self.components = Some(components);
+        self
+    }
+
 }
 
 #[derive(Debug)]
@@ -44,32 +66,6 @@ pub struct InteractionCommand {
 }
 
 impl InteractionCommand {
-    /*
-    pub fn defer_update(
-        &self, 
-        ctx: &FumoContext, 
-        builder: MessageBuilder
-    ) -> ResponseFuture<EmptyBody> {
-        let data = InteractionResponseData {
-            content: builder.content,
-            ..Default::default()
-        };
-
-        let response = InteractionResponse {
-            kind: InteractionResponseType::DeferredUpdateMessage,
-            data: Some(data),
-        };
-
-        ctx.interaction().
-            create_response(
-                self.id,
-                &self.token,
-                &response
-            )
-            .exec()
-    }
-    */
-
     pub fn defer(&self, ctx: &FumoContext) -> ResponseFuture<EmptyBody> {
         let response = InteractionResponse {
             kind: InteractionResponseType::DeferredChannelMessageWithSource,
@@ -98,6 +94,35 @@ impl InteractionCommand {
                     .expect("invalid content!");
         }
 
+        if let Some(ref embed) = builder.embed {
+            req = req.embeds(Some(slice::from_ref(embed)))
+                    .expect("invalid embed!");
+        }
+
+        if let Some(ref components) = builder.components {
+            req = req.components(Some(components.as_slice()))
+                    .expect("invalid components!");
+        }
+
         req.exec()
+    }
+
+    pub fn get_option(
+        &self, 
+        name: &str
+    ) -> Option<&CommandDataOption> {
+        self.data.options.iter().find(|x| x.name == name)
+    }
+    
+    pub fn get_option_string(
+        &self,
+        name: &str
+    ) -> Option<&str> {
+        if let Some(option) = self.get_option(name) {
+            if let CommandOptionValue::String(v) = &option.value {
+                return Some(v.as_str())
+            }
+        };
+        None
     }
 }

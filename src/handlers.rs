@@ -95,7 +95,7 @@ async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
 async fn handle_event(ctx: Arc<FumoContext>, shard_id: u64, event: Event) {
     match event {
         Event::InteractionCreate(c) => handle_interactions(ctx, c.0).await,
-        _ => println!("Got unhandled event: {:?}", event),
+        _ => {} //println!("Got unhandled event: {:?}", event),
     }
 }
 
