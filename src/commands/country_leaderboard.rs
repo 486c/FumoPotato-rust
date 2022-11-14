@@ -1,6 +1,6 @@
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
-use crate::utils::{ InteractionCommand, MessageBuilder };
+use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
 use twilight_model::channel::embed::{ Embed, EmbedFooter };
 
 use twilight_util::builder::embed::{ EmbedBuilder, EmbedAuthorBuilder };
@@ -11,8 +11,14 @@ use twilight_model::application::component::Component;
 use twilight_model::application::component::button::Button;
 use twilight_model::application::component::button::ButtonStyle;
 use twilight_model::application::component::action_row::ActionRow;
+use twilight_model::application::interaction::{Interaction, InteractionData};
+use twilight_model::http::interaction::{InteractionResponseData, InteractionResponse};
+use twilight_model::http::interaction::InteractionResponseType;
+
+use tokio_stream::StreamExt;
 
 use std::fmt::Write;
+use std::time::Duration;
 
 struct LeaderboardListing<'a> {
     pages: i32,
@@ -129,10 +135,10 @@ impl<'a> LeaderboardListing<'a> {
 
             let pp: String = match self.beatmap.ranked {
                 RankStatus::Loved => "\\❤️".to_owned(),
-                _ => s.pp.unwrap_or(0.0).to_string() + "pp",
+                _ => format!("{:.2}pp", s.pp.unwrap_or(0.0)),
             };
 
-            let _ = writeln!(st, "{} • {:.2}% • {:.2} • {}",
+            let _ = writeln!(st, "{} • {:.2}% • {} • {}",
                 s.rank.to_emoji(), s.accuracy * 100.0, pp,
                 s.score.to_formatted_string(&Locale::en)
             );
@@ -172,9 +178,10 @@ fn parse_link(str: &str) -> Option<i32> {
     None
 }
 
-pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
+pub async fn run(ctx: &FumoContext, mut command: InteractionCommand) {
     command.defer(&ctx).await.unwrap();
-    let mut msg = MessageBuilder::new();
+
+    let mut builder = MessageBuilder::new();
 
     let mut bid: i32 = -1;
     
@@ -183,8 +190,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
         if let Some(v) = parse_link(link) {
             bid = v;
         } else {
-            msg = msg.content("Invalid link format!");
-            command.update(&ctx, &msg).await.unwrap();
+            builder = builder.content("Invalid link format!");
+            command.update(&ctx, &builder).await.unwrap();
             return;
         }
     }
@@ -196,8 +203,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
 
     // If bid is still -1 after all
     if bid == -1 {
-        msg = msg.content("Couldn't find any score/beatmap!");
-        command.update(&ctx, &msg).await.unwrap();
+        builder = builder.content("Couldn't find any score/beatmap!");
+        command.update(&ctx, &builder).await.unwrap();
         return;
     }
 
@@ -205,8 +212,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
     let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
         Some(lb) => lb,
         None => {
-            msg = msg.content("Issues with leaderboard api. blame seneal");
-            command.update(&ctx, &msg).await.unwrap();
+            builder = builder.content("Issues with leaderboard api. blame seneal");
+            command.update(&ctx, &builder).await.unwrap();
             return;
         }
     };
@@ -214,15 +221,73 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
     let b = match ctx.osu_api.get_beatmap(bid).await {
         Some(b) => b,
         None => {
-            msg = msg.content("Issues with osu!api. blame peppy");
-            command.update(&ctx, &msg).await.unwrap();
+            builder = builder.content("Issues with osu!api. blame peppy");
+            command.update(&ctx, &builder).await.unwrap();
             return;
         }
     };
 
-    let lb = LeaderboardListing::new(&clb.scores, &b);
+    let mut lb = LeaderboardListing::new(&clb.scores, &b);
 
-    msg = msg.embed(lb.embed.clone());
-    msg = msg.components(LeaderboardListing::components());
-    command.update(&ctx, &msg).await.unwrap();
+    builder = builder.embed(lb.embed.clone());
+    builder = builder.components(LeaderboardListing::components());
+
+    let msg = command.update(&ctx, &builder).await.unwrap()
+        .model().await.unwrap();
+
+    let stream = ctx.standby.wait_for_component_stream(msg.id, |event: &Interaction| {
+        true
+    }) 
+    .map(|event| {
+        let Interaction {
+            channel_id,
+            data,
+            guild_id,
+            kind,
+            id,
+            token,
+            ..
+        } = event;
+
+        if let Some(InteractionData::MessageComponent(data)) = data {
+            InteractionComponent {
+                channel_id,
+                data: Some(data), // dirty
+                kind,
+                id,
+                token,
+                guild_id
+            } 
+        } else {
+            InteractionComponent {
+                channel_id,
+                data: None,
+                kind,
+                id,
+                token,
+                guild_id
+            } 
+        }
+    })
+    .timeout(Duration::from_secs(10));
+
+    tokio::pin!(stream);
+
+    while let Some(Ok(event)) = stream.next().await {
+        if let Some(data) = &event.data {
+            match data.custom_id.as_ref() {
+                "B1" => lb.prev_page(),
+                "B2" => lb.next_page(),
+                _ => {},
+            }
+        } 
+
+        lb.update_embed();
+        builder = builder.embed(lb.embed.clone()); // TODO remove cloning
+        event.defer(&ctx).await.unwrap();
+        command.update(&ctx, &builder).await.unwrap();
+    }
+
+    builder = builder.components(Vec::new());
+    command.update(&ctx, &builder).await.unwrap();
 }

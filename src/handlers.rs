@@ -1,4 +1,4 @@
-use futures::StreamExt;
+use tokio_stream::StreamExt;
 use crate::fumo_context::FumoContext;
 
 use std::sync::Arc;
@@ -20,7 +20,6 @@ use crate::commands::country_leaderboard;
 use crate::utils::InteractionCommand;
 
 use anyhow::Result;
-
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     dbg!(&cmd);
@@ -93,6 +92,7 @@ async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
 }
 
 async fn handle_event(ctx: Arc<FumoContext>, shard_id: u64, event: Event) {
+    ctx.standby.process(&event);
     match event {
         Event::InteractionCreate(c) => handle_interactions(ctx, c.0).await,
         _ => {} //println!("Got unhandled event: {:?}", event),

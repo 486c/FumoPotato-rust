@@ -8,6 +8,7 @@ use twilight_model::id::{
     Id, 
     marker::ApplicationMarker
 };
+use twilight_standby::Standby;
 
 use std::env;
 use std::sync::Arc;
@@ -17,6 +18,7 @@ pub struct FumoContext {
     pub twitch_api: TwitchApi,
     pub http: Arc<Client>,
     pub cluster: Cluster,
+    pub standby: Standby,
 
     application_id: Id<ApplicationMarker>,
 }
@@ -52,7 +54,7 @@ impl FumoContext {
 
         let (cluster, events) = Cluster::builder(
             token.to_owned(), 
-            Intents::GUILD_MESSAGES
+            Intents::all(),
         )
             .http_client(Arc::clone(&http))
             .event_types(
@@ -60,17 +62,20 @@ impl FumoContext {
                 | EventTypeFlags::MESSAGE_CREATE
                 | EventTypeFlags::MESSAGE_DELETE
                 | EventTypeFlags::MESSAGE_UPDATE
+                | EventTypeFlags::SHARD_PAYLOAD
                 )
             .build()
             .await.unwrap();
 
 
-    let application_id = http.current_user()
-        .exec()
-        .await.unwrap()
-        .model()
-        .await.unwrap()
-        .id.cast();
+        let application_id = http.current_user()
+            .exec()
+            .await.unwrap()
+            .model()
+            .await.unwrap()
+            .id.cast();
+
+        let standby = Standby::new();
 
         let ctx = FumoContext {
             osu_api,
@@ -78,6 +83,7 @@ impl FumoContext {
             http,
             cluster,
             application_id,
+            standby,
         };
 
         (ctx, events)

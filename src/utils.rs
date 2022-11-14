@@ -13,7 +13,8 @@ use twilight_model::id::{
 
 use twilight_model::application::interaction::{ 
     Interaction, InteractionType, InteractionData,
-    application_command::CommandData
+    application_command::CommandData,
+    message_component::MessageComponentInteractionData,
 };
 use twilight_model::application::interaction::application_command::CommandDataOption;
 
@@ -53,6 +54,29 @@ impl MessageBuilder {
         self
     }
 
+}
+
+#[derive(Debug)]
+pub struct InteractionComponent {
+    pub channel_id: Option<Id<ChannelMarker>>,
+    pub data: Option<MessageComponentInteractionData>,
+    pub kind: InteractionType,
+    pub guild_id: Option<Id<GuildMarker>>,
+    pub id: Id<InteractionMarker>,
+    pub token: String
+}
+
+impl InteractionComponent {
+    pub fn defer(&self, ctx: &FumoContext) -> ResponseFuture<EmptyBody> {
+        let response = InteractionResponse {
+            kind: InteractionResponseType::DeferredUpdateMessage,
+            data: None,
+        };
+
+        ctx.interaction()
+            .create_response(self.id, &self.token, &response)
+            .exec()
+    }
 }
 
 #[derive(Debug)]
