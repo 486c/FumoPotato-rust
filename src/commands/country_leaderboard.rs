@@ -9,8 +9,8 @@ use num_format::{Locale, ToFormattedString};
 
 use twilight_model::channel::message::component::{ Component, Button, ButtonStyle, ActionRow};
 use twilight_model::application::interaction::{Interaction, InteractionData};
-use twilight_model::http::interaction::{InteractionResponseData, InteractionResponse};
-use twilight_model::http::interaction::InteractionResponseType;
+
+use twilight_model::channel::message::Message;
 
 use tokio_stream::StreamExt;
 
@@ -29,7 +29,10 @@ struct LeaderboardListing<'a> {
 
 impl<'a> LeaderboardListing<'a> {
     fn new(s: &'a Vec<OsuScore>, b: &'a OsuBeatmap) -> LeaderboardListing {
-        let pages: i32 = (s.len() as f32 / 10.0 ).ceil() as i32;
+        let mut pages: i32 = (s.len() as f32 / 10.0 ).ceil() as i32;
+        if pages == 0 {
+            pages = 1;
+        }
 
         let mut embed = EmbedBuilder::new();
 
@@ -155,6 +158,22 @@ impl<'a> LeaderboardListing<'a> {
     }
 }
 
+fn find_link(msg: &Message) -> Option<&String> {
+    match msg.author.id.get() {
+        // owo bot
+        289066747443675143 => {
+            return msg.embeds.get(0)?.author.as_ref()?
+                .url.as_ref()
+        },
+        // bath bot & mikaizuku
+        297073686916366336 | 839937716921565252 => {
+            return msg.embeds.get(0)?.url.as_ref()
+        }
+
+        _ => None,
+    }
+}
+
 fn parse_link(str: &str) -> Option<i32> {
     //TODO rewrite this shit xD
     let split: Vec<&str> = str.split('/').collect();
@@ -175,7 +194,7 @@ fn parse_link(str: &str) -> Option<i32> {
     None
 }
 
-pub async fn run(ctx: &FumoContext, mut command: InteractionCommand) {
+pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
     command.defer(&ctx).await.unwrap();
 
     let mut builder = MessageBuilder::new();
@@ -193,15 +212,40 @@ pub async fn run(ctx: &FumoContext, mut command: InteractionCommand) {
         }
     }
 
-    // If we got app interaction
-    
-    // If we got basic interaction without direct link
-    let msgs = ctx.http.
-        channel_messages(command.channel_id)
-        .limit(100).unwrap()
-        .exec()
-        .await.unwrap();
+    match command.data.target_id {
+        // If we got app interaction
+        Some(id) => {
+            let msg = ctx.http.message(
+                command.channel_id,
+                id.cast()
+            ).await.unwrap()
+                .model().await.unwrap();
 
+            if let Some(link) = find_link(&msg) {
+                if let Some(id) = parse_link(link.as_ref()) {
+                    bid = id;
+                }
+            }
+        },
+
+        // If we got basic interaction without direct link
+        None => {
+            let msgs = ctx.http.
+                channel_messages(command.channel_id)
+                .limit(50).unwrap()
+                .await.unwrap()
+                .models().await.unwrap();
+
+            for m in msgs {
+                if let Some(link) = find_link(&m) {
+                    if let Some(id) = parse_link(link.as_ref()) {
+                        bid = id;
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     // If bid is still -1 after all
     if bid == -1 {
