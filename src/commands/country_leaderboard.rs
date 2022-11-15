@@ -1,16 +1,13 @@
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
-use twilight_model::channel::embed::{ Embed, EmbedFooter };
+use twilight_model::channel::message::embed::{ Embed, EmbedFooter };
 
 use twilight_util::builder::embed::{ EmbedBuilder, EmbedAuthorBuilder };
 use twilight_util::builder::embed::image_source::ImageSource;
 use num_format::{Locale, ToFormattedString};
 
-use twilight_model::application::component::Component;
-use twilight_model::application::component::button::Button;
-use twilight_model::application::component::button::ButtonStyle;
-use twilight_model::application::component::action_row::ActionRow;
+use twilight_model::channel::message::component::{ Component, Button, ButtonStyle, ActionRow};
 use twilight_model::application::interaction::{Interaction, InteractionData};
 use twilight_model::http::interaction::{InteractionResponseData, InteractionResponse};
 use twilight_model::http::interaction::InteractionResponseType;
@@ -199,7 +196,12 @@ pub async fn run(ctx: &FumoContext, mut command: InteractionCommand) {
     // If we got app interaction
     
     // If we got basic interaction without direct link
-    //
+    let msgs = ctx.http.
+        channel_messages(command.channel_id)
+        .limit(100).unwrap()
+        .exec()
+        .await.unwrap();
+
 
     // If bid is still -1 after all
     if bid == -1 {
@@ -207,7 +209,6 @@ pub async fn run(ctx: &FumoContext, mut command: InteractionCommand) {
         command.update(&ctx, &builder).await.unwrap();
         return;
     }
-
 
     let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
         Some(lb) => lb,
@@ -252,7 +253,7 @@ pub async fn run(ctx: &FumoContext, mut command: InteractionCommand) {
         if let Some(InteractionData::MessageComponent(data)) = data {
             InteractionComponent {
                 channel_id,
-                data: Some(data), // dirty
+                data: Some(data),
                 kind,
                 id,
                 token,
@@ -269,7 +270,7 @@ pub async fn run(ctx: &FumoContext, mut command: InteractionCommand) {
             } 
         }
     })
-    .timeout(Duration::from_secs(10));
+    .timeout(Duration::from_secs(20));
 
     tokio::pin!(stream);
 

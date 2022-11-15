@@ -4,7 +4,7 @@ use twilight_model::http::interaction::{InteractionResponseData, InteractionResp
 use twilight_model::http::interaction::InteractionResponseType;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 use twilight_model::channel::message::Message;
-use twilight_model::application::component::Component;
+use twilight_model::channel::message::component::Component;
 
 use twilight_model::id::{
     Id, 
@@ -21,7 +21,7 @@ use twilight_model::application::interaction::application_command::CommandDataOp
 use twilight_model::application::interaction::application_command::{
     CommandOptionValue
 };
-use twilight_model::channel::embed::Embed;
+use twilight_model::channel::message::embed::Embed;
 
 use crate::fumo_context::FumoContext;
 
@@ -86,7 +86,7 @@ pub struct InteractionCommand {
     pub kind: InteractionType,
     pub guild_id: Option<Id<GuildMarker>>,
     pub id: Id<InteractionMarker>,
-    pub token: String
+    pub token: String,
 }
 
 impl InteractionCommand {

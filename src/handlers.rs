@@ -71,6 +71,7 @@ async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
         kind,
         id,
         token,
+        message,
         ..
     } = interaction;
 
