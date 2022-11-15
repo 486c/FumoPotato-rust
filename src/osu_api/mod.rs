@@ -6,7 +6,7 @@ use reqwest::{ Client, StatusCode, Method, Response };
 
 use self::models::{OauthResponse, OsuBeatmap, OsuLeaderboard};
 
-use anyhow::Result;
+use eyre::Result;
 
 use std::sync::Arc;
 use std::time::Duration;

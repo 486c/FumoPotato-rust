@@ -1,14 +1,14 @@
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };
 
-use anyhow::Result;
+use eyre::Result;
 
 use serde::Deserialize;
 
 use serde::de::{ Visitor, Deserializer, Error };
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StreamType {
     Live,
     Offline,

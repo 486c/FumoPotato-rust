@@ -1,10 +1,8 @@
-
-use reqwest::Client;
 use crate::osu_api::datetime::deserialize_local_datetime;
 
 use chrono::prelude::*;
 
-use anyhow::Result;
+use eyre::Result;
 
 use serde::Deserialize;
 use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
@@ -12,11 +10,9 @@ use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
 use std::string::ToString;
 use std::fmt;
 
-use tokio::sync::RwLock;
-
 use bitflags::bitflags;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum RankStatus {
     Graveyard = -2,
     Wip = -1,
@@ -46,7 +42,7 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             4 => Ok(RankStatus::Loved),
             _ => return Err(
                 Error::invalid_value(
-                    Unexpected::Unsigned(v.into()),
+                    Unexpected::Unsigned(v),
                     &r#"0, 1, 2, 3 or 4"#)
                 ),
         }
@@ -63,7 +59,7 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             4 => Ok(RankStatus::Loved),
             _ => return Err(
                 Error::invalid_value(
-                    Unexpected::Signed(v.into()),
+                    Unexpected::Signed(v),
                     &r#"-2, -1, 0, 1, 2, 3 or 4"#)
                 ),
         }

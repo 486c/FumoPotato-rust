@@ -1,10 +1,9 @@
 use std::slice;
 
-use twilight_model::http::interaction::{InteractionResponseData, InteractionResponse};
+use twilight_model::http::interaction::InteractionResponse;
 use twilight_model::http::interaction::InteractionResponseType;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
-use twilight_model::channel::message::Message;
-use twilight_model::channel::message::component::Component;
+use twilight_model::channel::message::{ component::Component, Message };
 
 use twilight_model::id::{
     Id, 
@@ -12,15 +11,12 @@ use twilight_model::id::{
 };
 
 use twilight_model::application::interaction::{ 
-    Interaction, InteractionType, InteractionData,
+    InteractionType,
     application_command::CommandData,
     message_component::MessageComponentInteractionData,
 };
-use twilight_model::application::interaction::application_command::CommandDataOption;
+use twilight_model::application::interaction::application_command::{ CommandOptionValue, CommandDataOption };
 
-use twilight_model::application::interaction::application_command::{
-    CommandOptionValue
-};
 use twilight_model::channel::message::embed::Embed;
 
 use crate::fumo_context::FumoContext;

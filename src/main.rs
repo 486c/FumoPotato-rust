@@ -7,7 +7,7 @@ mod utils;
 
 use dotenv::dotenv;
 
-use anyhow::Result;
+use eyre::Result;
 
 use std::env;
 use std::sync::Arc;
@@ -32,7 +32,6 @@ async fn main() -> Result<()> {
 
     // Set global commands
     let application_id = ctx.http.current_user()
-        .exec()
         .await?
         .model()
         .await?
@@ -40,7 +39,6 @@ async fn main() -> Result<()> {
 
     ctx.http.interaction(application_id)
         .set_global_commands(&global_commands())
-        .exec()
         .await?;
 
     // Run

@@ -1,21 +1,20 @@
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
-use twilight_model::channel::message::embed::{ Embed, EmbedFooter };
 
-use twilight_util::builder::embed::{ EmbedBuilder, EmbedAuthorBuilder };
-use twilight_util::builder::embed::image_source::ImageSource;
-use num_format::{Locale, ToFormattedString};
-
+use twilight_util::builder::embed::{ image_source::ImageSource, EmbedBuilder, EmbedAuthorBuilder };
 use twilight_model::channel::message::component::{ Component, Button, ButtonStyle, ActionRow};
+use twilight_model::channel::message::{ embed::{ Embed, EmbedFooter}, Message };
 use twilight_model::application::interaction::{Interaction, InteractionData};
 
-use twilight_model::channel::message::Message;
+use num_format::{Locale, ToFormattedString};
 
 use tokio_stream::StreamExt;
 
 use std::fmt::Write;
 use std::time::Duration;
+
+use eyre::Result;
 
 struct LeaderboardListing<'a> {
     pages: i32,
@@ -162,12 +161,12 @@ fn find_link(msg: &Message) -> Option<&String> {
     match msg.author.id.get() {
         // owo bot
         289066747443675143 => {
-            return msg.embeds.get(0)?.author.as_ref()?
+            msg.embeds.get(0)?.author.as_ref()?
                 .url.as_ref()
         },
         // bath bot & mikaizuku
         297073686916366336 | 839937716921565252 => {
-            return msg.embeds.get(0)?.url.as_ref()
+            msg.embeds.get(0)?.url.as_ref()
         }
 
         _ => None,
@@ -194,8 +193,8 @@ fn parse_link(str: &str) -> Option<i32> {
     None
 }
 
-pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
-    command.defer(&ctx).await.unwrap();
+pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
+    command.defer(ctx).await.unwrap();
 
     let mut builder = MessageBuilder::new();
 
@@ -207,8 +206,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
             bid = v;
         } else {
             builder = builder.content("Invalid link format!");
-            command.update(&ctx, &builder).await.unwrap();
-            return;
+            command.update(ctx, &builder).await.unwrap();
+            return Ok(());
         }
     }
 
@@ -250,16 +249,16 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
     // If bid is still -1 after all
     if bid == -1 {
         builder = builder.content("Couldn't find any score/beatmap!");
-        command.update(&ctx, &builder).await.unwrap();
-        return;
+        command.update(ctx, &builder).await.unwrap();
+        return Ok(());
     }
 
     let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
         Some(lb) => lb,
         None => {
             builder = builder.content("Issues with leaderboard api. blame seneal");
-            command.update(&ctx, &builder).await.unwrap();
-            return;
+            command.update(ctx, &builder).await.unwrap();
+            return Ok(());
         }
     };
 
@@ -267,8 +266,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
         Some(b) => b,
         None => {
             builder = builder.content("Issues with osu!api. blame peppy");
-            command.update(&ctx, &builder).await.unwrap();
-            return;
+            command.update(ctx, &builder).await.unwrap();
+            return Ok(());
         }
     };
 
@@ -277,10 +276,10 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
     builder = builder.embed(lb.embed.clone());
     builder = builder.components(LeaderboardListing::components());
 
-    let msg = command.update(&ctx, &builder).await.unwrap()
+    let msg = command.update(ctx, &builder).await.unwrap()
         .model().await.unwrap();
 
-    let stream = ctx.standby.wait_for_component_stream(msg.id, |event: &Interaction| {
+    let stream = ctx.standby.wait_for_component_stream(msg.id, |_e: &Interaction| {
         true
     }) 
     .map(|event| {
@@ -318,8 +317,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
 
     tokio::pin!(stream);
 
-    while let Some(Ok(event)) = stream.next().await {
-        if let Some(data) = &event.data {
+    while let Some(Ok(component)) = stream.next().await {
+        if let Some(data) = &component.data {
             match data.custom_id.as_ref() {
                 "B1" => lb.prev_page(),
                 "B2" => lb.next_page(),
@@ -329,10 +328,12 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) {
 
         lb.update_embed();
         builder = builder.embed(lb.embed.clone()); // TODO remove cloning
-        event.defer(&ctx).await.unwrap();
-        command.update(&ctx, &builder).await.unwrap();
+        component.defer(ctx).await.unwrap();
+        command.update(ctx, &builder).await.unwrap();
     }
 
     builder = builder.components(Vec::new());
-    command.update(&ctx, &builder).await.unwrap();
+    command.update(ctx, &builder).await.unwrap();
+
+    Ok(())
 }

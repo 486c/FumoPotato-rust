@@ -6,8 +6,7 @@ use std::sync::Arc;
 use twilight_gateway::Event;
 use twilight_gateway::cluster::Events;
 use twilight_model::application::interaction::{ 
-    Interaction, InteractionType, InteractionData,
-    application_command::CommandData
+    Interaction, InteractionData,
 };
 use twilight_model::application::command::Command;
 use twilight_util::builder::command::{ 
@@ -19,13 +18,19 @@ use crate::commands::country_leaderboard;
 
 use crate::utils::InteractionCommand;
 
-use anyhow::Result;
+use eyre::Result;
+use log::warn;
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     dbg!(&cmd);
-    match cmd.data.name.as_str() {
-        "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd).await,
-        _ => {},
+    let future = match cmd.data.name.as_str() {
+        "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd),
+        _ => return warn!("Got unhandled interaction command"),
+    };
+
+    match future.await {
+        Ok(_) => {},
+        Err(e) => println!("{:?}", e.wrap_err("Command failed"))
     }
 }
 
@@ -33,8 +38,13 @@ pub async fn event_loop(ctx: Arc<FumoContext>, mut events: Events) {
     while let Some((shard_id, event)) = events.next().await {
         let ctx = Arc::clone(&ctx);
 
-        tokio::spawn(async move { handle_event(ctx, shard_id, event).await });
-        // TODO CHECK FOR ERROR
+        tokio::spawn(async move { 
+            let future = handle_event(ctx, shard_id, event);
+
+            if let Err(e) = future.await {
+                println!("{:?}", e.wrap_err("Failed to handle event"))
+            }
+        });
     }
 }
 
@@ -71,7 +81,6 @@ async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
         kind,
         id,
         token,
-        message,
         ..
     } = interaction;
 
@@ -92,11 +101,13 @@ async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
     }
 }
 
-async fn handle_event(ctx: Arc<FumoContext>, shard_id: u64, event: Event) {
+async fn handle_event(ctx: Arc<FumoContext>, shard_id: u64, event: Event) -> Result<()> {
     ctx.standby.process(&event);
     match event {
         Event::InteractionCreate(c) => handle_interactions(ctx, c.0).await,
         _ => {} //println!("Got unhandled event: {:?}", event),
     }
+
+    Ok(())
 }
 
