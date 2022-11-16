@@ -4,6 +4,7 @@ pub mod fumo_context;
 mod handlers;
 mod commands;
 mod utils;
+mod database;
 
 use dotenv::dotenv;
 

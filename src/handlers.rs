@@ -10,11 +10,14 @@ use twilight_model::application::interaction::{
 };
 use twilight_model::application::command::Command;
 use twilight_util::builder::command::{ 
-    CommandBuilder, StringBuilder
+    CommandBuilder, StringBuilder, SubCommandBuilder
 };
 use twilight_model::application::command::CommandType;
 
-use crate::commands::country_leaderboard;
+use crate::commands::{
+    country_leaderboard,
+    twitch,
+};
 
 use crate::utils::InteractionCommand;
 
@@ -23,12 +26,14 @@ use log::warn;
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     dbg!(&cmd);
-    let future = match cmd.data.name.as_str() {
-        "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd),
+    let res = match cmd.data.name.as_str() {
+        "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd).await,
+        "twitch" => twitch::run(&ctx, cmd).await,
         _ => return warn!("Got unhandled interaction command"),
     };
-
-    match future.await {
+    
+    // TODO Add some basic error message i guess
+    match res {
         Ok(_) => {},
         Err(e) => println!("{:?}", e.wrap_err("Command failed"))
     }
@@ -51,7 +56,8 @@ pub async fn event_loop(ctx: Arc<FumoContext>, mut events: Events) {
 pub fn global_commands() -> Vec<Command> {
     // TODO Move this somewhere else
     let mut commands: Vec<Command> = Vec::new();
-
+    
+    /* osu */
     let cmd = CommandBuilder::new(
         "leaderboard",
         "Show country leaderboard",
@@ -69,6 +75,30 @@ pub fn global_commands() -> Vec<Command> {
         CommandType::Message,
     ).build();
     commands.push(cmd);
+
+    /* twitch */
+    let cmd = CommandBuilder::new(
+        "twitch",
+        "twitch related commands",
+        CommandType::ChatInput,
+    )
+    .option(
+        SubCommandBuilder::new("add", "add twitch channel to tracking")
+        .option(
+            StringBuilder::new("name", "twitch channel name")
+            .required(true)
+        )
+    )
+    .option(
+        SubCommandBuilder::new("remove", "remove twitch channel from tracking")
+        .option(
+            StringBuilder::new("name", "twitch channel name")
+            .required(true)
+        )
+    )
+    .build();
+    commands.push(cmd);
+
 
     commands
 }

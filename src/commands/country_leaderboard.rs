@@ -219,7 +219,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
                 id.cast()
             ).await.unwrap()
                 .model().await.unwrap();
-
+ 
             if let Some(link) = find_link(&msg) {
                 if let Some(id) = parse_link(link.as_ref()) {
                     bid = id;
@@ -328,12 +328,12 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
         lb.update_embed();
         builder = builder.embed(lb.embed.clone()); // TODO remove cloning
-        component.defer(ctx).await.unwrap();
-        command.update(ctx, &builder).await.unwrap();
+        component.defer(ctx).await?;
+        command.update(ctx, &builder).await?;
     }
 
     builder = builder.components(Vec::new());
-    command.update(ctx, &builder).await.unwrap();
+    command.update(ctx, &builder).await?;
 
     Ok(())
 }
