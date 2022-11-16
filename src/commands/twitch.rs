@@ -1,8 +1,105 @@
+use twilight_model::application::interaction::application_command::CommandOptionValue;
+use twilight_model::id::{ Id, marker::ChannelMarker };
+use twilight_util::builder::embed::{ 
+    EmbedBuilder, EmbedAuthorBuilder, EmbedFooterBuilder,
+    image_source::ImageSource,
+};
+
+use crate::twitch_api::{ TwitchStream, StreamType };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ MessageBuilder, InteractionCommand };
-use twilight_model::application::interaction::application_command::CommandOptionValue;
 
 use eyre::{ Result, bail };
+
+use std::slice;
+
+pub async fn announce_channel(
+    ctx: &FumoContext, 
+    channel_id: Id<ChannelMarker>,
+    c: &TwitchStream
+) -> Result<()> {
+    let author = EmbedAuthorBuilder::new(format!("{} is live!", &c.user_name))
+        .url(format!("https://twitch.tv/{}", &c.user_name))
+        .build();
+
+    let source = ImageSource::url(format!(
+        "https://static-cdn.jtvnw.net/previews-ttv/live_user_{}-1280x720.jpg",
+            &c.user_name
+    ))?;
+
+    let source_footer = ImageSource::url(format!(
+        "https://static-cdn.jtvnw.net/ttv-boxart/{}-250x250.jpg",
+            c.game_id
+    ))?;
+
+    let footer = EmbedFooterBuilder::new(&c.game_name)
+        .icon_url(source_footer)
+        .build();
+
+    let embed = EmbedBuilder::new()
+        .color(0x97158a)
+        .description(&c.title)
+        .image(source)
+        .footer(footer)
+        .author(author)
+        .build();
+
+    ctx.http.create_message(channel_id)
+        .embeds(slice::from_ref(&embed))?
+        .await?;
+
+    Ok(())
+}
+
+pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
+    let streamers  = ctx.db.get_streamers().await?;
+
+    for streamer_db in streamers.iter() {
+        let name = &streamer_db.name;
+        let online = streamer_db.online;
+
+        match ctx.twitch_api.get_stream(name).await {
+            Some(streamer) => {
+                if streamer.stream_type == StreamType::Live && !online {
+                    ctx.db.toggle_online(name).await?;
+
+                    let channels = ctx.db.get_channels(name).await?;
+
+                    for channel in channels.iter() {
+                        let channel_id: Id<ChannelMarker> = Id::new(channel.id as u64);
+                        announce_channel(ctx, channel_id, &streamer).await?;
+                    }
+                }
+    
+                if streamer.stream_type == StreamType::Offline && online {
+                    ctx.db.toggle_online(name).await?;
+                }
+            }
+            None => {
+                println!("Got unexpected None during twitch_check iteration");
+                println!("{}", &name);
+            }
+        }
+    }       
+
+    Ok(())
+}
+
+async fn twitch_list(
+    ctx: &FumoContext, 
+    command: &InteractionCommand, 
+    name: &str)
+-> Result<()> {
+    todo!()
+}
+
+async fn twitch_check(
+    ctx: &FumoContext, 
+    command: &InteractionCommand, 
+    name: &str)
+-> Result<()> {
+    todo!()
+}
 
 async fn twitch_add(
     ctx: &FumoContext, 
