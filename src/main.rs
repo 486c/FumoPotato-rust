@@ -17,6 +17,7 @@ use crate::fumo_context::FumoContext;
 use crate::handlers::{ event_loop, global_commands };
 
 use tokio::signal;
+use tokio::sync::oneshot::channel;
 
 #[tokio::main(worker_threads = 8)]
 async fn main() -> Result<()> {
@@ -42,6 +43,20 @@ async fn main() -> Result<()> {
         .set_global_commands(&global_commands())
         .await?;
 
+    // Spawn twitch checker
+    let (tx, recv) = channel::<()>();
+    let twitch_ctx = Arc::clone(&ctx);
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = commands::twitch::twitch_worker(
+                Arc::clone(&twitch_ctx)
+            ) => {
+                println!("Twitch checker loop sudenly ended!")
+            }
+            _ = recv => ()
+        }
+    });
+
     // Run
     tokio::select! {
         _ = event_loop(event_ctx, events) => println!("Error in event loop!"),
@@ -50,8 +65,13 @@ async fn main() -> Result<()> {
             Err(_) => println!("Can't get Cntrl+C signal for some reason"),
         }
     }
-
+    
+    // Close everything
     ctx.cluster.down();
+
+    if tx.send(()).is_err() {
+        println!("Failed to close twitch loop!");
+    }
 
     println!("Bye!!!");
     Ok(())

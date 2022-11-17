@@ -11,7 +11,22 @@ use crate::utils::{ MessageBuilder, InteractionCommand };
 
 use eyre::{ Result, bail };
 
-use std::slice;
+use std::{ slice, sync::Arc, time::Duration };
+
+pub async fn twitch_worker(ctx: Arc<FumoContext>) {
+    println!("Started twitch checker loop!");
+    loop {
+        match twitch_checker(&ctx).await {
+            Ok(_) => {},
+            Err(e) => {
+                println!("{:?}", 
+                    e.wrap_err("Error occured inside twitch tracking loop!")
+                );
+            }
+        }
+        tokio::time::sleep(Duration::from_secs(120)).await;
+    }
+}
 
 pub async fn announce_channel(
     ctx: &FumoContext, 
