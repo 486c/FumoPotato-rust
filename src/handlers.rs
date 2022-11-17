@@ -25,7 +25,6 @@ use eyre::Result;
 use log::warn;
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
-    dbg!(&cmd);
     let res = match cmd.data.name.as_str() {
         "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,

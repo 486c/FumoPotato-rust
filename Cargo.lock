@@ -437,7 +437,6 @@ dependencies = [
  "sqlx",
  "tokio",
  "tokio-stream",
- "twilight",
  "twilight-gateway",
  "twilight-http",
  "twilight-model",
@@ -1821,12 +1820,6 @@ dependencies = [
  "utf-8",
  "webpki",
 ]
-
-[[package]]
-name = "twilight"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac73096f1805007620ceb6a4e27629c762eae8988bbeaab8274cdd4ee3a733a9"
 
 [[package]]
 name = "twilight-gateway"

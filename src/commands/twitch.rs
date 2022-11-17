@@ -125,7 +125,7 @@ async fn twitch_add(
     let mut msg = MessageBuilder::new();
 
     // Checking if user with provided name actually exists
-    if let None = ctx.twitch_api.get_user_by_name(name).await {
+    if (ctx.twitch_api.get_user_by_name(name).await).is_none() {
         msg = msg.content(
             format!("User with name `{name}` does not exists on twitch!")
         );
@@ -146,7 +146,7 @@ async fn twitch_add(
                 format!("`{name}` already added to current channel!")
             );
             command.update(ctx, &msg).await?;
-            return Ok(());
+            Ok(())
         },
         None => {
             ctx.db.add_tracking(&streamer, channel_id).await?;
@@ -154,7 +154,7 @@ async fn twitch_add(
                 format!("Successfully added `{name}` to tracking!")
             );
             command.update(ctx, &msg).await?;
-            return Ok(());
+            Ok(())
         },
     }
 }
@@ -176,20 +176,20 @@ async fn twitch_remove(
                 format!("Successfully removed `{name}` from current channel!")
             );
             command.update(ctx, &msg).await?;
-            return Ok(());
+            Ok(())
         },
         None => {
             msg = msg.content(
                 format!("`{name}` doesn't exists on current channel!")
             );
             command.update(ctx, &msg).await?;
-            return Ok(());
+            Ok(())
         }
     }
 }
 
 pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
-    if let Some(ref option) = &command.data.options.get(0) {
+    if let Some(option) = &command.data.options.get(0) {
         match &option.value {
             CommandOptionValue::SubCommand(args) => {
                 if let CommandOptionValue::String(name) = &args[0].value {
