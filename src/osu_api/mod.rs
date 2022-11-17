@@ -1,10 +1,12 @@
 mod datetime;
+mod metrics;
 pub mod models;
 
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };
 
 use self::models::{OauthResponse, OsuBeatmap, OsuLeaderboard};
+use self::metrics::Metrics;
 
 use eyre::Result;
 
@@ -15,11 +17,11 @@ use tokio::sync::RwLock;
 
 use tokio::sync::oneshot::{ channel, Receiver, Sender };
 
-#[derive(Debug)]
 pub struct OsuApi {
     inner: Arc<OsuToken>,
     fallback_url: String,
     loop_drop_tx: Option<Sender<()>>,
+    pub stats: Metrics
 }
 
 impl Drop for OsuApi {
@@ -90,6 +92,8 @@ impl OsuApi {
     pub async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap> {
         let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{}", bid);
         let r = self.make_request(&link, Method::GET).await.unwrap();
+
+        self.stats.beatmap.inc();
         
         if r.status() != StatusCode::OK {
             return None;
@@ -110,6 +114,8 @@ impl OsuApi {
         );
 
         let r = self.make_request(&link, Method::GET).await.unwrap();
+
+        self.stats.country_leaderboard.inc();
 
         if r.status() != StatusCode::OK {
             return None;
@@ -151,10 +157,13 @@ impl OsuApi {
             ).await;
         }
 
+        let stats = Metrics::new();
+
         let api = OsuApi {
             loop_drop_tx: Some(tx),
             inner,
             fallback_url: fallback_url.to_owned(),
+            stats,
         };
 
         Ok(api)

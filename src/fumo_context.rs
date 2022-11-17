@@ -12,6 +12,8 @@ use twilight_model::id::{
 };
 use twilight_standby::Standby;
 
+use crate::stats::BotStats;
+
 use std::env;
 use std::sync::Arc;
 
@@ -19,6 +21,7 @@ pub struct FumoContext {
     pub osu_api: OsuApi,
     pub twitch_api: TwitchApi,
     pub db: Database,
+    pub stats: BotStats,
     pub http: Arc<Client>,
     pub cluster: Cluster,
     pub standby: Standby,
@@ -84,6 +87,8 @@ impl FumoContext {
 
         let standby = Standby::new();
 
+        let stats = BotStats::new(osu_api.stats.counters.clone());
+
         let ctx = FumoContext {
             osu_api,
             twitch_api,
@@ -92,6 +97,7 @@ impl FumoContext {
             cluster,
             application_id,
             standby,
+            stats,
         };
 
         (ctx, events)

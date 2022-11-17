@@ -5,6 +5,8 @@ mod handlers;
 mod commands;
 mod utils;
 mod database;
+mod stats;
+mod server;
 
 use dotenv::dotenv;
 
@@ -15,6 +17,7 @@ use std::sync::Arc;
 
 use crate::fumo_context::FumoContext;
 use crate::handlers::{ event_loop, global_commands };
+use crate::server::run_server;
 
 use tokio::signal;
 use tokio::sync::oneshot::channel;
@@ -57,6 +60,15 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Spawn http server
+    let server_tx = {
+        let server_ctx = Arc::clone(&ctx);
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        tokio::spawn(run_server(server_ctx, rx));
+
+        tx
+    };
+
     // Run
     tokio::select! {
         _ = event_loop(event_ctx, events) => println!("Error in event loop!"),
@@ -72,6 +84,12 @@ async fn main() -> Result<()> {
     if tx.send(()).is_err() {
         println!("Failed to close twitch loop!");
     }
+    println!("Closed twitch loop!");
+
+    if server_tx.send(()).is_err() {
+        println!("Failed to close http server!");
+    }
+    println!("Closed http server!");
 
     println!("Bye!!!");
     Ok(())
