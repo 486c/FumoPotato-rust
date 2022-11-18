@@ -313,6 +313,7 @@ pub struct OsuScoreStatistics {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct OsuBeatmapsetCompact {
     title: String,
     artist: String,

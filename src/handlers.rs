@@ -126,13 +126,18 @@ async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
 
             handle_commands(ctx, cmd).await;
         },
+        Some(InteractionData::MessageComponent(_)) => {},
+        Some(InteractionData::ModalSubmit(_)) => {},
         _ => {},
     }
 }
 
-async fn handle_event(ctx: Arc<FumoContext>, shard_id: u64, event: Event) -> Result<()> {
+async fn handle_event(ctx: Arc<FumoContext>, _shard_id: u64, event: Event) -> Result<()> {
     ctx.standby.process(&event);
     match event {
+        Event::MessageUpdate(_) => {},
+        Event::MessageCreate(_) => {},
+        Event::MessageDelete(_) => {},
         Event::InteractionCreate(c) => handle_interactions(ctx, c.0).await,
         _ => {} //println!("Got unhandled event: {:?}", event),
     }

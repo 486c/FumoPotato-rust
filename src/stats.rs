@@ -1,4 +1,4 @@
-use prometheus::{IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts, Registry};
+use prometheus::{ IntCounterVec, Registry };
 
 pub struct BotStats {
     pub registry: Registry,

@@ -4,11 +4,11 @@ use std::sync::Arc;
 
 use tokio::sync::oneshot::Receiver;
 
-use hyper::{Body, Request, Response, Server, StatusCode};
-use routerify::{Middleware, Router, RouterService, RequestInfo};
-use std::{convert::Infallible, net::SocketAddr};
+use hyper::{ Body, Request, Response, Server };
+use routerify::{ Router, RouterService };
+use std::{ convert::Infallible, net::SocketAddr };
 use routerify::prelude::*;
-use prometheus::{Encoder, TextEncoder};
+use prometheus::{ Encoder, TextEncoder };
 
 async fn metrics_handler(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let mut buf = Vec::new();
@@ -29,7 +29,7 @@ fn router(ctx: Arc<FumoContext>) -> Router<Body, Infallible> {
 }
 
 pub async fn run_server(ctx: Arc<FumoContext>, shutdown_rx: Receiver<()>) {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], 5000));
 
     let router = router(ctx);
 

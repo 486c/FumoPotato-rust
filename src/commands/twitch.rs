@@ -100,6 +100,8 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
     Ok(())
 }
 
+/*
+
 async fn twitch_list(
     ctx: &FumoContext, 
     command: &InteractionCommand, 
@@ -115,6 +117,7 @@ async fn twitch_check(
 -> Result<()> {
     todo!()
 }
+*/
 
 async fn twitch_add(
     ctx: &FumoContext, 

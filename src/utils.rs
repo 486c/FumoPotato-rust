@@ -1,4 +1,5 @@
 use std::slice;
+use std::future::IntoFuture;
 
 use twilight_model::http::interaction::InteractionResponse;
 use twilight_model::http::interaction::InteractionResponseType;
@@ -71,7 +72,7 @@ impl InteractionComponent {
 
         ctx.interaction()
             .create_response(self.id, &self.token, &response)
-            .exec()
+            .into_future()
     }
 }
 
@@ -98,7 +99,7 @@ impl InteractionCommand {
                 &self.token,
                 &response
             )
-            .exec()
+            .into_future()
     }
 
     pub fn update<'a>(
@@ -124,7 +125,7 @@ impl InteractionCommand {
                     .expect("invalid components!");
         }
 
-        req.exec()
+        req.into_future()
     }
 
     pub fn get_option(

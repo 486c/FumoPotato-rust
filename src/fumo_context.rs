@@ -79,7 +79,6 @@ impl FumoContext {
 
 
         let application_id = http.current_user()
-            .exec()
             .await.unwrap()
             .model()
             .await.unwrap()
