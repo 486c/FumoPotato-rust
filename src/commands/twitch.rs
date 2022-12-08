@@ -8,6 +8,7 @@ use twilight_util::builder::embed::{
 use crate::twitch_api::{ TwitchStream, StreamType };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ MessageBuilder, InteractionCommand };
+use crate::database::twitch::TwitchStreamer;
 
 use eyre::{ Result, bail };
 
@@ -16,13 +17,10 @@ use std::{ slice, sync::Arc, time::Duration };
 pub async fn twitch_worker(ctx: Arc<FumoContext>) {
     println!("Started twitch checker loop!");
     loop {
-        match twitch_checker(&ctx).await {
-            Ok(_) => {},
-            Err(e) => {
-                println!("{:?}", 
-                    e.wrap_err("Error occured inside twitch tracking loop!")
-                );
-            }
+        if let Err(e) = twitch_checker(&ctx).await {
+            println!("{:?}", 
+                e.wrap_err("Error occured inside twitch tracking loop!")
+            );
         }
         tokio::time::sleep(Duration::from_secs(120)).await;
     }
@@ -67,35 +65,40 @@ pub async fn announce_channel(
 }
 
 pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
-    let streamers  = ctx.db.get_streamers().await?;
+    let data_db = ctx.db.get_streamers().await?;
 
-    for streamer_db in streamers.iter() {
-        let name = &streamer_db.name;
-        let online = streamer_db.online;
+    let names: Vec<&str> = data_db.iter().map(|s: &TwitchStreamer| s.name.as_str()).collect();
+    let data_api = match ctx.twitch_api.get_streams_by_name(
+        names.as_slice()
+    ).await {
+        Some(s) => s,
+        None => bail!("Got None from twitch api")
+    };
+    
+    for s_db in data_db {
+        let online = s_db.online;
 
-        match ctx.twitch_api.get_stream(name).await {
-            Some(streamer) => {
-                if streamer.stream_type == StreamType::Live && !online {
-                    ctx.db.toggle_online(name).await?;
+        match data_api.iter().find(|&i| i.user_id == s_db.id) {
+            // If Some(_) that means that current streamer from database is online
+            Some(s) => {
+                if s.stream_type == StreamType::Live && !online {
+                    ctx.db.toggle_online(s_db.id).await?;
 
-                    let channels = ctx.db.get_channels(name).await?;
-
-                    for channel in channels.iter() {
-                        let channel_id: Id<ChannelMarker> = Id::new(channel.id as u64);
-                        announce_channel(ctx, channel_id, &streamer).await?;
+                    let channels = ctx.db.get_channels(s_db.id).await?;
+                    for channel in channels {
+                        let channel_id: Id<ChannelMarker> = Id::new(channel.channel_id as u64);
+                        announce_channel(ctx, channel_id, s).await?;
                     }
                 }
-    
-                if streamer.stream_type == StreamType::Offline && online {
-                    ctx.db.toggle_online(name).await?;
+            },
+            // None means streamer from database is not currenly online
+            None => {
+                if online {
+                    ctx.db.toggle_online(s_db.id).await?;
                 }
             }
-            None => {
-                println!("Got unexpected None during twitch_check iteration");
-                println!("{}", &name);
-            }
         }
-    }       
+    }
 
     Ok(())
 }
@@ -128,21 +131,24 @@ async fn twitch_add(
     let mut msg = MessageBuilder::new();
 
     // Checking if user with provided name actually exists
-    if (ctx.twitch_api.get_user_by_name(name).await).is_none() {
-        msg = msg.content(
-            format!("User with name `{name}` does not exists on twitch!")
-        );
-        command.update(ctx, &msg).await?;
-        return Ok(())
-    };
-
-    let streamer = match ctx.db.get_streamer(name).await {
+    let streamer = match ctx.twitch_api.get_user_by_name(name).await {
         Some(s) => s,
-        None => ctx.db.add_streamer(name).await?,
+        None => {
+            msg = msg.content(
+                format!("User with name `{name}` does not exists on twitch!")
+                );
+            command.update(ctx, &msg).await?;
+            return Ok(());
+        }
+    };
+    
+    let streamer = match ctx.db.get_streamer(streamer.id).await {
+        Some(s) => s,
+        None => ctx.db.add_streamer(streamer.id, name).await?,
     };
     
     let channel_id: i64 = command.channel_id.get().try_into()?;
-    match ctx.db.get_tracking(name, channel_id).await {
+    match ctx.db.get_tracking(streamer.id, channel_id).await {
         Some(_) => {
 
             msg = msg.content(
@@ -172,23 +178,36 @@ async fn twitch_remove(
 
     let channel_id: i64 = command.channel_id.get().try_into()?;
 
-    match ctx.db.get_tracking(name, channel_id).await {
-        Some(_) => {
-            ctx.db.remove_tracking(name, channel_id).await?;
-            msg = msg.content(
-                format!("Successfully removed `{name}` from current channel!")
-            );
-            command.update(ctx, &msg).await?;
-            Ok(())
-        },
+    let streamer_db = match ctx.db.get_streamer_by_name(name).await {
+        Some(s) => s,
         None => {
             msg = msg.content(
                 format!("`{name}` doesn't exists on current channel!")
             );
             command.update(ctx, &msg).await?;
-            Ok(())
+            return Ok(());
         }
+    };
+    
+    if ctx.db.get_tracking(
+        streamer_db.id, channel_id
+    )
+    .await
+    .is_none() {
+        msg = msg.content(
+            format!("`{name}` doesn't exists on current channel!")
+        );
+        command.update(ctx, &msg).await?;
+        return Ok(());
     }
+    
+    ctx.db.remove_tracking(streamer_db.id, channel_id).await?;
+
+    msg = msg.content(
+        format!("Successfully removed `{name}` from current channel!")
+    );
+    command.update(ctx, &msg).await?;
+    Ok(())
 }
 
 pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {

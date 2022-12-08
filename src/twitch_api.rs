@@ -6,7 +6,7 @@ use eyre::Result;
 use serde::Deserialize;
 
 use serde::de::{ Visitor, Deserializer, Error };
-use std::fmt;
+use std::fmt::{ self, Write };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StreamType {
@@ -15,7 +15,6 @@ pub enum StreamType {
 }
 
 struct StreamTypeVisitor;
-
 impl<'de> Visitor<'de> for StreamTypeVisitor {
     type Value = StreamType;
 
@@ -40,9 +39,16 @@ impl<'de> Deserialize<'de> for StreamType {
     }
 }
 
+fn str_to_i64<'de, D: Deserializer<'de>>(d: D) -> Result<i64, D::Error> {
+    <&str as Deserialize>::deserialize(d)?
+        .parse()
+        .map_err(Error::custom)
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct TwitchUser {
-    pub id: String,
+    #[serde(deserialize_with = "str_to_i64")]
+    pub id: i64,
     pub login: String,
     pub display_name: String,
     //type
@@ -52,6 +58,8 @@ pub struct TwitchUser {
 #[derive(Deserialize, Debug, Clone)]
 pub struct TwitchStream {
     pub id: String,
+    #[serde(deserialize_with = "str_to_i64")]
+    pub user_id: i64,
     pub user_login: String,
     pub user_name: String,
     pub game_name: String,
@@ -98,6 +106,41 @@ impl TwitchApi {
             .header("Client-Id", &self.client_id);
 
         Ok(r.send().await?)
+    }
+
+    pub async fn get_streams_by_name(&self, names: &[&str]) -> Option<Vec<TwitchStream>> {
+        let mut link = "https://api.twitch.tv/helix/streams?".to_owned();
+        let mut users: Vec<TwitchStream> = Vec::with_capacity(names.len());
+
+        if names.is_empty() {
+            return None
+        };
+
+        for chunk in names.chunks(100) {
+            let mut iter = chunk.iter();
+
+            let first = iter.next()?;
+            let _ = write!(link, "user_login={first}");
+
+            for name in iter {
+                let _ = write!(link, "&user_login={name}");
+            }
+            
+            let r = self.make_request(&link, Method::GET).await;
+            let r = match r {
+                Ok(r) => r,
+                Err(_) => return None,
+            };
+
+            let data = r.json::<TwitchResponse<TwitchStream>>().await.unwrap();
+            if let Some(mut data) = data.data {
+                users.append(&mut data);
+            } else {
+                return None
+            }
+        };
+
+        Some(users)
     }
 
     pub async fn get_user_by_name(&self, name: &str) -> Option<TwitchUser> {
@@ -154,6 +197,7 @@ impl TwitchApi {
                     id: Default::default(),
                     user_login: Default::default(),
                     user_name: Default::default(),
+                    user_id: Default::default(),
                     game_name: Default::default(),
                     game_id: Default::default(),
                     stream_type: StreamType::Offline,

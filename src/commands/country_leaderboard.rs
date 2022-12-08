@@ -328,6 +328,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
         lb.update_embed();
         builder = builder.embed(lb.embed.clone()); // TODO remove cloning
+                                                
         component.defer(ctx).await?;
         command.update(ctx, &builder).await?;
     }
