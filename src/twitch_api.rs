@@ -126,8 +126,7 @@ impl TwitchApi {
                 let _ = write!(link, "&user_login={name}");
             }
             
-            let r = self.make_request(&link, Method::GET).await;
-            let r = match r {
+            let r = match self.make_request(&link, Method::GET).await {
                 Ok(r) => r,
                 Err(_) => return None,
             };
@@ -143,6 +142,7 @@ impl TwitchApi {
         Some(users)
     }
 
+    //TODO maybe use get_users_by_name ?
     pub async fn get_user_by_name(&self, name: &str) -> Option<TwitchUser> {
         let link = format!("https://api.twitch.tv/helix/users?login={}", name);
 
@@ -165,51 +165,8 @@ impl TwitchApi {
             None
         }
     }
-
-    /* TODO fetch streams by vector of id's instead of fetching one by one */
-    pub async fn get_stream(&self, name: &str) -> Option<TwitchStream> {
-        let link = format!("https://api.twitch.tv/helix/streams?user_login={}", name);
-
-        let r = self.make_request(&link, Method::GET).await;
-
-        // Handling worst case scenarios
-        let r = match r {
-            Ok(r) => r,
-            Err(_) => return None,
-        };
-
-        if r.status() != StatusCode::OK {
-            println!("{:?}", r.text().await);
-            return None;
-        }
-        
-        let s = r.json::<TwitchResponse<TwitchStream>>().await.unwrap();
-
-        if let Some(data) = s.data {
-
-            // Since twitch is returning just empty data instead of saying if streamer is online or not
-            // so we assuming that empty data = stream is offline 
-            if let Some(stream) = data.get(0) {
-                Some(stream.clone())
-            } 
-            else {
-                Some(TwitchStream {
-                    id: Default::default(),
-                    user_login: Default::default(),
-                    user_name: Default::default(),
-                    user_id: Default::default(),
-                    game_name: Default::default(),
-                    game_id: Default::default(),
-                    stream_type: StreamType::Offline,
-                    title: Default::default(),
-                })
-            }
-        } 
-        else {
-            None
-        }
-    }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -217,20 +174,6 @@ mod tests {
 
     use std::env;
     use dotenv::dotenv;
-
-    #[tokio::test]
-    async fn test_get_stream() {
-        dotenv().unwrap();
-
-        let twitch_api = TwitchApi::init(
-            env::var("TWITCH_TOKEN").unwrap().as_str(),
-            env::var("TWITCH_CLIENT_ID").unwrap().as_str()
-        ).await.unwrap();
-
-        let s = twitch_api.get_stream("ITMUSTFA11231ILASLDJKLSAKFJZMXCN123").await.unwrap();
-
-        assert_eq!(s.stream_type, StreamType::Offline);
-    }
 
     #[tokio::test]
     async fn test_get_user() {

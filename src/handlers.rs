@@ -22,13 +22,12 @@ use crate::commands::{
 use crate::utils::InteractionCommand;
 
 use eyre::Result;
-use log::warn;
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     let res = match cmd.data.name.as_str() {
         "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,
-        _ => return warn!("Got unhandled interaction command"),
+        _ => return println!("Got unhandled interaction command"),
     };
     
     // TODO Add some basic error message i guess

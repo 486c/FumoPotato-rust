@@ -1,9 +1,10 @@
 use std::slice;
 use std::future::IntoFuture;
 
-use twilight_model::http::interaction::InteractionResponse;
-use twilight_model::http::interaction::InteractionResponseType;
-use twilight_http::response::{marker::EmptyBody, ResponseFuture};
+use once_cell::sync::OnceCell;
+
+use twilight_model::http::interaction::{ InteractionResponse, InteractionResponseType };
+use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
 use twilight_model::channel::message::{ component::Component, Message };
 
 use twilight_model::id::{
@@ -128,6 +129,7 @@ impl InteractionCommand {
         req.into_future()
     }
 
+    #[inline]
     pub fn get_option(
         &self, 
         name: &str
@@ -135,6 +137,7 @@ impl InteractionCommand {
         self.data.options.iter().find(|x| x.name == name)
     }
     
+    #[inline]
     pub fn get_option_string(
         &self,
         name: &str
@@ -147,3 +150,34 @@ impl InteractionCommand {
         None
     }
 }
+
+pub struct Regex {
+    regex: &'static str,
+    cell: OnceCell<regex::Regex>,
+}
+
+impl Regex {
+    const fn new(regex: &'static str) -> Self {
+        Self {
+            regex,
+            cell: OnceCell::new(),
+        }
+    }
+
+    pub fn get(&self) -> &regex::Regex {
+        self.cell
+            .get_or_init(|| regex::Regex::new(self.regex).unwrap())
+    }
+}
+
+macro_rules! define_regex {
+    ($($name:ident: $pat:literal;)*) => {
+        $( pub static $name: Regex = Regex::new($pat); )*
+    }
+}
+
+define_regex! {
+    OSU_MAP_ID_NEW: r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?";
+    OSU_MAP_ID_OLD: r"https://osu.ppy.sh/b(?:eatmaps)?/(\d+)";
+}
+

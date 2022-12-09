@@ -1,6 +1,7 @@
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
+use crate::utils::{ OSU_MAP_ID_NEW, OSU_MAP_ID_OLD };
 
 use twilight_util::builder::embed::{ image_source::ImageSource, EmbedBuilder, EmbedAuthorBuilder };
 use twilight_model::channel::message::component::{ Component, Button, ButtonStyle, ActionRow};
@@ -174,27 +175,23 @@ fn find_link(msg: &Message) -> Option<&String> {
 }
 
 fn parse_link(str: &str) -> Option<i32> {
-    //TODO rewrite this shit xD
-    let split: Vec<&str> = str.split('/').collect();
-
-    // if full beatmapset link
-    if split.len() == 6 {
-        // Should never fail
-        return Some(split.get(5).unwrap().parse::<i32>().unwrap());
+    if !str.contains("https://osu.ppy.sh") {
+        return None
     }
 
-    // if compact link to beatmap
-    // aka /b/id & /beatmaps/id
-    if split.len() == 5 {
-        // Also Should never fail
-        return Some(split.get(4).unwrap().parse::<i32>().unwrap());
-    }
+    let m = if let Some(o) = OSU_MAP_ID_OLD.get().captures(str) {
+        o.get(1)
+    } else {
+        OSU_MAP_ID_NEW.get()
+            .captures(str)
+            .and_then(|o| o.get(2))
+    };
 
-    None
+    m.and_then(|o| o.as_str().parse().ok())
 }
 
 pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
-    command.defer(ctx).await.unwrap();
+    command.defer(ctx).await?;
 
     let mut builder = MessageBuilder::new();
 
@@ -206,7 +203,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
             bid = v;
         } else {
             builder = builder.content("Invalid link format!");
-            command.update(ctx, &builder).await.unwrap();
+            command.update(ctx, &builder).await?;
             return Ok(());
         }
     }
@@ -217,9 +214,11 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
             let msg = ctx.http.message(
                 command.channel_id,
                 id.cast()
-            ).await.unwrap()
-                .model().await.unwrap();
- 
+            )
+            .await?
+            .model()
+            .await?;
+
             if let Some(link) = find_link(&msg) {
                 if let Some(id) = parse_link(link.as_ref()) {
                     bid = id;
@@ -231,9 +230,9 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
         None => {
             let msgs = ctx.http.
                 channel_messages(command.channel_id)
-                .limit(50).unwrap()
-                .await.unwrap()
-                .models().await.unwrap();
+                .limit(50)?
+                .await?
+                .models().await?;
 
             for m in msgs {
                 if let Some(link) = find_link(&m) {
@@ -249,7 +248,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
     // If bid is still -1 after all
     if bid == -1 {
         builder = builder.content("Couldn't find any score/beatmap!");
-        command.update(ctx, &builder).await.unwrap();
+        command.update(ctx, &builder).await?;
         return Ok(());
     }
 
@@ -257,7 +256,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
         Some(lb) => lb,
         None => {
             builder = builder.content("Issues with leaderboard api. blame seneal");
-            command.update(ctx, &builder).await.unwrap();
+            command.update(ctx, &builder).await?;
             return Ok(());
         }
     };
@@ -266,7 +265,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
         Some(b) => b,
         None => {
             builder = builder.content("Issues with osu!api. blame peppy");
-            command.update(ctx, &builder).await.unwrap();
+            command.update(ctx, &builder).await?;
             return Ok(());
         }
     };
@@ -276,8 +275,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
     builder = builder.embed(lb.embed.clone());
     builder = builder.components(LeaderboardListing::components());
 
-    let msg = command.update(ctx, &builder).await.unwrap()
-        .model().await.unwrap();
+    let msg = command.update(ctx, &builder).await?
+        .model().await?;
 
     let stream = ctx.standby.wait_for_component_stream(msg.id, |_e: &Interaction| {
         true
