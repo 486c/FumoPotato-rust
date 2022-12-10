@@ -1,5 +1,7 @@
-use std::slice;
-use std::future::IntoFuture;
+use std::{
+    slice,
+    future::IntoFuture
+};
 
 use once_cell::sync::OnceCell;
 

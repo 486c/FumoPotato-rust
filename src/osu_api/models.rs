@@ -1,4 +1,5 @@
 use crate::osu_api::datetime::deserialize_local_datetime;
+use crate::osu_api::error::OsuApiError;
 
 use chrono::prelude::*;
 
@@ -8,6 +9,7 @@ use serde::Deserialize;
 use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
 
 use std::string::ToString;
+use std::str::FromStr;
 use std::fmt;
 
 use bitflags::bitflags;
@@ -184,7 +186,7 @@ impl ToString for OsuMods {
     fn to_string(&self) -> String {
         let mut res = String::new();
 
-        if self.bits == 0 {
+        if self.is_empty() {
             res.push_str("NM");
             return res
         }
@@ -231,6 +233,37 @@ impl ToString for OsuMods {
         }
 
         res
+    }
+}
+
+impl FromStr for OsuMods {
+    type Err = OsuApiError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.to_uppercase();
+        let mut flags = OsuMods::empty();
+
+        for abbrev in utils::cut(&s, 2) {
+            flags = match abbrev {
+                "NM" => flags | OsuMods::NOMOD,
+                "NF" => flags | OsuMods::NOFAIL,
+                "EZ" => flags | OsuMods::EASY,
+                "TD" => flags | OsuMods::TOUCHDEVICE,
+                "HD" => flags | OsuMods::HIDDEN,
+                "HR" => flags | OsuMods::HARDROCK,
+                "SD" => flags | OsuMods::SUDDENDEATH,
+                "DT" => flags | OsuMods::DOUBLETIME,
+                "RX" => flags | OsuMods::RELAX,
+                "HT" => flags | OsuMods::HALFTIME,
+                "NC" => flags | OsuMods::NIGHTCORE,
+                "FL" => flags | OsuMods::FLASHLIGHT,
+                "SO" => flags | OsuMods::SPUNOUT,
+                "PF" => flags | OsuMods::PERFECT,
+                "FD" => flags | OsuMods::FADEIN,
+                _ => flags,
+            };
+        };
+
+        Ok(flags)
     }
 }
 
@@ -388,5 +421,27 @@ pub struct OsuUserCompact {
     pub pm_friends_only: bool,
     pub username: String,
     // last_visit & profile_colour skipped
+}
+
+mod utils {
+    pub fn cut(mut source: &str, n: usize) -> impl Iterator<Item = &str> {
+        std::iter::from_fn(move || {
+            if source.is_empty() {
+                None
+            } else {
+                let end_idx = source
+                    .char_indices()
+                    .nth(n - 1)
+                    .map_or_else(|| source.len(), |(idx, c)| idx + c.len_utf8() 
+                );
+
+                let (split, rest) = source.split_at(end_idx);
+
+                source = rest;
+
+                Some(split)
+            }
+        })
+    }
 }
 

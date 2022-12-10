@@ -1,6 +1,7 @@
 mod datetime;
 mod metrics;
 pub mod models;
+pub mod error;
 
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };
@@ -200,6 +201,7 @@ impl OsuApi {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
     use crate::osu_api::{
         *,
         models::*
@@ -275,5 +277,25 @@ mod tests {
 
         let mods = OsuMods::NIGHTCORE | OsuMods::HIDDEN | OsuMods::HARDROCK;
         assert_eq!(mods.to_string(), "HDNCHR");
+    }
+
+    #[test]
+    fn test_mods_from_str() {
+        // Contains one non existent mod
+        // Should output DT | EZ
+        let mods = OsuMods::from_str("dtdhez").unwrap();
+        assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::EASY);
+
+        let mods = OsuMods::from_str("DTHD").unwrap();
+        assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::HIDDEN);
+
+        let mods = OsuMods::from_str("DTHD").unwrap();
+        assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::HIDDEN);
+
+        let mods = OsuMods::from_str("DThDhR").unwrap();
+        assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::HIDDEN | OsuMods::HARDROCK);
+
+        let mods = OsuMods::from_str("DThDhRdt").unwrap();
+        assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::HIDDEN | OsuMods::HARDROCK);
     }
 }
