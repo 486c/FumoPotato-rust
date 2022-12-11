@@ -138,6 +138,19 @@ impl InteractionCommand {
     ) -> Option<&CommandDataOption> {
         self.data.options.iter().find(|x| x.name == name)
     }
+
+    #[inline]
+    pub fn get_option_number(
+        &self,
+        name: &str
+    ) -> Option<f64> {
+        if let Some(option) = self.get_option(name) {
+            if let CommandOptionValue::Number(v) = &option.value {
+                return Some(*v)
+            }
+        };
+        None
+    }
     
     #[inline]
     pub fn get_option_string(
@@ -181,5 +194,25 @@ macro_rules! define_regex {
 define_regex! {
     OSU_MAP_ID_NEW: r"https://osu.ppy.sh/beatmapsets/(\d+)(?:(?:#(?:osu|mania|taiko|fruits)|<#\d+>)/(\d+))?";
     OSU_MAP_ID_OLD: r"https://osu.ppy.sh/b(?:eatmaps)?/(\d+)";
+}
+
+pub fn ar_to_ms(ar: f64) -> f64 {
+    if ar > 5.0 {
+        1200.0 - 750.0 * (ar - 5.0) / 5.0
+    } else if ar < 5.0 {
+        1200.0 + 600.0 * (5.0 - ar) / 5.0
+    } else {
+        1200.0
+    }
+}
+
+pub fn ms_to_ar(ms: f64) -> f64 {
+    if ms < 1200.0 {
+        ((ms*5.0 - 1200.0*5.0) / (450.0 - 1200.0)) + 5.0
+    } else if ms > 1200.0 {
+        5.0 - ((1200.0*5.0 - ms*5.0) / (1200.0 - 1800.0))
+    } else {
+        1200.0
+    }
 }
 

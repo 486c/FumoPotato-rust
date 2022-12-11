@@ -10,13 +10,15 @@ use twilight_model::application::interaction::{
 };
 use twilight_model::application::command::Command;
 use twilight_util::builder::command::{ 
-    CommandBuilder, StringBuilder, SubCommandBuilder
+    CommandBuilder, StringBuilder, SubCommandBuilder,
+    NumberBuilder
 };
 use twilight_model::application::command::CommandType;
 
 use crate::commands::{
     country_leaderboard,
     twitch,
+    attributes,
 };
 
 use crate::utils::InteractionCommand;
@@ -27,6 +29,7 @@ async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     let res = match cmd.data.name.as_str() {
         "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,
+        "ar" | "od" => attributes::run(&ctx, cmd).await,
         _ => return println!("Got unhandled interaction command"),
     };
     
@@ -72,6 +75,25 @@ pub fn global_commands() -> Vec<Command> {
         "",
         CommandType::Message,
     ).build();
+    commands.push(cmd);
+
+    /* osu attributes */
+    let cmd = CommandBuilder::new(
+        "ar",
+        "Calculate AR values",
+        CommandType::ChatInput,
+    )
+    .option(
+        NumberBuilder::new("ar", "ar value")
+        .min_value(1.0)
+        .max_value(10.0)
+        .required(true)
+    )
+    .option(
+        StringBuilder::new("mods", "osu mods")
+        .required(false),
+    )
+    .build();
     commands.push(cmd);
 
     /* twitch */
