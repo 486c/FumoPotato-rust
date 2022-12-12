@@ -196,6 +196,16 @@ define_regex! {
     OSU_MAP_ID_OLD: r"https://osu.ppy.sh/b(?:eatmaps)?/(\d+)";
 }
 
+#[inline]
+pub fn get_hits_std_circle(od: f64) -> (f64, f64, f64) {
+    (
+        80.0 - 6.0 * od,
+        140.0 - 8.0 * od,
+        200.0 - 10.0 * od
+    )
+}
+
+#[inline]
 pub fn ar_to_ms(ar: f64) -> f64 {
     if ar > 5.0 {
         1200.0 - 750.0 * (ar - 5.0) / 5.0
@@ -206,6 +216,7 @@ pub fn ar_to_ms(ar: f64) -> f64 {
     }
 }
 
+#[inline]
 pub fn ms_to_ar(ms: f64) -> f64 {
     if ms < 1200.0 {
         ((ms*5.0 - 1200.0*5.0) / (450.0 - 1200.0)) + 5.0

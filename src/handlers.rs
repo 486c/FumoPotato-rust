@@ -84,7 +84,25 @@ pub fn global_commands() -> Vec<Command> {
         CommandType::ChatInput,
     )
     .option(
-        NumberBuilder::new("ar", "ar value")
+        NumberBuilder::new("ar", "AR value")
+        .min_value(1.0)
+        .max_value(10.0)
+        .required(true)
+    )
+    .option(
+        StringBuilder::new("mods", "osu mods")
+        .required(false),
+    )
+    .build();
+    commands.push(cmd);
+
+    let cmd = CommandBuilder::new(
+        "od",
+        "Calculate OD values",
+        CommandType::ChatInput,
+    )
+    .option(
+        NumberBuilder::new("od", "OD value")
         .min_value(1.0)
         .max_value(10.0)
         .required(true)
