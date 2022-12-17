@@ -197,7 +197,7 @@ define_regex! {
 }
 
 #[inline]
-pub fn get_hits_std_circle(od: f64) -> (f64, f64, f64) {
+pub fn hit_windows_circle_std(od: f64) -> (f64, f64, f64) {
     (
         80.0 - 6.0 * od,
         140.0 - 8.0 * od,

@@ -28,7 +28,7 @@ struct LeaderboardListing<'a> {
 }
 
 impl<'a> LeaderboardListing<'a> {
-    fn new(s: &'a Vec<OsuScore>, b: &'a OsuBeatmap) -> LeaderboardListing {
+    fn new(s: &'a Vec<OsuScore>, b: &'a OsuBeatmap) -> LeaderboardListing<'a> {
         let mut pages: i32 = (s.len() as f32 / 10.0 ).ceil() as i32;
         if pages == 0 {
             pages = 1;

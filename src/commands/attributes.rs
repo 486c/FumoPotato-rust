@@ -1,7 +1,8 @@
 use crate::{
     fumo_context::FumoContext,
     utils::{ 
-        InteractionCommand, ms_to_ar,  get_hits_std_circle,
+        InteractionCommand, ms_to_ar,  hit_windows_circle_std,
+        ar_to_ms,
         MessageBuilder,
     },
     osu_api::models::OsuMods,
@@ -32,13 +33,7 @@ async fn ar(
     }
 
     // Calculate ms only after applying EZ & HR
-    let mut ms: f64 = if ar > 5.0 {
-        1200.0 - 750.0 * (ar - 5.0) / 5.0
-    } else if ar < 5.0 {
-        1200.0 + 600.0 * (5.0 - ar) / 5.0
-    } else {
-        1200.0
-    };
+    let mut ms = ar_to_ms(ar);
 
     if mods.contains(OsuMods::DOUBLETIME) {
         ms /= 1.5;
@@ -50,14 +45,14 @@ async fn ar(
 
     ar = ms_to_ar(ms);
 
-    cmd.defer(&ctx).await?;
+    cmd.defer(ctx).await?;
 
     let mut msg = MessageBuilder::new();
     msg = msg.content(
         format!("{:.2} ({:.0}ms)", ar, ms)
     );
 
-    cmd.update(&ctx, &msg).await?;
+    cmd.update(ctx, &msg).await?;
 
     Ok(())
 }
@@ -82,7 +77,7 @@ async fn od(
         od = (od * 1.4).min(10.0);
     }
 
-    let (mut c300, mut c100, mut c50) = get_hits_std_circle(od);
+    let (mut c300, mut c100, mut c50) = hit_windows_circle_std(od);
 
     if mods.contains(OsuMods::DOUBLETIME) {
         c300 /= 1.5;
@@ -96,7 +91,7 @@ async fn od(
         c50 /= 0.75;
     }
 
-    cmd.defer(&ctx).await?;
+    cmd.defer(ctx).await?;
 
     let _  = writeln!(st, "300: {c300:.2}ms");
     let _  = writeln!(st, "100: {c100:.2}ms");
@@ -104,7 +99,7 @@ async fn od(
 
     let mut msg = MessageBuilder::new();
     msg = msg.content(st);
-    cmd.update(&ctx, &msg).await?;
+    cmd.update(ctx, &msg).await?;
 
     
 
