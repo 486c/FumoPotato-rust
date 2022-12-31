@@ -190,67 +190,12 @@ fn parse_link(str: &str) -> Option<i32> {
     m.and_then(|o| o.as_str().parse().ok())
 }
 
-pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
-    command.defer(ctx).await?;
-
+pub async fn country_leaderboard(
+    ctx: &FumoContext, 
+    bid: i32,
+    command: &InteractionCommand
+) -> Result<()> {
     let mut builder = MessageBuilder::new();
-
-    let mut bid: i32 = -1;
-    
-    // If we got direct link
-    if let Some(link) = command.get_option_string("link") {
-        if let Some(v) = parse_link(link) {
-            bid = v;
-        } else {
-            builder = builder.content("Invalid link format!");
-            command.update(ctx, &builder).await?;
-            return Ok(());
-        }
-    }
-
-    match command.data.target_id {
-        // If we got app interaction
-        Some(id) => {
-            let msg = ctx.http.message(
-                command.channel_id,
-                id.cast()
-            )
-            .await?
-            .model()
-            .await?;
-
-            if let Some(link) = find_link(&msg) {
-                if let Some(id) = parse_link(link.as_ref()) {
-                    bid = id;
-                }
-            }
-        },
-
-        // If we got basic interaction without direct link
-        None => {
-            let msgs = ctx.http.
-                channel_messages(command.channel_id)
-                .limit(50)?
-                .await?
-                .models().await?;
-
-            for m in msgs {
-                if let Some(link) = find_link(&m) {
-                    if let Some(id) = parse_link(link.as_ref()) {
-                        bid = id;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // If bid is still -1 after all
-    if bid == -1 {
-        builder = builder.content("Couldn't find any score/beatmap!");
-        command.update(ctx, &builder).await?;
-        return Ok(());
-    }
 
     let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
         Some(lb) => lb,
@@ -327,7 +272,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
         lb.update_embed();
         builder = builder.embed(lb.embed.clone()); // TODO remove cloning
-                                                
+
         component.defer(ctx).await?;
         command.update(ctx, &builder).await?;
     }
@@ -335,5 +280,61 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
     builder = builder.components(Vec::new());
     command.update(ctx, &builder).await?;
 
+    Ok(())
+
+}
+
+pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
+    command.defer(ctx).await?;
+
+    let mut builder = MessageBuilder::new();
+
+    // If we got direct link
+    if let Some(link) = command.get_option_string("link") {
+        if let Some(bid) = parse_link(link) {
+            //bid = v;
+            return country_leaderboard(ctx, bid, &command).await;
+        } else {
+            builder = builder.content("Invalid link format!");
+            command.update(ctx, &builder).await?;
+            return Ok(());
+        }
+    }
+
+    // If we got app interaction
+    if let Some(id) = command.data.target_id {
+        let msg = ctx.http.message(
+            command.channel_id,
+            id.cast()
+        )
+        .await?
+        .model()
+        .await?;
+
+        if let Some(link) = find_link(&msg) {
+            if let Some(bid) = parse_link(link.as_ref()) {
+                return country_leaderboard(ctx, bid, &command).await;
+            }
+        }
+    }
+
+    // If we got basic interaction
+    let msgs = ctx.http.
+        channel_messages(command.channel_id)
+        .limit(50)?
+        .await?
+        .models().await?;
+
+    for m in msgs {
+        if let Some(link) = find_link(&m) {
+            if let Some(bid) = parse_link(link.as_ref()) {
+                return country_leaderboard(ctx, bid, &command).await;
+            }
+        }
+    }
+
+    // If we didn't find anything
+    builder = builder.content("Couldn't find any score/beatmap!");
+    command.update(ctx, &builder).await?;
     Ok(())
 }
