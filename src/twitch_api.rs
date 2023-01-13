@@ -142,7 +142,8 @@ impl TwitchApi {
         Some(users)
     }
 
-    //TODO maybe use get_users_by_name ?
+    //TODO definitely use get_users_by_name instead
+    // ^ look at get_streams_by_name as reference
     pub async fn get_user_by_name(&self, name: &str) -> Option<TwitchUser> {
         let link = format!("https://api.twitch.tv/helix/users?login={}", name);
 

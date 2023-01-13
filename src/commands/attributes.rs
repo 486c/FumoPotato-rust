@@ -13,7 +13,6 @@ use std::fmt::Write;
 
 use eyre::{ Result, bail };
 
-
 async fn ar(
     ctx: &FumoContext, 
     cmd: InteractionCommand, 
@@ -49,7 +48,10 @@ async fn ar(
 
     let mut msg = MessageBuilder::new();
     msg = msg.content(
-        format!("{:.2} ({:.0}ms)", ar, ms)
+        format!(
+            "AR: {:.2} ({:.0}ms)",
+            ar, ms
+        )
     );
 
     cmd.update(ctx, &msg).await?;
@@ -101,8 +103,6 @@ async fn od(
     msg = msg.content(st);
     cmd.update(ctx, &msg).await?;
 
-    
-
     Ok(())
 }
 
@@ -117,8 +117,11 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
         String::default()
     };
 
-    // Should never fail so using unwrap here but this is still really silly
-    let mods = OsuMods::from_str(mods_str.as_str()).unwrap();
+    // Using unwrap cuz it can't panic in any way:
+    // Cuz even if `OsuMods` fails to parse, it still will 
+    // return empty struct that equals to NM
+    let mods = OsuMods::from_str(mods_str.as_str())
+        .unwrap();
 
     match command.data.name.as_str() {
         "ar" => ar(ctx, command, mods).await,

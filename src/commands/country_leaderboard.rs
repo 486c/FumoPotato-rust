@@ -272,7 +272,8 @@ pub async fn country_leaderboard(
 
         lb.update_embed();
         builder = builder.embed(lb.embed.clone()); // TODO remove cloning
-
+                                                   // - hold builder inside?
+                                                   // - idk tbh
         component.defer(ctx).await?;
         command.update(ctx, &builder).await?;
     }
