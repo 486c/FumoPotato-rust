@@ -134,6 +134,9 @@ pub fn global_commands() -> Vec<Command> {
             .required(true)
         )
     )
+    .option(
+        SubCommandBuilder::new("list", "list tracked twitch channels that being tracked on current channel")
+    )
     .build();
     commands.push(cmd);
 

@@ -12,7 +12,7 @@ use crate::database::twitch::TwitchStreamer;
 
 use eyre::{ Result, bail };
 
-use std::{ slice, sync::Arc, time::Duration };
+use std::{ slice, sync::Arc, time::Duration, fmt::Write };
 
 pub async fn twitch_worker(ctx: Arc<FumoContext>) {
     println!("Started twitch checker loop!");
@@ -103,15 +103,45 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
     Ok(())
 }
 
-/*
 
 async fn twitch_list(
     ctx: &FumoContext, 
-    command: &InteractionCommand, 
-    name: &str)
--> Result<()> {
-    todo!()
+    command: &InteractionCommand
+) -> Result<()> {
+    let channels = ctx.db.get_channels(command.channel_id.get() as i64)
+        .await?;
+    let streamers = ctx.db.get_streamers()
+        .await?;
+
+    command.defer(&ctx).await?;
+
+    // Early exit just in case
+    if channels.len() == 0 {
+        let builder = MessageBuilder::new()
+            .content("Couldn't find any tracked twitch channels on current channel!");
+        command.update(ctx, &builder).await?;
+        return Ok(())
+    };
+
+    let mut list = String::with_capacity(500);
+
+    for ch in channels {
+        let s = match streamers.iter().find(|&x| x.id == ch.id) {
+            Some(streamer) => streamer,
+            None => bail!("Couldn't find twitch streamer???")
+        };
+
+        let _  = writeln!(list, "{}", s.name);
+    };
+
+    let builder = MessageBuilder::new()
+        .content(format!("```{}```", list));
+
+    command.update(ctx, &builder).await?;
+
+    Ok(())
 }
+/*
 
 async fn twitch_check(
     ctx: &FumoContext, 
@@ -214,14 +244,19 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
     if let Some(option) = &command.data.options.get(0) {
         match &option.value {
             CommandOptionValue::SubCommand(args) => {
-                if let CommandOptionValue::String(name) = &args[0].value {
-                    match option.name.as_ref() {
-                        "add" => Ok(twitch_add(ctx, &command, name).await?),
-                        "remove" => Ok(twitch_remove(ctx, &command, name).await?),
-                        &_ => bail!("Unrecognized option name `{}`", option.name),
-                    }
-                } else {
-                    bail!("Failed to extract required argument from subcommand")
+                match option.name.as_ref() {
+                    "add" => {
+                        if let CommandOptionValue::String(name) = &args[0].value {
+                            return Ok(twitch_add(ctx, &command, name).await?);
+                        } else { bail!("No required option provided!"); }
+                    },
+                    "remove" => { 
+                        if let CommandOptionValue::String(name) = &args[0].value {
+                            Ok(twitch_remove(ctx, &command, name).await?)
+                        } else { bail!("No required option provided!"); }
+                    },
+                    "list" => Ok(twitch_list(ctx, &command).await?),
+                    &_ => bail!("Unrecognized option name `{}`", option.name),
                 }
             },
             _ => {
