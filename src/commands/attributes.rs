@@ -65,11 +65,10 @@ async fn od(
     mods: OsuMods
 ) -> Result<()> {
     let mut st = String::new();
-    // Unwrap cuz od option is required and there's no way this could fail
+    // Unwrap cuz `od` option is required and there's no way this could fail
     let mut od = cmd.get_option_number("od").unwrap();
 
     let _ = writeln!(st, "```{od} +{}", mods.to_string());
-
 
     if mods.contains(OsuMods::EASY) {
         od /= 2.0;

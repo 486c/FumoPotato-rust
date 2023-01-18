@@ -5,9 +5,14 @@ use std::{
 
 use once_cell::sync::OnceCell;
 
-use twilight_model::http::interaction::{ InteractionResponse, InteractionResponseType };
 use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
-use twilight_model::channel::message::{ component::Component, Message };
+
+use twilight_model::http::interaction::{ InteractionResponse, InteractionResponseType };
+use twilight_model::channel::message::{ 
+    component::Component, 
+    Message,
+    embed::Embed
+};
 
 use twilight_model::id::{
     Id, 
@@ -20,8 +25,6 @@ use twilight_model::application::interaction::{
     message_component::MessageComponentInteractionData,
 };
 use twilight_model::application::interaction::application_command::{ CommandOptionValue, CommandDataOption };
-
-use twilight_model::channel::message::embed::Embed;
 
 use crate::fumo_context::FumoContext;
 
@@ -188,7 +191,7 @@ impl Regex {
 macro_rules! define_regex {
     ($($name:ident: $pat:literal;)*) => {
         $( pub static $name: Regex = Regex::new($pat); )*
-    }
+    };
 }
 
 define_regex! {
