@@ -41,7 +41,7 @@ impl FumoContext {
         let twitch_api = TwitchApi::init(
             env::var("TWITCH_TOKEN").unwrap().as_str(),
             env::var("TWITCH_CLIENT_ID").unwrap().as_str()
-        ).await.unwrap();
+        ).await;
 
         // Init osu api
         let osu_api = OsuApi::init(

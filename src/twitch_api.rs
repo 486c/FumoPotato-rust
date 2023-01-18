@@ -83,12 +83,12 @@ pub struct TwitchApi {
 }
 
 impl TwitchApi {
-    pub async fn init(token: &str, client_id: &str) -> Result<TwitchApi> {
-        Ok(TwitchApi {
+    pub async fn init(token: &str, client_id: &str) -> TwitchApi {
+        TwitchApi {
             client: Client::new(),
             token: token.to_string(),
             client_id: client_id.to_string(),
-        })
+        }
     }
 
     async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
@@ -108,38 +108,40 @@ impl TwitchApi {
         Ok(r.send().await?)
     }
 
-    pub async fn get_streams_by_name(&self, names: &[&str]) -> Option<Vec<TwitchStream>> {
+    pub async fn get_streams_by_name(
+        &self, names: &[&str]
+    ) -> Result<Option<Vec<TwitchStream>>> {
         let mut link = "https://api.twitch.tv/helix/streams?".to_owned();
         let mut users: Vec<TwitchStream> = Vec::with_capacity(names.len());
 
         if names.is_empty() {
-            return None
+            return Ok(None)
         };
 
         for chunk in names.chunks(100) {
             let mut iter = chunk.iter();
+            
+            // Probably should never ever fail
+            let first = iter.next().unwrap();
 
-            let first = iter.next()?;
             let _ = write!(link, "user_login={first}");
 
             for name in iter {
                 let _ = write!(link, "&user_login={name}");
             }
             
-            let r = match self.make_request(&link, Method::GET).await {
-                Ok(r) => r,
-                Err(_) => return None,
-            };
+            let r = self.make_request(&link, Method::GET).await?;
 
-            let data = r.json::<TwitchResponse<TwitchStream>>().await.unwrap();
+            let data = r.json::<TwitchResponse<TwitchStream>>().await?;
+
             if let Some(mut data) = data.data {
                 users.append(&mut data);
             } else {
-                return None
+                return Ok(None)
             }
         };
 
-        Some(users)
+        Ok(Some(users))
     }
 
     //TODO definitely use get_users_by_name instead

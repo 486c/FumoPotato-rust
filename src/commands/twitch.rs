@@ -70,7 +70,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
     let names: Vec<&str> = data_db.iter().map(|s: &TwitchStreamer| s.name.as_str()).collect();
     let data_api = match ctx.twitch_api.get_streams_by_name(
         names.as_slice()
-    ).await {
+    ).await? {
         Some(s) => s,
         None => bail!("Got None from twitch api")
     };
@@ -116,7 +116,7 @@ async fn twitch_list(
     command.defer(&ctx).await?;
 
     // Early exit just in case
-    if channels.len() == 0 {
+    if channels.is_empty() {
         let builder = MessageBuilder::new()
             .content("Couldn't find any tracked twitch channels on current channel!");
         command.update(ctx, &builder).await?;
@@ -135,7 +135,7 @@ async fn twitch_list(
     };
 
     let builder = MessageBuilder::new()
-        .content(format!("```{}```", list));
+        .content(format!("```\n{}```", list));
 
     command.update(ctx, &builder).await?;
 
