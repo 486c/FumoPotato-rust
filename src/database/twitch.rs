@@ -11,6 +11,7 @@ pub struct TwitchStreamer {
     pub online: bool,
 }
 
+#[derive(Debug)]
 pub struct TwitchChannel {
     pub id: i64,
     pub channel_id: i64,
@@ -21,7 +22,7 @@ impl Database {
     pub async fn get_channels(&self, id: i64) -> Result<Vec<TwitchChannel>> {
         let channels = sqlx::query_as!(
             TwitchChannel,
-            "SELECT * FROM twitch_tracking WHERE channel_id = $1",
+            "SELECT * FROM twitch_tracking WHERE id = $1",
             id
         ).fetch_all(&self.pool).await?;
 

@@ -74,7 +74,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
         Some(s) => s,
         None => bail!("Got None from twitch api")
     };
-    
+
     for s_db in data_db {
         let online = s_db.online;
 
