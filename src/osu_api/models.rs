@@ -14,6 +14,22 @@ use std::fmt;
 
 use bitflags::bitflags;
 
+#[derive(Deserialize, Debug)]
+pub struct ApiError {
+    pub error: Option<String>
+}
+
+impl std::error::Error for ApiError {}
+
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.error {
+            Some(s) => f.write_str(s),
+            None => f.write_str("empty error message"),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum RankStatus {
     Graveyard = -2,

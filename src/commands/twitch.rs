@@ -113,7 +113,7 @@ async fn twitch_list(
     let streamers = ctx.db.get_streamers()
         .await?;
 
-    command.defer(&ctx).await?;
+    command.defer(ctx).await?;
 
     // Early exit just in case
     if channels.is_empty() {
@@ -247,15 +247,15 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
                 match option.name.as_ref() {
                     "add" => {
                         if let CommandOptionValue::String(name) = &args[0].value {
-                            return Ok(twitch_add(ctx, &command, name).await?);
+                            return twitch_add(ctx, &command, name).await;
                         } else { bail!("No required option provided!"); }
                     },
                     "remove" => { 
                         if let CommandOptionValue::String(name) = &args[0].value {
-                            Ok(twitch_remove(ctx, &command, name).await?)
+                            return twitch_remove(ctx, &command, name).await;
                         } else { bail!("No required option provided!"); }
                     },
-                    "list" => Ok(twitch_list(ctx, &command).await?),
+                    "list" => return twitch_list(ctx, &command).await,
                     &_ => bail!("Unrecognized option name `{}`", option.name),
                 }
             },

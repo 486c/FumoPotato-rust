@@ -3,20 +3,25 @@ mod metrics;
 pub mod models;
 pub mod error;
 
+/*
+ * TODO: Get rid of reqwest and switch to fully to hyper
+ */
+
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };
 
-use self::models::{OauthResponse, OsuBeatmap, OsuLeaderboard};
+use self::models::{ OauthResponse, OsuBeatmap, OsuLeaderboard, ApiError };
 use self::metrics::Metrics;
-
-use eyre::Result;
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::sync::RwLock;
+use tokio::sync::{ RwLock, oneshot::{ channel, Receiver, Sender } };
 
-use tokio::sync::oneshot::{ channel, Receiver, Sender };
+use crate::osu_api::error::OsuApiError;
+use serde::de::DeserializeOwned;
+
+type ApiResult<T> = Result<T, OsuApiError>;
 
 pub struct OsuApi {
     inner: Arc<OsuToken>,
@@ -43,7 +48,7 @@ pub struct OsuToken {
 }
 
 impl OsuToken {
-    async fn request_oauth(&self) -> Result<OauthResponse> {
+    async fn request_oauth(&self) -> ApiResult<OauthResponse> {
         let data = format!(
             r#"{{
             "client_id":"{}",
@@ -71,8 +76,7 @@ impl OsuToken {
 }
 
 impl OsuApi {
-
-    async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
+    async fn make_request(&self, link: &str, method: Method) -> ApiResult<Response> {
         let token = self.inner.token.read().await;
 
         let r = &self.inner.client;
@@ -88,6 +92,44 @@ impl OsuApi {
             .header(AUTHORIZATION, format!("Bearer {}", token));
 
         Ok(r.send().await?)
+    }
+
+    async fn handle_error<T: DeserializeOwned>(&self, r: Response) -> ApiResult<T> {
+        match r.status() {
+            StatusCode::OK => {
+                //TODO move this nesting mess outta here
+                let bytes = r.bytes().await?;
+                return serde_json::from_slice::<T>(&bytes)
+                    .map_err(|s| {
+                        OsuApiError::Parsing {
+                            source: s,
+                            body: bytes,
+                        }
+                    });
+            }
+            StatusCode::NOT_FOUND => return Err(
+                OsuApiError::NotFound {
+                    url: r.url().to_string(),
+                }
+            ),
+            StatusCode::TOO_MANY_REQUESTS => return Err(OsuApiError::TooManyRequests),
+            StatusCode::UNPROCESSABLE_ENTITY => return Err(OsuApiError::UnprocessableEntity),
+            _ => (),
+        };
+
+        let bytes = r.bytes().await?;
+        dbg!(&bytes);
+        let parsed: ApiError = match serde_json::from_slice(&bytes) {
+            Ok(v) => v,
+            Err(e) => return Err(OsuApiError::Parsing {
+                source: e,
+                body: bytes,
+            })
+        };
+
+        Err(OsuApiError::ApiError {
+            source: parsed,
+        })
     }
 
     pub async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap> {
@@ -107,34 +149,30 @@ impl OsuApi {
 
     // This method works only if FALLBACK_API variable
     // is set.
-    pub async fn get_countryleaderboard(&self, bid: i32) -> Option<OsuLeaderboard> {
+    pub async fn get_countryleaderboard(&self, bid: i32) -> ApiResult<OsuLeaderboard> {
         let link = format!(
             "{}/leaderboard/leaderboard?beatmap={}&type=country",
             self.fallback_url,
             bid
         );
 
-        let r = self.make_request(&link, Method::GET).await.unwrap();
+        let r = self.make_request(&link, Method::GET).await?;
 
         self.stats.country_leaderboard.inc();
 
-        if r.status() != StatusCode::OK {
-            return None;
-        }
-
-        let b = r.json::<OsuLeaderboard>().await.unwrap();
-
-        Some(b)
+        let b = self.handle_error(r).await?;
+        Ok(b)
     }
 }
 
 impl OsuApi {
+    // TODO rename to new
     pub async fn init(
         client_id: i32,
         secret: &str,
         fallback_url: &str,
         run_loop: bool
-    ) -> Result<OsuApi> {
+    ) -> ApiResult<OsuApi> {
         let inner = Arc::new(OsuToken {
             client: Client::new(),
             client_id,
@@ -142,7 +180,7 @@ impl OsuApi {
             token: Default::default(),
         });
 
-        let response = inner.request_oauth().await.unwrap();
+        let response = inner.request_oauth().await.unwrap(); // Remove unwrap
 
         let mut token = inner.token.write().await;
         *token = response.access_token;
@@ -210,16 +248,20 @@ mod tests {
     use std::env;
     use dotenv::dotenv;
 
-    #[tokio::test]
-    async fn test_get_beatmap() {
+    async fn init_helper() -> Result<OsuApi, OsuApiError> {
         dotenv().unwrap();
 
-        let api = OsuApi::init(
+        OsuApi::init(
             env::var("CLIENT_ID").unwrap().parse().unwrap(),
             env::var("CLIENT_SECRET").unwrap().as_str(),
             env::var("FALLBACK_API").unwrap().as_str(),
             false
-        ).await.unwrap();
+        ).await
+    }
+
+    #[tokio::test]
+    async fn test_get_beatmap() {
+        let api = init_helper().await.unwrap();
 
         let mut op = api.get_beatmap(3153603).await;
 
@@ -243,16 +285,20 @@ mod tests {
     
     #[tokio::test]
     async fn test_makerequest() {
-        dotenv().unwrap();
-
-        let api = OsuApi::init(
-            env::var("CLIENT_ID").unwrap().parse().unwrap(),
-            env::var("CLIENT_SECRET").unwrap().as_str(),
-            env::var("FALLBACK_API").unwrap().as_str(),
-            false
-        ).await.unwrap();
+        let api = init_helper().await.unwrap();
 
         api.make_request("https://google.com", Method::GET).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn test_notfound_error() {
+        let api = init_helper().await.unwrap();
+
+        let link = "https://osu.ppy.sh/apii/v2/beaaps/";
+        let r = api.make_request(&link, Method::GET).await.unwrap();
+
+        let _: OsuBeatmap = api.handle_error(r).await.unwrap();
     }
 
     #[test]

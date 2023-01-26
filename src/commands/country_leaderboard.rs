@@ -198,11 +198,11 @@ pub async fn country_leaderboard(
     let mut builder = MessageBuilder::new();
 
     let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
-        Some(lb) => lb,
-        None => {
+        Ok(lb) => lb,
+        Err(e) => {
             builder = builder.content("Issues with leaderboard api. blame seneal");
             command.update(ctx, &builder).await?;
-            return Ok(());
+            return Err(eyre::Report::new(e))
         }
     };
 
