@@ -41,7 +41,7 @@ impl StdError for OsuApiError {
 impl fmt::Display for OsuApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OsuApiError::FromStrError => todo!(),
+            OsuApiError::FromStrError => f.write_str("converting to string error"),
             OsuApiError::ReqwestError { .. } => f.write_str("Got reqwest error!"),
             OsuApiError::UnhandledStatusCode { .. } => f.write_str("Got unknown status code"),
             OsuApiError::ApiError { .. } => f.write_str("Got internal osu!api error"),
