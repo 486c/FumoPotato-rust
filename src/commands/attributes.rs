@@ -70,7 +70,8 @@ async fn od(
     // Unwrap cuz `od` option is required and there's no way this could fail
     let mut od = cmd.get_option_number("od").unwrap();
 
-    let _ = writeln!(st, "```{od} +{}", mods.to_string());
+    let old_od = od.clone();
+
 
     if mods.contains(OsuMods::EASY) {
         od /= 2.0;
@@ -81,6 +82,7 @@ async fn od(
     }
 
     let (mut c300, mut c100, mut c50) = hit_windows_circle_std(od);
+
 
     if mods.contains(OsuMods::DOUBLETIME) {
         c300 /= 1.5;
@@ -96,6 +98,9 @@ async fn od(
 
     cmd.defer(ctx).await?;
 
+    let new_od = (c300 - 80.0) / - 6.0;
+
+    let _ = writeln!(st, "```{od} -> {:.2} ({})", new_od, mods.to_string());
     let _  = writeln!(st, "300: {c300:.2}ms");
     let _  = writeln!(st, "100: {c100:.2}ms");
     let _  = writeln!(st, "50: {c50:.2}ms```");
