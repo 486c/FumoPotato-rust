@@ -21,6 +21,8 @@ async fn ar(
     // Unwrap cuz ar option is required and there's no way this could fail
     let mut ar = cmd.get_option_number("ar").unwrap();
 
+    let old_ar = ar.clone();
+
     // Apply EZ 
     if mods.contains(OsuMods::EASY) {
         ar /= 2.0;
@@ -49,8 +51,8 @@ async fn ar(
     let mut msg = MessageBuilder::new();
     msg = msg.content(
         format!(
-            "AR: {:.2} ({:.0}ms)",
-            ar, ms
+            "{} -> {:.2} ({:.0}ms) ({})",
+            old_ar, ar, ms, mods.to_string()
         )
     );
 
