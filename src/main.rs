@@ -24,9 +24,9 @@ use tokio::sync::oneshot::channel;
 
 #[tokio::main(worker_threads = 8)]
 async fn main() -> Result<()> {
-    dotenv().unwrap();
+    dotenv()?;
 
-    let token = env::var("DISCORD_TOKEN").unwrap();
+    let token = env::var("DISCORD_TOKEN")?;
 
     let (ctx, events) = FumoContext::new(&token).await;
     let ctx = Arc::new(ctx);
