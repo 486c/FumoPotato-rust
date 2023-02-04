@@ -1,5 +1,5 @@
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{ Client, StatusCode, Method, Response };
+use reqwest::{ Client, StatusCode, Method, Response, multipart };
 
 use eyre::Result;
 
@@ -55,6 +55,11 @@ pub struct TwitchUser {
     pub broadcaster_type: String,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct OuathResponse {
+    access_token: String,
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct TwitchStream {
     pub id: String,
@@ -79,19 +84,32 @@ pub struct TwitchApi {
     client: Client,
     
     client_id: String,
-    token: String,
+    client_secret: String,
+    token: Option<String>,
 }
 
 impl TwitchApi {
-    pub async fn new(token: &str, client_id: &str) -> TwitchApi {
-        TwitchApi {
+    pub async fn new(client_id: &str, client_secret: &str) -> Result<Self> {
+        let mut api = TwitchApi {
             client: Client::new(),
-            token: token.to_string(),
+            token: None,
+            client_secret: client_secret.to_string(),
             client_id: client_id.to_string(),
-        }
+        };
+
+        let token = api.request_oauth().await?;
+
+        api.token = Some(token);
+        Ok(api)
     }
 
     async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
+
+        let token = match &self.token { 
+            Some(s) => s,
+            None => return Err(eyre::Report::msg("No token found!"))
+        };
+
         let r = &self.client;
         let r = match method {
             Method::GET => r.get(link),
@@ -102,10 +120,29 @@ impl TwitchApi {
         let r = r
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", self.token))
+            .header(AUTHORIZATION, format!("Bearer {}", token))
             .header("Client-Id", &self.client_id);
 
         Ok(r.send().await?)
+    }
+
+    async fn request_oauth(&self) -> Result<String> {
+        let form = multipart::Form::new()
+            .text("grant_type", "client_credentials")
+            .text("client_id", self.client_id.clone())
+            .text("client_secret", self.client_secret.clone());
+
+        let r = self.client.post("https://id.twitch.tv/oauth2/token")
+            .multipart(form)
+            .header(ACCEPT, "application/json")
+            .header(CONTENT_TYPE, "application/json")
+            .header("Client-Id", &self.client_id)
+            .send()
+            .await?;
+
+        let resp: OuathResponse = r.json().await?;
+
+        Ok(resp.access_token)
     }
 
     pub async fn get_streams_by_name(
@@ -178,17 +215,22 @@ mod tests {
     use std::env;
     use dotenv::dotenv;
 
+    use eyre::Result;
+
     #[tokio::test]
-    async fn test_get_user() {
+    async fn test_get_user() -> Result<()> {
         dotenv().unwrap();
 
         let twitch_api = TwitchApi::new(
-            env::var("TWITCH_TOKEN").unwrap().as_str(),
-            env::var("TWITCH_CLIENT_ID").unwrap().as_str()
-        ).await;
+            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
+            env::var("TWITCH_SECRET").unwrap().as_str()
+        ).await?;
 
         let user = twitch_api.get_user_by_name("lopijb").await.unwrap();
-        println!("{:?}", user);
+
+        assert_eq!(145052794, user.id);
+
+        Ok(())
     }
 }
 
