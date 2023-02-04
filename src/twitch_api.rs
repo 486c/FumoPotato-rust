@@ -83,8 +83,7 @@ pub struct TwitchApi {
 }
 
 impl TwitchApi {
-    // TODO rename to new
-    pub async fn init(token: &str, client_id: &str) -> TwitchApi {
+    pub async fn new(token: &str, client_id: &str) -> TwitchApi {
         TwitchApi {
             client: Client::new(),
             token: token.to_string(),
@@ -183,7 +182,7 @@ mod tests {
     async fn test_get_user() {
         dotenv().unwrap();
 
-        let twitch_api = TwitchApi::init(
+        let twitch_api = TwitchApi::new(
             env::var("TWITCH_TOKEN").unwrap().as_str(),
             env::var("TWITCH_CLIENT_ID").unwrap().as_str()
         ).await;

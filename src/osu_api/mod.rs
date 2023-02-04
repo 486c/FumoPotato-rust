@@ -131,20 +131,16 @@ impl OsuApi {
             source: parsed,
         })
     }
-
-    pub async fn get_beatmap(&self, bid: i32) -> Option<OsuBeatmap> {
+    
+    pub async fn get_beatmap(&self, bid: i32) -> ApiResult<OsuBeatmap> {
         let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{}", bid);
-        let r = self.make_request(&link, Method::GET).await.unwrap();
+
+        let r = self.make_request(&link, Method::GET).await?;
 
         self.stats.beatmap.inc();
-        
-        if r.status() != StatusCode::OK {
-            return None;
-        }
-        
-        let b = r.json::<OsuBeatmap>().await.unwrap();
 
-        Some(b)
+        let b = self.handle_error(r).await?;
+        Ok(b)
     }
 
     // This method works only if FALLBACK_API variable
@@ -166,8 +162,7 @@ impl OsuApi {
 }
 
 impl OsuApi {
-    // TODO rename to new
-    pub async fn init(
+    pub async fn new(
         client_id: i32,
         secret: &str,
         fallback_url: &str,
@@ -180,7 +175,7 @@ impl OsuApi {
             token: Default::default(),
         });
 
-        let response = inner.request_oauth().await.unwrap(); // Remove unwrap
+        let response = inner.request_oauth().await?;
 
         let mut token = inner.token.write().await;
         *token = response.access_token;
@@ -251,7 +246,7 @@ mod tests {
     async fn init_helper() -> Result<OsuApi, OsuApiError> {
         dotenv().unwrap();
 
-        OsuApi::init(
+        OsuApi::new(
             env::var("CLIENT_ID").unwrap().parse().unwrap(),
             env::var("CLIENT_SECRET").unwrap().as_str(),
             env::var("FALLBACK_API").unwrap().as_str(),
@@ -265,13 +260,13 @@ mod tests {
 
         let mut op = api.get_beatmap(3153603).await;
 
-        assert!(!op.is_none());
+        assert!(!op.is_err());
 
         let b = op.unwrap();
         assert_eq!(b.id, 3153603);
 
         op = api.get_beatmap(12).await;
-        assert!(op.is_none());
+        assert!(op.is_err());
 
         let op = api.get_beatmap(1173889).await.unwrap();
         assert_eq!(op.ranked, RankStatus::Loved);

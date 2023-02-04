@@ -38,13 +38,13 @@ impl FumoContext {
 impl FumoContext {
     pub async fn new(token: &str) -> (FumoContext, Events)  {
         // Init twitch api
-        let twitch_api = TwitchApi::init(
+        let twitch_api = TwitchApi::new(
             env::var("TWITCH_TOKEN").unwrap().as_str(),
             env::var("TWITCH_CLIENT_ID").unwrap().as_str()
         ).await;
 
         // Init osu api
-        let osu_api = OsuApi::init(
+        let osu_api = OsuApi::new(
             env::var("CLIENT_ID").unwrap().parse().unwrap(),
             env::var("CLIENT_SECRET").unwrap().as_str(),
             env::var("FALLBACK_API").unwrap().as_str(),

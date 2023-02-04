@@ -207,11 +207,11 @@ pub async fn country_leaderboard(
     };
 
     let b = match ctx.osu_api.get_beatmap(bid).await {
-        Some(b) => b,
-        None => {
+        Ok(b) => b,
+        Err(e) => {
             builder = builder.content("Issues with osu!api. blame peppy");
             command.update(ctx, &builder).await?;
-            return Ok(());
+            return Err(eyre::Report::new(e))
         }
     };
 

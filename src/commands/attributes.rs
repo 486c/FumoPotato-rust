@@ -21,7 +21,7 @@ async fn ar(
     // Unwrap cuz ar option is required and there's no way this could fail
     let mut ar = cmd.get_option_number("ar").unwrap();
 
-    let old_ar = ar.clone();
+    let old_ar = ar;
 
     // Apply EZ 
     if mods.contains(OsuMods::EASY) {
@@ -70,9 +70,6 @@ async fn od(
     // Unwrap cuz `od` option is required and there's no way this could fail
     let mut od = cmd.get_option_number("od").unwrap();
 
-    let old_od = od.clone();
-
-
     if mods.contains(OsuMods::EASY) {
         od /= 2.0;
     }
@@ -82,7 +79,6 @@ async fn od(
     }
 
     let (mut c300, mut c100, mut c50) = hit_windows_circle_std(od);
-
 
     if mods.contains(OsuMods::DOUBLETIME) {
         c300 /= 1.5;
