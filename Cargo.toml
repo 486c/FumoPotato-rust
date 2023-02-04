@@ -22,11 +22,11 @@ serde_json = "1.0.85"
 sqlx = { version = "0.6.2", features = [ "runtime-tokio-native-tls" , "postgres" ] }
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-stream = "0.1.11"
-twilight-gateway = "0.14.0"
-twilight-http = "0.14.0"
-twilight-model = "0.14.0"
-twilight-standby = "0.14.0"
-twilight-util = { version = "0.14.0", features = ["builder"] }
+twilight-gateway = "0.14.1"
+twilight-http = "0.14.3"
+twilight-model = "0.14.4"
+twilight-standby = "0.14.1"
+twilight-util = { version = "0.14.2", features = ["builder"] }
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
