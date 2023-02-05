@@ -21,7 +21,7 @@ where
             {
                 match NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ") {
                     Ok(ndt) => Ok(DateTime::from_utc(ndt, Utc)),
-                    Err(e) => Err(E::custom(format!("Parse error {} for {}", e, value))),
+                    Err(e) => Err(E::custom(format!("Parse error {e} for {value}"))),
                 }
             }
     }

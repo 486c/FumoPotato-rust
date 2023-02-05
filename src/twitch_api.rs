@@ -120,7 +120,7 @@ impl TwitchApi {
         let r = r
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", token))
+            .header(AUTHORIZATION, format!("Bearer {token}"))
             .header("Client-Id", &self.client_id);
 
         Ok(r.send().await?)
@@ -184,7 +184,7 @@ impl TwitchApi {
     //TODO definitely use get_users_by_name instead
     // ^ look at get_streams_by_name as reference
     pub async fn get_user_by_name(&self, name: &str) -> Option<TwitchUser> {
-        let link = format!("https://api.twitch.tv/helix/users?login={}", name);
+        let link = format!("https://api.twitch.tv/helix/users?login={name}");
 
         let r = self.make_request(&link, Method::GET).await;
 

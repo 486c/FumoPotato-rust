@@ -89,7 +89,7 @@ impl OsuApi {
         let r = r
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {}", token));
+            .header(AUTHORIZATION, format!("Bearer {token}"));
 
         Ok(r.send().await?)
     }
@@ -133,7 +133,7 @@ impl OsuApi {
     }
     
     pub async fn get_beatmap(&self, bid: i32) -> ApiResult<OsuBeatmap> {
-        let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{}", bid);
+        let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{bid}");
 
         let r = self.make_request(&link, Method::GET).await?;
 
@@ -213,7 +213,7 @@ impl OsuApi {
     async fn token_loop(osu: Arc<OsuToken>, mut expire: u64, mut rx: Receiver<()>) {
         loop {
             expire /= 2;
-            println!("Token update scheduled in {} seconds", expire);
+            println!("Token update scheduled in {expire} seconds");
             tokio::select!{
                 _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
                 _ = &mut rx => {
@@ -260,7 +260,7 @@ mod tests {
 
         let mut op = api.get_beatmap(3153603).await;
 
-        assert!(!op.is_err());
+        assert!(op.is_ok());
 
         let b = op.unwrap();
         assert_eq!(b.id, 3153603);
@@ -291,7 +291,7 @@ mod tests {
         let api = init_helper().await.unwrap();
 
         let link = "https://osu.ppy.sh/apii/v2/beaaps/";
-        let r = api.make_request(&link, Method::GET).await.unwrap();
+        let r = api.make_request(link, Method::GET).await.unwrap();
 
         let _: OsuBeatmap = api.handle_error(r).await.unwrap();
     }

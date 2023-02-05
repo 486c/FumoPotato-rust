@@ -43,7 +43,7 @@ pub async fn run_server(ctx: Arc<FumoContext>, shutdown_rx: Receiver<()>) {
     println!("Started http server!");
 
     if let Err(err) = server.await {
-        eprintln!("Server error: {}", err);
+        eprintln!("Server error: {err}");
    }
 
 }

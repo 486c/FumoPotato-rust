@@ -135,7 +135,7 @@ async fn twitch_list(
     };
 
     let builder = MessageBuilder::new()
-        .content(format!("```\n{}```", list));
+        .content(format!("```\n{list}```"));
 
     command.update(ctx, &builder).await?;
 
