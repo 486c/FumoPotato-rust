@@ -7,7 +7,11 @@ use once_cell::sync::OnceCell;
 
 use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
 
-use twilight_model::http::interaction::{ InteractionResponse, InteractionResponseType };
+use twilight_model::http::{
+    interaction::{ InteractionResponse, InteractionResponseType },
+    attachment::Attachment,
+};
+
 use twilight_model::channel::message::{ 
     component::Component, 
     Message,
@@ -33,6 +37,7 @@ pub struct MessageBuilder {
     content: Option<String>,
     embed: Option<Embed>,
     pub components: Option<Vec<Component>>,
+    pub attachments: Option<Vec<Attachment>>,
 }
 
 impl MessageBuilder {
@@ -40,6 +45,11 @@ impl MessageBuilder {
         MessageBuilder {
             ..Default::default()
         }
+    }
+
+    pub fn attachments(mut self, attachments: impl Into<Vec<Attachment>>) -> Self {
+        self.attachments = Some(attachments.into());
+        self
     }
 
     pub fn content(mut self, s: impl Into<String>) -> Self {
@@ -129,6 +139,11 @@ impl InteractionCommand {
         if let Some(ref components) = builder.components {
             req = req.components(Some(components.as_slice()))
                     .expect("invalid components!");
+        }
+
+        if let Some(ref attachments) = builder.attachments {
+            req = req.attachments(attachments.as_slice())
+                    .expect("invalid embed!");
         }
 
         req.into_future()

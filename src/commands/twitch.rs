@@ -1,9 +1,17 @@
+use std::{ slice, sync::Arc, time::Duration, fmt::Write };
+
 use twilight_model::application::interaction::application_command::CommandOptionValue;
-use twilight_model::id::{ Id, marker::ChannelMarker };
+use twilight_model::{
+    id::{ Id, marker::ChannelMarker },
+    http::attachment::Attachment,
+};
 use twilight_util::builder::embed::{ 
     EmbedBuilder, EmbedAuthorBuilder, EmbedFooterBuilder,
     image_source::ImageSource,
 };
+
+
+use rand::distributions::{Alphanumeric, DistString};
 
 use crate::twitch_api::{ TwitchStream, StreamType };
 use crate::fumo_context::FumoContext;
@@ -11,8 +19,6 @@ use crate::utils::{ MessageBuilder, InteractionCommand };
 use crate::database::twitch::TwitchStreamer;
 
 use eyre::{ Result, bail };
-
-use std::{ slice, sync::Arc, time::Duration, fmt::Write };
 
 pub async fn twitch_worker(ctx: Arc<FumoContext>) {
     println!("Started twitch checker loop!");
@@ -35,10 +41,21 @@ pub async fn announce_channel(
         .url(format!("https://twitch.tv/{}", &c.user_name))
         .build();
 
-    let source = ImageSource::url(format!(
+    let image_link =  format!(
         "https://static-cdn.jtvnw.net/previews-ttv/live_user_{}-1280x720.jpg",
-            &c.user_name
-    ))?;
+        &c.user_login
+    );
+
+    let image = ctx.twitch_api
+        .download_image(&image_link)
+        .await?;
+
+    let filename: String = format!("{}.jpg", Alphanumeric.sample_string(&mut rand::thread_rng(), 16));
+
+    let attach = [Attachment::from_bytes(filename, image, 1337)];
+
+    // Using it like this cuz there are always will be atleast one and only one attachment
+    let source = ImageSource::attachment(&attach[0].filename)?; 
 
     let source_footer = ImageSource::url(format!(
         "https://static-cdn.jtvnw.net/ttv-boxart/{}-250x250.jpg",
@@ -59,6 +76,7 @@ pub async fn announce_channel(
 
     ctx.http.create_message(channel_id)
         .embeds(slice::from_ref(&embed))?
+        .attachments(&attach)?
         .await?;
 
     Ok(())

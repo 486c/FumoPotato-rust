@@ -57,7 +57,7 @@ pub async fn event_loop(ctx: Arc<FumoContext>, mut events: Events) {
 pub fn global_commands() -> Vec<Command> {
     // TODO Move this somewhere else
     let mut commands: Vec<Command> = Vec::new();
-    
+
     /* osu */
     let cmd = CommandBuilder::new(
         "leaderboard",

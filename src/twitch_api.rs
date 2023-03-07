@@ -90,8 +90,13 @@ pub struct TwitchApi {
 
 impl TwitchApi {
     pub async fn new(client_id: &str, client_secret: &str) -> Result<Self> {
+        let client = Client::builder()
+            .https_only(true)
+            .use_native_tls()
+            .build()?;
+
         let mut api = TwitchApi {
-            client: Client::new(),
+            client,
             token: None,
             client_secret: client_secret.to_string(),
             client_id: client_id.to_string(),
@@ -101,6 +106,18 @@ impl TwitchApi {
 
         api.token = Some(token);
         Ok(api)
+    }
+
+    pub async fn download_image(&self, link: &str) -> Result<Vec<u8>> {
+        let r = self.client.get(link)
+            .header(ACCEPT, "image/jpeg")
+            .header("Cache-Control", "no-cache")
+            .header("User-Agent", "fumo_potato")
+            .send().await?;
+
+        let bytes = r.bytes().await?;
+
+        Ok(bytes.to_vec())
     }
 
     async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
@@ -229,6 +246,23 @@ mod tests {
         let user = twitch_api.get_user_by_name("lopijb").await.unwrap();
 
         assert_eq!(145052794, user.id);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_get_image() -> Result<()> {
+        dotenv().unwrap();
+
+        let twitch_api = TwitchApi::new(
+            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
+            env::var("TWITCH_SECRET").unwrap().as_str()
+        ).await?;
+
+        let image_bytes = twitch_api
+            .download_image("https://static-cdn.jtvnw.net/ttv-boxart/21465_IGDB-188x250.jpg").await?;
+
+        dbg!(image_bytes.len());
 
         Ok(())
     }
