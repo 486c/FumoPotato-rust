@@ -447,6 +447,7 @@ dependencies = [
  "num-format",
  "once_cell",
  "prometheus",
+ "rand",
  "regex",
  "reqwest",
  "routerify",
