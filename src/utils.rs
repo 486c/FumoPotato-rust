@@ -214,6 +214,13 @@ define_regex! {
     OSU_MAP_ID_OLD: r"https://osu.ppy.sh/b(?:eatmaps)?/(\d+)";
 }
 
+#[macro_export]
+macro_rules! random_string {
+    ($count:expr) => {
+        Alphanumeric.sample_string(&mut rand::thread_rng(), $count)
+    }
+}
+
 #[inline]
 pub fn hit_windows_circle_std(od: f64) -> (f64, f64, f64) {
     (

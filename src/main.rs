@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
         tx
     };
 
-    // Run
+    // Run discord event loop
     tokio::select! {
         _ = event_loop(event_ctx, events) => println!("Error in event loop!"),
         res = signal::ctrl_c() => match res {

@@ -10,13 +10,14 @@ use twilight_util::builder::embed::{
     image_source::ImageSource,
 };
 
-
 use rand::distributions::{Alphanumeric, DistString};
 
 use crate::twitch_api::{ TwitchStream, StreamType };
 use crate::fumo_context::FumoContext;
-use crate::utils::{ MessageBuilder, InteractionCommand };
+use crate::utils::{ MessageBuilder, InteractionCommand};
 use crate::database::twitch::TwitchStreamer;
+
+use crate::random_string;
 
 use eyre::{ Result, bail };
 
@@ -50,7 +51,7 @@ pub async fn announce_channel(
         .download_image(&image_link)
         .await?;
 
-    let filename: String = format!("{}.jpg", Alphanumeric.sample_string(&mut rand::thread_rng(), 16));
+    let filename: String = format!("{}.jpg", random_string!(16));
 
     let attach = [Attachment::from_bytes(filename, image, 1337)];
 
@@ -59,7 +60,7 @@ pub async fn announce_channel(
 
     let source_footer = ImageSource::url(format!(
         "https://static-cdn.jtvnw.net/ttv-boxart/{}-250x250.jpg",
-            c.game_id
+        c.game_id
     ))?;
 
     let footer = EmbedFooterBuilder::new(&c.game_name)
