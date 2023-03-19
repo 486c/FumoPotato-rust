@@ -39,7 +39,7 @@ pub async fn announce_channel(
     c: &TwitchStream
 ) -> Result<()> {
     let author = EmbedAuthorBuilder::new(format!("{} is live!", &c.user_name))
-        .url(format!("https://twitch.tv/{}", &c.user_name))
+        .url(format!("https://twitch.tv/{}", &c.user_login))
         .build();
 
     let image_link =  format!(
@@ -51,7 +51,7 @@ pub async fn announce_channel(
         .download_image(&image_link)
         .await?;
 
-    let filename: String = format!("{}.jpg", random_string!(16));
+    let filename = format!("{}.jpg", random_string!(16));
 
     let attach = [Attachment::from_bytes(filename, image, 1337)];
 
