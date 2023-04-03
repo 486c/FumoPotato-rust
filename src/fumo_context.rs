@@ -1,6 +1,7 @@
 use crate::osu_api::OsuApi;
 use crate::twitch_api::TwitchApi;
 use crate::database::Database;
+use crate::stats::BotStats;
 
 use twilight_gateway::cluster::Events;
 use twilight_http::Client;
@@ -12,10 +13,10 @@ use twilight_model::id::{
 };
 use twilight_standby::Standby;
 
-use crate::stats::BotStats;
-
 use std::env;
 use std::sync::Arc;
+
+use eyre::Result;
 
 pub struct FumoContext {
     pub osu_api: OsuApi,
@@ -36,24 +37,24 @@ impl FumoContext {
 }
 
 impl FumoContext {
-    pub async fn new(token: &str) -> (FumoContext, Events)  {
+    pub async fn new(token: &str) -> Result<(FumoContext, Events)> {
         // Init twitch api
         let twitch_api = TwitchApi::new(
-            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
-            env::var("TWITCH_SECRET").unwrap().as_str()
-        ).await.unwrap();
+            env::var("TWITCH_CLIENT_ID")?.as_str(),
+            env::var("TWITCH_SECRET")?.as_str()
+        ).await?;
 
         // Init osu api
         let osu_api = OsuApi::new(
-            env::var("CLIENT_ID").unwrap().parse().unwrap(),
-            env::var("CLIENT_SECRET").unwrap().as_str(),
-            env::var("FALLBACK_API").unwrap().as_str(),
+            env::var("CLIENT_ID")?.parse()?,
+            env::var("CLIENT_SECRET")?.as_str(),
+            env::var("FALLBACK_API")?.as_str(),
             true
-        ).await.unwrap();
+        ).await?;
 
         let db = Database::init(
-            env::var("DATABASE_URL").unwrap().as_str(),
-        ).await.unwrap();
+            env::var("DATABASE_URL")?.as_str(),
+        ).await?;
 
         let http = Client::builder()
             .token(token.to_owned())
@@ -75,13 +76,12 @@ impl FumoContext {
                 | EventTypeFlags::SHARD_PAYLOAD
                 )
             .build()
-            .await.unwrap();
-
+            .await?;
 
         let application_id = http.current_user()
-            .await.unwrap()
+            .await?
             .model()
-            .await.unwrap()
+            .await?
             .id.cast();
 
         let standby = Standby::new();
@@ -99,6 +99,6 @@ impl FumoContext {
             stats,
         };
 
-        (ctx, events)
+        Ok((ctx, events))
     }
 }
