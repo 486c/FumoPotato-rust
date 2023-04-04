@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
 
     let token = env::var("DISCORD_TOKEN")?;
 
-    let (ctx, events) = FumoContext::new(&token).await;
+    let (ctx, events) = FumoContext::new(&token).await?;
     let ctx = Arc::new(ctx);
 
     ctx.cluster.up().await;

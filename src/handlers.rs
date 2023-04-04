@@ -55,7 +55,8 @@ pub async fn event_loop(ctx: Arc<FumoContext>, mut events: Events) {
 }
 
 pub fn global_commands() -> Vec<Command> {
-    // TODO Move this somewhere else
+    // TODO Make this more readable i guess
+    // mb use twilight-interactions?
     let mut commands: Vec<Command> = Vec::new();
 
     /* osu */
