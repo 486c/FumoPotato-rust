@@ -1,11 +1,11 @@
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{ Client, StatusCode, Method, Response, multipart };
+use reqwest::{ Client, Method, Response, multipart };
 
 use eyre::Result;
 
 use serde::Deserialize;
 
-use serde::de::{ Visitor, Deserializer, Error };
+use serde::de::{ Visitor, Deserializer, Error, DeserializeOwned };
 use std::fmt::{ self, Write };
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -45,7 +45,7 @@ fn str_to_i64<'de, D: Deserializer<'de>>(d: D) -> Result<i64, D::Error> {
         .map_err(Error::custom)
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct TwitchUser {
     #[serde(deserialize_with = "str_to_i64")]
     pub id: i64,
@@ -60,7 +60,7 @@ pub struct OuathResponse {
     access_token: String,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct TwitchStream {
     pub id: String,
     #[serde(deserialize_with = "str_to_i64")]
@@ -68,7 +68,7 @@ pub struct TwitchStream {
     pub user_login: String,
     pub user_name: String,
     pub game_name: String,
-    pub game_id: String,
+    pub game_id: String, // TODO use i64
     pub title: String,
 
     #[serde(rename = "type")] 
@@ -120,7 +120,11 @@ impl TwitchApi {
         Ok(bytes.to_vec())
     }
 
-    async fn make_request(&self, link: &str, method: Method) -> Result<Response> {
+    async fn make_request(
+        &self, 
+        link: &str, 
+        method: Method
+    ) -> Result<Response> {
 
         let token = match &self.token { 
             Some(s) => s,
@@ -161,69 +165,87 @@ impl TwitchApi {
 
         Ok(resp.access_token)
     }
+    
+    async fn request_list<T: DeserializeOwned, U: std::fmt::Display>(
+        &self,
+        link: &str,
+        separator: &str,
+        items: &[U],
+    ) -> Result<Option<Vec<T>>> {
+        let mut link = link.to_owned();
 
-    pub async fn get_streams_by_name(
-        &self, names: &[&str]
-    ) -> Result<Option<Vec<TwitchStream>>> {
-        let mut link = "https://api.twitch.tv/helix/streams?".to_owned();
-        let mut users: Vec<TwitchStream> = Vec::with_capacity(names.len());
-
-        if names.is_empty() {
+        if items.is_empty() {
             return Ok(None)
         };
 
-        for chunk in names.chunks(100) {
+        let mut out_items: Vec<T> = Vec::with_capacity(items.len());
+
+        for chunk in items.chunks(100) {
             let mut iter = chunk.iter();
-            
-            // Probably should never ever fail
+
             let first = iter.next().unwrap();
+            let _ = write!(link, "?{separator}={first}");
 
-            let _ = write!(link, "user_login={first}");
-
-            for name in iter {
-                let _ = write!(link, "&user_login={name}");
+            for i in iter {
+                let _ = write!(link, "&{separator}={i}");
             }
-            
+
             let r = self.make_request(&link, Method::GET).await?;
 
-            let data = r.json::<TwitchResponse<TwitchStream>>().await?;
+            let data = r.json::<TwitchResponse<T>>().await?;
 
             if let Some(mut data) = data.data {
-                users.append(&mut data);
+                out_items.append(&mut data);
             } else {
                 return Ok(None)
             }
         };
 
-        Ok(Some(users))
+        Ok(Some(out_items))
     }
 
-    //TODO definitely use get_users_by_name instead
-    // ^ look at get_streams_by_name as reference
-    pub async fn get_user_by_name(&self, name: &str) -> Option<TwitchUser> {
-        let link = format!("https://api.twitch.tv/helix/users?login={name}");
+    pub async fn get_streams_by_name(
+        &self, names: &[&str]
+    ) -> Result<Option<Vec<TwitchStream>>> {
+        self.request_list(
+            "https://api.twitch.tv/helix/streams",
+            "user_login",
+            names
+        ).await
+    }
 
-        let r = self.make_request(&link, Method::GET).await;
+    pub async fn get_streams_by_id(
+        &self, ids: &[i64]
+    ) -> Result<Option<Vec<TwitchStream>>> {
+        self.request_list(
+            "https://api.twitch.tv/helix/streams",
+            "user_id",
+            ids
+        ).await
+    }
 
-        let r = match r {
-            Ok(r) => r,
-            Err(_) => return None,
-        };
+    pub async fn get_users_by_name(
+        &self, 
+        names: &[&str]
+    ) -> Result<Option<Vec<TwitchUser>>> {
+        self.request_list(
+            "https://api.twitch.tv/helix/users",
+            "login",
+            names
+        ).await
+    }
 
-        if r.status() != StatusCode::OK {
-            return None;
-        }
-
-        let s = r.json::<TwitchResponse<TwitchUser>>().await.unwrap();
-
-        if let Some(data) = s.data {
-            Some(data.get(0)?.clone())
-        } else {
-            None
-        }
+    pub async fn get_users_by_id(
+        &self, 
+        ids: &[i64]
+    ) -> Result<Option<Vec<TwitchUser>>> {
+        self.request_list(
+            "https://api.twitch.tv/helix/users",
+            "id",
+            ids
+        ).await
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -234,8 +256,9 @@ mod tests {
 
     use eyre::Result;
 
+
     #[tokio::test]
-    async fn test_get_user() -> Result<()> {
+    async fn test_get_users_non_existent_user() -> Result<()> {
         dotenv().unwrap();
 
         let twitch_api = TwitchApi::new(
@@ -243,10 +266,81 @@ mod tests {
             env::var("TWITCH_SECRET").unwrap().as_str()
         ).await?;
 
-        let user = twitch_api.get_user_by_name("lopijb").await.unwrap();
+        let list = twitch_api.get_users_by_name(
+            &["bebrikkakawka123"]
+        ).await?.unwrap();
 
-        assert_eq!(145052794, user.id);
+        assert_eq!(list.get(0), None);
+        
+        Ok(())
+    }
 
+
+    #[tokio::test]
+    async fn test_get_streams_by_id() -> Result<()> {
+        dotenv().unwrap();
+
+        let twitch_api = TwitchApi::new(
+            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
+            env::var("TWITCH_SECRET").unwrap().as_str()
+        ).await?;
+
+        let mut list = twitch_api.get_users_by_id(
+            &[145052794, 12826]
+        ).await?.unwrap();
+        
+        list.sort_by_key(|s| s.id);
+
+        let expected: Vec<TwitchUser> = vec![
+            TwitchUser {
+                id: 12826,
+                login: "twitch".to_owned(),
+                display_name: "Twitch".to_owned(),
+                broadcaster_type: "partner".to_owned(),
+            },
+            TwitchUser {
+                id: 145052794,
+                login: "lopijb".to_owned(),
+                display_name: "バカです".to_owned(),
+                broadcaster_type: "".to_owned(),
+            },
+        ];
+
+        assert_eq!(list, expected);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_get_streams_by_name() -> Result<()> {
+        dotenv().unwrap();
+
+        let twitch_api = TwitchApi::new(
+            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
+            env::var("TWITCH_SECRET").unwrap().as_str()
+        ).await?;
+
+        let mut list = twitch_api.get_users_by_name(
+            &["lopijb", "twitch"]
+        ).await?.unwrap();
+
+        list.sort_by_key(|s| s.id);
+
+        let expected: Vec<TwitchUser> = vec![
+            TwitchUser {
+                id: 12826,
+                login: "twitch".to_owned(),
+                display_name: "Twitch".to_owned(),
+                broadcaster_type: "partner".to_owned(),
+            },
+            TwitchUser {
+                id: 145052794,
+                login: "lopijb".to_owned(),
+                display_name: "バカです".to_owned(),
+                broadcaster_type: "".to_owned(),
+            },
+        ];
+
+        assert_eq!(list, expected);
         Ok(())
     }
 

@@ -15,7 +15,7 @@ use rand::distributions::{Alphanumeric, DistString};
 use crate::twitch_api::{ TwitchStream, StreamType };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ MessageBuilder, InteractionCommand};
-use crate::database::twitch::TwitchStreamer;
+use crate::database::twitch::TwitchTrackedStreamer;
 
 use crate::random_string;
 
@@ -86,8 +86,11 @@ pub async fn announce_channel(
 pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
     let data_db = ctx.db.get_streamers().await?;
 
-    let names: Vec<&str> = data_db.iter().map(|s: &TwitchStreamer| s.name.as_str()).collect();
-    let data_api = match ctx.twitch_api.get_streams_by_name(
+    let names: Vec<i64> = data_db.iter()
+        .map(|s: &TwitchTrackedStreamer| s.id)
+        .collect();
+
+    let data_api = match ctx.twitch_api.get_streams_by_id(
         names.as_slice()
     ).await? {
         Some(s) => s,
@@ -103,7 +106,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                 if s.stream_type == StreamType::Live && !online {
                     ctx.db.toggle_online(s_db.id).await?;
 
-                    let channels = ctx.db.get_channels(s_db.id).await?;
+                    let channels = ctx.db.get_channels_by_twitch_id(s_db.id).await?;
                     for channel in channels {
                         let channel_id: Id<ChannelMarker> = Id::new(channel.channel_id as u64);
                         announce_channel(ctx, channel_id, s).await?;
@@ -127,8 +130,10 @@ async fn twitch_list(
     ctx: &FumoContext, 
     command: &InteractionCommand
 ) -> Result<()> {
-    let channels = ctx.db.get_channels(command.channel_id.get() as i64)
-        .await?;
+    let channels = ctx.db.get_channels_by_channel_id(
+        command.channel_id.get() as i64
+    ).await?;
+
     let streamers = ctx.db.get_streamers()
         .await?;
 
@@ -142,16 +147,27 @@ async fn twitch_list(
         return Ok(())
     };
 
-    let mut list = String::with_capacity(500);
-
+    
+    let mut display_list: Vec<i64> = Vec::new();
     for ch in channels {
         let s = match streamers.iter().find(|&x| x.id == ch.id) {
             Some(streamer) => streamer,
             None => bail!("Couldn't find twitch streamer???")
         };
 
-        let _  = writeln!(list, "{}", s.name);
+        display_list.push(s.id)
     };
+    
+    // Getting users list from api to keep up with actual user name
+    let api_streamers = ctx.twitch_api.get_users_by_id(&display_list)
+        .await?
+        .unwrap();
+
+    let mut list = String::with_capacity(500);
+
+    for s in api_streamers {
+        let _  = writeln!(list, "{}", s.login);
+    }
 
     let builder = MessageBuilder::new()
         .content(format!("```\n{list}```"));
@@ -179,8 +195,12 @@ async fn twitch_add(
     command.defer(ctx).await?;
     let mut msg = MessageBuilder::new();
 
+    let streamers = ctx.twitch_api.get_users_by_name(&[name])
+        .await?
+        .unwrap();
+
     // Checking if user with provided name actually exists
-    let streamer = match ctx.twitch_api.get_user_by_name(name).await {
+    let streamer = match streamers.get(0) {
         Some(s) => s,
         None => {
             msg = msg.content(
@@ -190,10 +210,10 @@ async fn twitch_add(
             return Ok(());
         }
     };
-    
+
     let streamer = match ctx.db.get_streamer(streamer.id).await {
         Some(s) => s,
-        None => ctx.db.add_streamer(streamer.id, name).await?,
+        None => ctx.db.add_streamer(streamer.id).await?,
     };
     
     let channel_id: i64 = command.channel_id.get().try_into()?;
@@ -227,12 +247,27 @@ async fn twitch_remove(
 
     let channel_id: i64 = command.channel_id.get().try_into()?;
 
-    let streamer_db = match ctx.db.get_streamer_by_name(name).await {
+    let streamers = ctx.twitch_api.get_users_by_name(&[name])
+        .await?
+        .unwrap();
+
+    let streamer = match streamers.get(0) {
         Some(s) => s,
         None => {
-            msg = msg.content(
-                format!("`{name}` doesn't exists on current channel!")
-            );
+            msg = msg.content(format!(
+                "User with name `{name}` does not exists on twitch!"
+            ));
+            command.update(ctx, &msg).await?;
+            return Ok(());
+        }
+    };
+
+    let streamer_db = match ctx.db.get_streamer_by_id(streamer.id).await {
+        Some(s) => s,
+        None => {
+            msg = msg.content(format!(
+                "`{name}` doesn't exists on current channel!"
+            ));
             command.update(ctx, &msg).await?;
             return Ok(());
         }
@@ -243,9 +278,9 @@ async fn twitch_remove(
     )
     .await
     .is_none() {
-        msg = msg.content(
-            format!("`{name}` doesn't exists on current channel!")
-        );
+        msg = msg.content(format!(
+            "`{name}` doesn't exists on current channel!"
+        ));
         command.update(ctx, &msg).await?;
         return Ok(());
     }
@@ -255,6 +290,7 @@ async fn twitch_remove(
     msg = msg.content(
         format!("Successfully removed `{name}` from current channel!")
     );
+
     command.update(ctx, &msg).await?;
     Ok(())
 }
