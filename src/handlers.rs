@@ -1,10 +1,10 @@
 use tokio_stream::StreamExt;
+use twilight_gateway::stream::ShardEventStream;
 use crate::fumo_context::FumoContext;
 
 use std::sync::Arc;
 
-use twilight_gateway::Event;
-use twilight_gateway::cluster::Events;
+use twilight_gateway::{Event, Shard};
 use twilight_model::application::interaction::{ 
     Interaction, InteractionData,
 };
@@ -40,18 +40,53 @@ async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     }
 }
 
-pub async fn event_loop(ctx: Arc<FumoContext>, mut events: Events) {
-    while let Some((shard_id, event)) = events.next().await {
-        let ctx = Arc::clone(&ctx);
+pub async fn event_loop(ctx: Arc<FumoContext>, shards: &mut [Shard]) {
+    let mut events = ShardEventStream::new(shards.iter_mut());
 
-        tokio::spawn(async move { 
-            let future = handle_event(ctx, shard_id, event);
+    loop {
+        match events.next().await {
+            Some((shard, Ok(event))) => {
+               let ctx = Arc::clone(&ctx);
+               let shard_id = shard.id().number();
 
-            if let Err(e) = future.await {
-                println!("{:?}", e.wrap_err("Failed to handle event"))
-            }
-        });
+               tokio::spawn(async move { 
+                   let future = handle_event(
+                       ctx, 
+                       shard_id,
+                       event
+                    );
+
+                   if let Err(e) = future.await {
+                       println!(
+                           "{:?}",
+                           e.wrap_err("Failed to handle event")
+                        )
+                   }
+               });
+            },
+            Some((_shard, Err(error))) => {
+                if error.is_fatal() {
+                    println!("Got fatal shard event! Quiting event loop!");
+                    break;
+                }
+
+                continue;
+            },
+            None => return,
+        };
     }
+
+    //while let Some((shard_id, event)) = events.next().await {
+        //let ctx = Arc::clone(&ctx);
+
+        /*
+        match event {
+            Ok(event) => {
+            },
+            Err(_) => todo!(),
+        };
+        */
+    //};
 }
 
 pub fn global_commands() -> Vec<Command> {
@@ -175,7 +210,11 @@ async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
     }
 }
 
-async fn handle_event(ctx: Arc<FumoContext>, _shard_id: u64, event: Event) -> Result<()> {
+async fn handle_event(
+    ctx: Arc<FumoContext>, 
+    _shard_id: u64, 
+    event: Event
+) -> Result<()> {
     ctx.standby.process(&event);
     match event {
         Event::MessageUpdate(_) => {},

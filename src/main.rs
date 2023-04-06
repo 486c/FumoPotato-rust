@@ -11,6 +11,7 @@ mod server;
 use dotenv::dotenv;
 
 use eyre::Result;
+use twilight_gateway::CloseFrame;
 
 use std::env;
 use std::sync::Arc;
@@ -22,18 +23,15 @@ use crate::server::run_server;
 use tokio::signal;
 use tokio::sync::oneshot::channel;
 
-#[tokio::main(worker_threads = 8)]
+#[tokio::main(worker_threads = 4)]
 async fn main() -> Result<()> {
     dotenv()?;
 
     let token = env::var("DISCORD_TOKEN")?;
 
-    let (ctx, events) = FumoContext::new(&token).await?;
+    let (ctx, mut shards) = FumoContext::new(&token).await?;
     let ctx = Arc::new(ctx);
 
-    ctx.cluster.up().await;
-
-    let event_ctx = Arc::clone(&ctx);
 
     // Set global commands
     let application_id = ctx.http.current_user()
@@ -70,8 +68,10 @@ async fn main() -> Result<()> {
     };
 
     // Run discord event loop
+    let event_ctx = Arc::clone(&ctx);
+
     tokio::select! {
-        _ = event_loop(event_ctx, events) => println!("Error in event loop!"),
+        _ = event_loop(event_ctx, &mut shards) => println!("Error in event loop!"),
         res = signal::ctrl_c() => match res {
             Ok(_) => println!("\nGot Ctrl+C"),
             Err(_) => println!("Can't get Cntrl+C signal for some reason"),
@@ -79,7 +79,16 @@ async fn main() -> Result<()> {
     }
     
     // Close everything
-    ctx.cluster.down();
+    for shard in shards.iter_mut() {
+        let reason = CloseFrame::new(1000, "Closing connection");
+        let res = shard.close(reason).await;
+
+        match res {
+            Ok(_) => println!("Closed shard"),
+            // TODO use eyre report here i guess
+            Err(e) => println!("Failed to close shard: \n{:?}", e), 
+        }
+    }
 
     if tx.send(()).is_err() {
         println!("Failed to close twitch loop!");

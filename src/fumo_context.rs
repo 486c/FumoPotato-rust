@@ -3,10 +3,9 @@ use crate::twitch_api::TwitchApi;
 use crate::database::Database;
 use crate::stats::BotStats;
 
-use twilight_gateway::cluster::Events;
 use twilight_http::Client;
 use twilight_http::client::InteractionClient;
-use twilight_gateway::{ EventTypeFlags, Intents, Cluster };
+use twilight_gateway::{ EventTypeFlags, Intents,  Config, stream, ShardId, ConfigBuilder, Shard };
 use twilight_model::id::{
     Id, 
     marker::ApplicationMarker
@@ -24,7 +23,6 @@ pub struct FumoContext {
     pub db: Database,
     pub stats: BotStats,
     pub http: Arc<Client>,
-    pub cluster: Cluster,
     pub standby: Standby,
 
     application_id: Id<ApplicationMarker>,
@@ -37,7 +35,7 @@ impl FumoContext {
 }
 
 impl FumoContext {
-    pub async fn new(token: &str) -> Result<(FumoContext, Events)> {
+    pub async fn new(token: &str) -> Result<(FumoContext, Vec<Shard>)> {
         // Init twitch api
         let twitch_api = TwitchApi::new(
             env::var("TWITCH_CLIENT_ID")?.as_str(),
@@ -63,20 +61,28 @@ impl FumoContext {
 
         let http = Arc::new(http);
 
-        let (cluster, events) = Cluster::builder(
-            token.to_owned(), 
-            Intents::all(),
+        let config = Config::builder(
+            token.to_owned(),
+            Intents::MESSAGE_CONTENT
+            | Intents::DIRECT_MESSAGES
+            | Intents::DIRECT_MESSAGE_REACTIONS
+            | Intents::MESSAGE_CONTENT
         )
-            .http_client(Arc::clone(&http))
-            .event_types(
-                EventTypeFlags::INTERACTION_CREATE
-                | EventTypeFlags::MESSAGE_CREATE
-                | EventTypeFlags::MESSAGE_DELETE
-                | EventTypeFlags::MESSAGE_UPDATE
-                | EventTypeFlags::SHARD_PAYLOAD
-                )
-            .build()
-            .await?;
+        .event_types(
+            EventTypeFlags::INTERACTION_CREATE
+            | EventTypeFlags::MESSAGE_CREATE
+            | EventTypeFlags::MESSAGE_DELETE
+            | EventTypeFlags::MESSAGE_UPDATE
+        )
+        .build();
+
+        let shards = stream::create_recommended(
+            &http,
+            config,
+            |_shard_id: ShardId, builder: ConfigBuilder| builder.build()
+        )
+        .await?
+        .collect();
 
         let application_id = http.current_user()
             .await?
@@ -93,12 +99,11 @@ impl FumoContext {
             twitch_api,
             db,
             http,
-            cluster,
             application_id,
             standby,
             stats,
         };
 
-        Ok((ctx, events))
+        Ok((ctx, shards))
     }
 }
