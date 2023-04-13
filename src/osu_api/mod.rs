@@ -10,7 +10,11 @@ pub mod error;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };
 
-use self::models::{ OauthResponse, OsuBeatmap, OsuLeaderboard, ApiError };
+use self::models::{ 
+    OauthResponse, OsuBeatmap, OsuLeaderboard, 
+    ApiError, UserId, OsuGameMode, OsuUser, GetUserScores, OsuScore 
+};
+
 use self::metrics::Metrics;
 
 use std::sync::Arc;
@@ -76,7 +80,11 @@ impl OsuToken {
 }
 
 impl OsuApi {
-    async fn make_request(&self, link: &str, method: Method) -> ApiResult<Response> {
+    async fn make_request<T: DeserializeOwned>(
+        &self, 
+        link: &str, 
+        method: Method
+    ) -> ApiResult<T> {
         let token = self.inner.token.read().await;
 
         let r = &self.inner.client;
@@ -86,15 +94,20 @@ impl OsuApi {
             _ => unimplemented!(),
         };
 
-        let r = r
+        let req = r
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
             .header(AUTHORIZATION, format!("Bearer {token}"));
 
-        Ok(r.send().await?)
+        let resp = req.send().await?;
+
+        Ok(self.handle_error(resp).await?)
     }
 
-    async fn handle_error<T: DeserializeOwned>(&self, r: Response) -> ApiResult<T> {
+    async fn handle_error<T: DeserializeOwned>(
+        &self, 
+        r: Response
+    ) -> ApiResult<T> {
         match r.status() {
             StatusCode::OK => {
                 //TODO move this nesting mess outta here
@@ -112,13 +125,14 @@ impl OsuApi {
                     url: r.url().to_string(),
                 }
             ),
-            StatusCode::TOO_MANY_REQUESTS => return Err(OsuApiError::TooManyRequests),
-            StatusCode::UNPROCESSABLE_ENTITY => return Err(OsuApiError::UnprocessableEntity),
+            StatusCode::TOO_MANY_REQUESTS => 
+                return Err(OsuApiError::TooManyRequests),
+            StatusCode::UNPROCESSABLE_ENTITY => 
+                return Err(OsuApiError::UnprocessableEntity),
             _ => (),
         };
 
         let bytes = r.bytes().await?;
-        dbg!(&bytes);
         let parsed: ApiError = match serde_json::from_slice(&bytes) {
             Ok(v) => v,
             Err(e) => return Err(OsuApiError::Parsing {
@@ -131,21 +145,77 @@ impl OsuApi {
             source: parsed,
         })
     }
+
+    pub async fn get_user_scores(
+        &self,
+        user_scores: GetUserScores
+    ) -> ApiResult<Vec<OsuScore>> {
+        let mut link = "https://osu.ppy.sh/api/v2".to_owned();
+
+        link.push_str(&format!(
+            "/users/{}/scores/{}?",
+            user_scores.user_id,
+            user_scores.kind
+        ));
+
+        // TODO think of better ways of handling query arguments
+        // TODO handle pagination 
+
+        if let Some(limit) = user_scores.limit {
+            link.push_str(&format!("limit={limit}&"))
+        }
+
+        if let Some(fails) = user_scores.include_fails {
+            let fails = match fails {
+                true => "1",
+                false => "0",
+            };
+
+            link.push_str(&format!("include_fails={fails}&"))
+        }
+
+        let r = self.make_request(
+            &link[..link.len()-1], 
+            Method::GET
+        ).await?;
+
+        Ok(r)
+    }
+
+    pub async fn get_user(
+        &self,
+        user_id: UserId,
+        mode: Option<OsuGameMode>
+    ) -> ApiResult<OsuUser> {
+        let mut link = "https://osu.ppy.sh/api/v2".to_owned();
+
+        // TODO ?key=
+        link.push_str(&format!("/users/{user_id}"));
+
+        if let Some(mode) = mode {
+            link.push_str(&format!("/mode/{mode}"))
+        }
+
+        let r = self.make_request(&link, Method::GET).await?;
+
+        Ok(r)
+    }
     
     pub async fn get_beatmap(&self, bid: i32) -> ApiResult<OsuBeatmap> {
         let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{bid}");
 
         let r = self.make_request(&link, Method::GET).await?;
-
         self.stats.beatmap.inc();
 
-        let b = self.handle_error(r).await?;
-        Ok(b)
+        Ok(r)
     }
 
     // This method works only if FALLBACK_API variable
     // is set.
-    pub async fn get_countryleaderboard(&self, bid: i32) -> ApiResult<OsuLeaderboard> {
+    pub async fn get_countryleaderboard(
+        &self, 
+        bid: i32
+    ) -> ApiResult<OsuLeaderboard> {
         let link = format!(
             "{}/leaderboard/leaderboard?beatmap={}&type=country",
             self.fallback_url,
@@ -153,11 +223,8 @@ impl OsuApi {
         );
 
         let r = self.make_request(&link, Method::GET).await?;
-
         self.stats.country_leaderboard.inc();
-
-        let b = self.handle_error(r).await?;
-        Ok(b)
+        Ok(r)
     }
 }
 
@@ -203,14 +270,22 @@ impl OsuApi {
         Ok(api)
     }
 
-    async fn update_token(osu: Arc<OsuToken>, expire: u64, rx: Receiver<()>) {
+    async fn update_token(
+        osu: Arc<OsuToken>,
+        expire: u64, 
+        rx: Receiver<()>
+    ) {
         tokio::spawn(async move {
             OsuApi::token_loop(Arc::clone(&osu), expire, rx).await;
             println!("osu!api token loop is closed!");
         });
     }
 
-    async fn token_loop(osu: Arc<OsuToken>, mut expire: u64, mut rx: Receiver<()>) {
+    async fn token_loop(
+        osu: Arc<OsuToken>, 
+        mut expire: u64, 
+        mut rx: Receiver<()>
+    ) {
         loop {
             expire /= 2;
             println!("Token update scheduled in {expire} seconds");
@@ -255,6 +330,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_scores() {
+        let api = init_helper().await.unwrap();
+
+        let req = GetUserScores::new(
+            6892711, 
+            ScoresType::Best
+        )
+        .limit(10);
+
+        let scores = api.get_user_scores(req).await.unwrap();
+        assert_eq!(scores.len(), 10);
+
+        let req = GetUserScores::new(
+            7562902, 
+            ScoresType::Recent
+        )
+        .limit(50)
+        .include_fails(true);
+
+        api.get_user_scores(req).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_user() {
+        let api = init_helper().await.unwrap();
+
+        let user = api.get_user(
+            UserId::Id(6892711),
+            None
+        ).await.unwrap();
+
+        assert_eq!(user.id, 6892711);
+        assert_eq!(user.username, "LoPij");
+        assert_eq!(user.country_code, "BY");
+
+        let user = api.get_user(
+            UserId::Username("DaHuJka".to_owned()),
+            None
+        ).await.unwrap();
+
+        assert_eq!(user.id, 6830745);
+        assert_eq!(user.username, "DaHuJka");
+        assert_eq!(user.country_code, "RU");
+    }
+
+    #[tokio::test]
     async fn test_get_beatmap() {
         let api = init_helper().await.unwrap();
 
@@ -279,21 +400,14 @@ mod tests {
     }
     
     #[tokio::test]
-    async fn test_makerequest() {
-        let api = init_helper().await.unwrap();
-
-        api.make_request("https://google.com", Method::GET).await.unwrap();
-    }
-
-    #[tokio::test]
     #[should_panic]
     async fn test_notfound_error() {
         let api = init_helper().await.unwrap();
 
         let link = "https://osu.ppy.sh/apii/v2/beaaps/";
-        let r = api.make_request(link, Method::GET).await.unwrap();
-
-        let _: OsuBeatmap = api.handle_error(r).await.unwrap();
+        let _: OsuBeatmap = api.make_request(link, Method::GET)
+            .await
+            .unwrap();
     }
 
     #[test]
@@ -316,7 +430,9 @@ mod tests {
         let mods = OsuMods::NIGHTCORE | OsuMods::HIDDEN;
         assert_eq!(mods.to_string(), "HDNC");
 
-        let mods = OsuMods::NIGHTCORE | OsuMods::HIDDEN | OsuMods::HARDROCK;
+        let mods = OsuMods::NIGHTCORE 
+            | OsuMods::HIDDEN 
+            | OsuMods::HARDROCK;
         assert_eq!(mods.to_string(), "HDNCHR");
     }
 
@@ -334,9 +450,19 @@ mod tests {
         assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::HIDDEN);
 
         let mods = OsuMods::from_str("DThDhR").unwrap();
-        assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::HIDDEN | OsuMods::HARDROCK);
+        assert_eq!(
+            mods, 
+            OsuMods::DOUBLETIME 
+            | OsuMods::HIDDEN 
+            | OsuMods::HARDROCK
+        );
 
         let mods = OsuMods::from_str("DThDhRdt").unwrap();
-        assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::HIDDEN | OsuMods::HARDROCK);
+        assert_eq!(
+            mods, 
+            OsuMods::DOUBLETIME 
+            | OsuMods::HIDDEN 
+            | OsuMods::HARDROCK
+        );
     }
 }

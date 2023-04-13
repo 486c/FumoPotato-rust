@@ -1,4 +1,5 @@
-use crate::osu_api::datetime::deserialize_local_datetime;
+use crate::osu_api::datetime::deserialize_datetime;
+
 use crate::osu_api::error::OsuApiError;
 
 use chrono::prelude::*;
@@ -290,10 +291,13 @@ impl<'de> Visitor<'de> for OsuModsVisitor {
 
     #[inline]
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("")
+        f.write_str("valid sequence, string with valid acronyms")
     }
 
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+    fn visit_seq<A: SeqAccess<'de>>(
+        self, 
+        mut seq: A
+    ) -> Result<Self::Value, A::Error> {
         let mut mods = OsuMods::default();
 
         while let Some(next) = seq.next_element()? {
@@ -335,6 +339,56 @@ impl<'de> Deserialize<'de> for OsuMods {
     #[inline]
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         d.deserialize_any(OsuModsVisitor)
+    }
+}
+
+#[derive(Debug)]
+pub enum OsuGameMode {
+    Fruits,
+    Mania,
+    Osu,
+    Taiko
+}
+
+impl fmt::Display for OsuGameMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OsuGameMode::Fruits => write!(f, "fruits"),
+            OsuGameMode::Mania => write!(f, "mania"),
+            OsuGameMode::Osu => write!(f, "osu"),
+            OsuGameMode::Taiko => write!(f, "taiko"),
+        }
+    }
+}
+
+struct OsuGameModeVisitor;
+
+impl<'de> Visitor<'de> for OsuGameModeVisitor {
+    type Value = OsuGameMode;
+
+    #[inline]
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("valid string")
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        match v {
+            "osu" => Ok(OsuGameMode::Osu),
+            "fruits" => Ok(OsuGameMode::Fruits),
+            "taiko" => Ok(OsuGameMode::Taiko),
+            "mania" => Ok(OsuGameMode::Mania),
+            _ => Err(Error::invalid_value(
+                Unexpected::Str(v),
+                &"osu, fruits, taiko or mania"
+            ))
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for OsuGameMode {
+    #[inline]
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        d.deserialize_any(OsuGameModeVisitor)
     }
 }
 
@@ -385,14 +439,19 @@ pub struct OsuBeatmap {
 
 impl OsuBeatmap {
     pub fn metadata(&self) -> String {
-        format!("{} - {} [{}]", self.beatmapset.artist, self.beatmapset.title, self.version)
+        format!(
+            "{} - {} [{}]", 
+            self.beatmapset.artist, 
+            self.beatmapset.title, 
+            self.version
+        )
     }
 }
 
 #[derive(Deserialize, Debug)]
 pub struct OsuScore {
     pub id: i64,
-    pub best_id: i64,
+    pub best_id: Option<i64>,
     pub user_id: i64,
     pub accuracy: f32,
     pub mods: OsuMods,
@@ -401,12 +460,11 @@ pub struct OsuScore {
     pub passed: bool,
     pub pp: Option<f32>,
 
-    #[serde(rename = "max_combo")]
     pub max_combo: i32,
 
     pub rank: OsuRank,
 
-    #[serde(deserialize_with = "deserialize_local_datetime")]
+    #[serde(deserialize_with = "deserialize_datetime")]
     pub created_at: DateTime<Utc>,
 
     #[serde(rename = "statistics")]
@@ -439,6 +497,25 @@ pub struct OsuUserCompact {
     // last_visit & profile_colour skipped
 }
 
+#[derive(Deserialize, Debug)]
+pub struct OsuUser {
+    pub id: i64,
+    pub username: String,
+    pub country_code: String,
+    pub cover_url: String,
+    pub discord: Option<String>,
+    pub has_supported: bool,
+    pub interests: Option<String>,
+    #[serde(deserialize_with = "deserialize_datetime")]
+    pub join_date: DateTime<Utc>,
+    // Kudosu skipped
+    pub location: Option<String>,
+    pub max_blocks: i32,
+    pub max_friends: i32,
+    pub occupation: Option<String>,
+    pub playmode: OsuGameMode,
+}
+
 mod utils {
     pub fn cut(mut source: &str, n: usize) -> impl Iterator<Item = &str> {
         std::iter::from_fn(move || {
@@ -448,7 +525,9 @@ mod utils {
                 let end_idx = source
                     .char_indices()
                     .nth(n - 1)
-                    .map_or_else(|| source.len(), |(idx, c)| idx + c.len_utf8() 
+                    .map_or_else(
+                        || source.len(), 
+                        |(idx, c)| idx + c.len_utf8() 
                 );
 
                 let (split, rest) = source.split_at(end_idx);
@@ -461,3 +540,66 @@ mod utils {
     }
 }
 
+pub enum UserId {
+    Username(String),
+    Id(i64)
+}
+
+impl fmt::Display for UserId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UserId::Username(v) => write!(f, "{}", v),
+            UserId::Id(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+// Get User Scores
+pub enum ScoresType {
+    Best,
+    Firsts,
+    Recent,
+}
+
+impl fmt::Display for ScoresType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ScoresType::Best => write!(f, "{}", "best"),
+            ScoresType::Firsts => write!(f, "{}", "firsts"),
+            ScoresType::Recent => write!(f, "{}", "recent"),
+        }
+    }
+}
+
+pub struct GetUserScores {
+    pub user_id: i64,
+    pub kind: ScoresType,
+    pub include_fails: Option<bool>,
+    pub mode: Option<OsuGameMode>,
+    pub limit: Option<i32>,
+    pub offset: Option<i32>,
+}
+
+impl GetUserScores {
+    pub fn new(user_id: i64, kind: ScoresType) -> Self {
+        Self {
+            user_id,
+            kind,
+            include_fails: None,
+            mode: None,
+            limit: None,
+            offset: None,
+        }
+    }
+
+    pub fn limit(mut self, limit: i32) -> Self {
+        self.limit = Some(limit);
+
+        self
+    }
+
+    pub fn include_fails(mut self, include: bool) -> Self {
+        self.include_fails = Some(include);
+        self
+    }
+}
