@@ -180,7 +180,10 @@ pub fn global_commands() -> Vec<Command> {
     commands
 }
 
-async fn handle_interactions(ctx: Arc<FumoContext>, interaction: Interaction) {
+async fn handle_interactions(
+    ctx: Arc<FumoContext>, 
+    interaction: Interaction
+) {
     let Interaction {
         channel_id,
         data,
@@ -221,7 +224,7 @@ async fn handle_event(
         Event::MessageCreate(_) => {},
         Event::MessageDelete(_) => {},
         Event::InteractionCreate(c) => handle_interactions(ctx, c.0).await,
-        _ => {} //println!("Got unhandled event: {:?}", event),
+        _ => {}
     }
 
     Ok(())

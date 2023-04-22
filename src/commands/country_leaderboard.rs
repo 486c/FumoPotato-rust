@@ -29,10 +29,9 @@ struct LeaderboardListing<'a> {
 
 impl<'a> LeaderboardListing<'a> {
     fn new(s: &'a Vec<OsuScore>, b: &'a OsuBeatmap) -> LeaderboardListing<'a> {
-        let mut pages: i32 = (s.len() as f32 / 10.0 ).ceil() as i32;
-        if pages == 0 {
-            pages = 1;
-        }
+        let pages: i32 = (s.len() as f32 / 10.0)
+            .ceil()
+            .clamp(1.0, 20.0) as i32;
 
         let mut embed = EmbedBuilder::new();
 
@@ -130,7 +129,10 @@ impl<'a> LeaderboardListing<'a> {
             .enumerate()
         {
             let _ = writeln!(st, "{}. [{}](https://osu.ppy.sh/u/{}) +**{}**",
-                index as i32 + 1  + start_at, s.user.username, s.user.id, s.mods.to_string()
+                index as i32 + 1  + start_at, 
+                s.user.username, 
+                s.user.id, 
+                s.mods.to_string()
             );
 
             let pp: String = match self.beatmap.ranked {
@@ -200,7 +202,9 @@ pub async fn country_leaderboard(
     let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
         Ok(lb) => lb,
         Err(e) => {
-            builder = builder.content("Issues with leaderboard api. blame seneal");
+            builder = builder.content(
+                "Issues with leaderboard api. blame seneal"
+            );
             command.update(ctx, &builder).await?;
             return Err(eyre::Report::new(e))
         }
@@ -223,8 +227,9 @@ pub async fn country_leaderboard(
     let msg = command.update(ctx, &builder).await?
         .model().await?;
 
-    let stream = ctx.standby.wait_for_component_stream(msg.id, |_e: &Interaction| {
-        true
+    let stream = ctx.standby
+        .wait_for_component_stream(msg.id, |_: &Interaction| {
+            true
     }) 
     .map(|event| {
         let Interaction {
