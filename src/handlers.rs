@@ -19,6 +19,7 @@ use crate::commands::{
     country_leaderboard,
     twitch,
     attributes,
+    osu
 };
 
 use crate::utils::InteractionCommand;
@@ -27,9 +28,11 @@ use eyre::Result;
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     let res = match cmd.data.name.as_str() {
-        "leaderboard" | "Leaderboard" => country_leaderboard::run(&ctx, cmd).await,
+        "leaderboard" | "Leaderboard" => 
+            country_leaderboard::run(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,
         "ar" | "od" => attributes::run(&ctx, cmd).await,
+        "osu" => osu::run(&ctx, cmd).await,
         _ => return println!("Got unhandled interaction command"),
     };
     
@@ -75,18 +78,6 @@ pub async fn event_loop(ctx: Arc<FumoContext>, shards: &mut [Shard]) {
             None => return,
         };
     }
-
-    //while let Some((shard_id, event)) = events.next().await {
-        //let ctx = Arc::clone(&ctx);
-
-        /*
-        match event {
-            Ok(event) => {
-            },
-            Err(_) => todo!(),
-        };
-        */
-    //};
 }
 
 pub fn global_commands() -> Vec<Command> {
@@ -127,6 +118,8 @@ pub fn global_commands() -> Vec<Command> {
     )
     .option(
         StringBuilder::new("mods", "osu mods")
+        .max_length(16)
+        .min_length(1)
         .required(false),
     )
     .build();
@@ -177,13 +170,35 @@ pub fn global_commands() -> Vec<Command> {
     commands.push(cmd);
 
 
+    let cmd = CommandBuilder::new(
+        "osu",
+        "osu related commands",
+        CommandType::ChatInput,
+    ).option(
+        SubCommandBuilder::new(
+            "link", 
+            "link osu account"
+        ).option(
+            StringBuilder::new("name", "osu! username")
+            .required(true)
+        )
+    ).option(
+        SubCommandBuilder::new(
+            "unlink", 
+            "unlink osu account"
+        )
+    )
+    .build();
+    commands.push(cmd);
+
+
     commands
 }
 
 async fn handle_interactions(
     ctx: Arc<FumoContext>, 
     interaction: Interaction
-) {
+) -> Result<()> {
     let Interaction {
         channel_id,
         data,
@@ -191,18 +206,35 @@ async fn handle_interactions(
         kind,
         id,
         token,
+        member,
+        user,
         ..
     } = interaction;
 
     match data {
         Some(InteractionData::ApplicationCommand(data)) => {
+            /*
+            let discord_user = member.unwrap()
+                .user.unwrap();
+            
+            // TODO use cache instead of fetching from db each time
+            // TODO use `UserConfig` struct instead of
+            // passing it into `InteractionCommand` struct
+            let osu_user = ctx.db.get_osu_user(
+                discord_user.id.get() as i64
+            )
+            .await?;
+            */
+
             let cmd = InteractionCommand {
                 channel_id: channel_id.unwrap(),
                 data,
                 kind,
                 guild_id,
                 id,
-                token
+                token,
+                member,
+                user
             };
 
             handle_commands(ctx, cmd).await;
@@ -210,7 +242,9 @@ async fn handle_interactions(
         Some(InteractionData::MessageComponent(_)) => {},
         Some(InteractionData::ModalSubmit(_)) => {},
         _ => {},
-    }
+    };
+
+    Ok(())
 }
 
 async fn handle_event(
@@ -220,10 +254,8 @@ async fn handle_event(
 ) -> Result<()> {
     ctx.standby.process(&event);
     match event {
-        Event::MessageUpdate(_) => {},
-        Event::MessageCreate(_) => {},
-        Event::MessageDelete(_) => {},
-        Event::InteractionCreate(c) => handle_interactions(ctx, c.0).await,
+        Event::InteractionCreate(c) => 
+            handle_interactions(ctx, c.0).await?,
         _ => {}
     }
 

@@ -101,7 +101,7 @@ impl OsuApi {
 
         let resp = req.send().await?;
 
-        Ok(self.handle_error(resp).await?)
+        self.handle_error(resp).await
     }
 
     async fn handle_error<T: DeserializeOwned>(
@@ -373,6 +373,11 @@ mod tests {
         assert_eq!(user.id, 6830745);
         assert_eq!(user.username, "DaHuJka");
         assert_eq!(user.country_code, "RU");
+
+        let user = api.get_user(
+            UserId::Username("ASD4235".to_owned()),
+            None
+        ).await;
     }
 
     #[tokio::test]

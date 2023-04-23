@@ -176,16 +176,6 @@ async fn twitch_list(
 
     Ok(())
 }
-/*
-
-async fn twitch_check(
-    ctx: &FumoContext, 
-    command: &InteractionCommand, 
-    name: &str)
--> Result<()> {
-    todo!()
-}
-*/
 
 async fn twitch_add(
     ctx: &FumoContext, 
@@ -295,30 +285,26 @@ async fn twitch_remove(
     Ok(())
 }
 
-pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
-    if let Some(option) = &command.data.options.get(0) {
-        match &option.value {
-            CommandOptionValue::SubCommand(args) => {
-                match option.name.as_ref() {
-                    "add" => {
-                        if let CommandOptionValue::String(name) = &args[0].value {
-                            twitch_add(ctx, &command, name).await
-                        } else { bail!("No required option provided!"); }
-                    },
-                    "remove" => { 
-                        if let CommandOptionValue::String(name) = &args[0].value {
-                            twitch_remove(ctx, &command, name).await
-                        } else { bail!("No required option provided!"); }
-                    },
-                    "list" => twitch_list(ctx, &command).await,
-                    &_ => bail!("Unrecognized option name `{}`", option.name),
-                }
-            },
-            _ => {
-                bail!("Unrecognized option type in subcommand `{}`", option.name)
+pub async fn run(
+    ctx: &FumoContext, 
+    command: InteractionCommand
+) -> Result<()> {
+    if let Some(option) = command.data.options.get(0) {
+        if let CommandOptionValue::SubCommand(args) = &option.value {
+            match option.name.as_ref() {
+                "add" => {
+                    if let CommandOptionValue::String(name) = &args[0].value {
+                        twitch_add(ctx, &command, name).await
+                    } else { bail!("No required option provided!"); }
+                },
+                "remove" => {
+                    if let CommandOptionValue::String(name) = &args[0].value {
+                        twitch_remove(ctx, &command, name).await
+                    } else { bail!("No required option provided!"); }
+                },
+                "list" => twitch_list(ctx, &command).await,
+                _ => todo!()
             }
-        }
-    } else {
-        bail!("Required option is not found")
-    }
+        } else { bail!("No subcommand found") }
+    } else { bail!("Required option is not found") }
 }

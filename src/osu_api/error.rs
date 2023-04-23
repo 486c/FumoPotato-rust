@@ -45,7 +45,8 @@ impl fmt::Display for OsuApiError {
             OsuApiError::ReqwestError { .. } => f.write_str("Got reqwest error!"),
             OsuApiError::UnhandledStatusCode { .. } => f.write_str("Got unknown status code"),
             OsuApiError::ApiError { .. } => f.write_str("Got internal osu!api error"),
-            OsuApiError::NotFound { .. } => f.write_str("Url doesn't found"),
+            OsuApiError::NotFound { .. } => 
+                f.write_str("Url doesn't found"),
             OsuApiError::Parsing { .. } => f.write_str("Got error during json parsing"),
             OsuApiError::TooManyRequests => f.write_str("Got 429!"),
             OsuApiError::UnprocessableEntity => f.write_str("Got unprocessable entity"),

@@ -7,10 +7,10 @@ use once_cell::sync::OnceCell;
 
 use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
 
-use twilight_model::http::{
+use twilight_model::{http::{
     interaction::{ InteractionResponse, InteractionResponseType },
     attachment::Attachment,
-};
+}, guild::PartialMember, user::User, id::marker::UserMarker};
 
 use twilight_model::channel::message::{ 
     component::Component, 
@@ -28,7 +28,9 @@ use twilight_model::application::interaction::{
     application_command::CommandData,
     message_component::MessageComponentInteractionData,
 };
-use twilight_model::application::interaction::application_command::{ CommandOptionValue, CommandDataOption };
+use twilight_model::application::interaction::application_command::{ 
+    CommandOptionValue, CommandDataOption 
+};
 
 use crate::fumo_context::FumoContext;
 
@@ -47,7 +49,10 @@ impl MessageBuilder {
         }
     }
 
-    pub fn attachments(mut self, attachments: impl Into<Vec<Attachment>>) -> Self {
+    pub fn attachments(
+        mut self, 
+        attachments: impl Into<Vec<Attachment>>
+    ) -> Self {
         self.attachments = Some(attachments.into());
         self
     }
@@ -76,7 +81,7 @@ pub struct InteractionComponent {
     pub kind: InteractionType,
     pub guild_id: Option<Id<GuildMarker>>,
     pub id: Id<InteractionMarker>,
-    pub token: String
+    pub token: String,
 }
 
 impl InteractionComponent {
@@ -100,6 +105,8 @@ pub struct InteractionCommand {
     pub guild_id: Option<Id<GuildMarker>>,
     pub id: Id<InteractionMarker>,
     pub token: String,
+    pub member: Option<PartialMember>,
+    pub user: Option<User>,
 }
 
 impl InteractionCommand {
@@ -116,6 +123,22 @@ impl InteractionCommand {
                 &response
             )
             .into_future()
+    }
+
+    pub fn user_id(
+        &self
+    ) -> Option<Id<UserMarker>> {
+        if let Some(member) = &self.member {
+            if let Some(user) = &member.user {
+                return Some(user.id)
+            }
+        }
+
+        if let Some(user) = &self.user {
+            return Some(user.id)
+        }
+
+        None
     }
 
     pub fn update<'a>(

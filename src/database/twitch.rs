@@ -43,7 +43,9 @@ impl Database {
         Ok(channels)
     }
 
-    pub async fn get_streamers(&self) -> Result<Vec<TwitchTrackedStreamer>> {
+    pub async fn get_streamers(
+        &self
+    ) -> Result<Vec<TwitchTrackedStreamer>> {
         let streamers = sqlx::query_as!(
             TwitchTrackedStreamer,
             "SELECT * FROM twitch_streamers"
@@ -53,7 +55,10 @@ impl Database {
         Ok(streamers)
     }
 
-    pub async fn get_streamer(&self, id: i64) -> Option<TwitchTrackedStreamer> {
+    pub async fn get_streamer(
+        &self, 
+        id: i64
+    ) -> Option<TwitchTrackedStreamer> {
         let streamer = sqlx::query_as!(
             TwitchTrackedStreamer,
             "SELECT * FROM twitch_streamers WHERE id = $1",
@@ -67,7 +72,10 @@ impl Database {
         }
     }
 
-    pub async fn get_streamer_by_id(&self, id: i64) -> Option<TwitchTrackedStreamer> {
+    pub async fn get_streamer_by_id(
+        &self, 
+        id: i64
+    ) -> Option<TwitchTrackedStreamer> {
         let streamer = sqlx::query_as!(
             TwitchTrackedStreamer,
             "SELECT * FROM twitch_streamers WHERE id = $1",
@@ -81,7 +89,10 @@ impl Database {
         }
     }
 
-    pub async fn add_streamer(&self, id: i64) -> Result<TwitchTrackedStreamer> {
+    pub async fn add_streamer(
+        &self, 
+        id: i64
+    ) -> Result<TwitchTrackedStreamer> {
         let streamer = sqlx::query_as!(
             TwitchTrackedStreamer,
             "INSERT INTO twitch_streamers(online, id) VALUES(false, $1) 
@@ -92,7 +103,11 @@ impl Database {
         Ok(streamer)
     }
 
-    pub async fn add_tracking(&self, streamer: &TwitchTrackedStreamer, channel_id: i64) -> Result<()> {
+    pub async fn add_tracking(
+        &self, 
+        streamer: &TwitchTrackedStreamer, 
+        channel_id: i64
+    ) -> Result<()> {
         sqlx::query!(
             "INSERT INTO twitch_tracking VALUES($2, $1)",
             streamer.id, channel_id
@@ -101,7 +116,11 @@ impl Database {
         Ok(())
     }
 
-    pub async fn remove_tracking(&self, id: i64, channel_id: i64) -> Result<()> {
+    pub async fn remove_tracking(
+        &self, 
+        id: i64, 
+        channel_id: i64
+    ) -> Result<()> {
         sqlx::query!(
             "DELETE FROM twitch_tracking WHERE 
             id = $1 and channel_id = $2",
@@ -111,7 +130,11 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_tracking(&self, id: i64, channel_id: i64) -> Option<TwitchChannel> {
+    pub async fn get_tracking(
+        &self, 
+        id: i64, 
+        channel_id: i64
+    ) -> Option<TwitchChannel> {
         let track = sqlx::query_as!(
             TwitchChannel,
             "SELECT * FROM twitch_tracking WHERE 

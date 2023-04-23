@@ -2,6 +2,7 @@ use sqlx::postgres::{PgPool, PgPoolOptions};
 use eyre::Result;
 
 pub mod twitch;
+pub mod osu;
 
 pub struct Database {
     pool: PgPool,

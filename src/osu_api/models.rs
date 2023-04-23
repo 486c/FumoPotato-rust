@@ -548,8 +548,8 @@ pub enum UserId {
 impl fmt::Display for UserId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UserId::Username(v) => write!(f, "{}", v),
-            UserId::Id(v) => write!(f, "{}", v),
+            UserId::Username(v) => write!(f, "{v}"),
+            UserId::Id(v) => write!(f, "{v}"),
         }
     }
 }
@@ -564,9 +564,9 @@ pub enum ScoresType {
 impl fmt::Display for ScoresType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ScoresType::Best => write!(f, "{}", "best"),
-            ScoresType::Firsts => write!(f, "{}", "firsts"),
-            ScoresType::Recent => write!(f, "{}", "recent"),
+            ScoresType::Best => write!(f, "best"),
+            ScoresType::Firsts => write!(f, "firsts"),
+            ScoresType::Recent => write!(f, "recent"),
         }
     }
 }
