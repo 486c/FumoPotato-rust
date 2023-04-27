@@ -97,9 +97,9 @@ async fn od(
     let new_od = (c300 - 80.0) / - 6.0;
 
     let _ = writeln!(st, "```{od} -> {:.2} ({})", new_od, mods.to_string());
-    let _  = writeln!(st, "300: {c300:.2}ms");
-    let _  = writeln!(st, "100: {c100:.2}ms");
-    let _  = writeln!(st, "50: {c50:.2}ms```");
+    let _  = writeln!(st, "300: ±{c300:.2}ms");
+    let _  = writeln!(st, "100: ±{c100:.2}ms");
+    let _  = writeln!(st, "50: ±{c50:.2}ms```");
 
     let mut msg = MessageBuilder::new();
     msg = msg.content(st);
