@@ -200,7 +200,7 @@ async fn handle_interactions(
     interaction: Interaction
 ) -> Result<()> {
     let Interaction {
-        channel_id,
+        channel,
         data,
         guild_id,
         kind,
@@ -213,21 +213,8 @@ async fn handle_interactions(
 
     match data {
         Some(InteractionData::ApplicationCommand(data)) => {
-            /*
-            let discord_user = member.unwrap()
-                .user.unwrap();
-            
-            // TODO use cache instead of fetching from db each time
-            // TODO use `UserConfig` struct instead of
-            // passing it into `InteractionCommand` struct
-            let osu_user = ctx.db.get_osu_user(
-                discord_user.id.get() as i64
-            )
-            .await?;
-            */
-
             let cmd = InteractionCommand {
-                channel_id: channel_id.unwrap(),
+                channel_id: channel.unwrap().id,
                 data,
                 kind,
                 guild_id,

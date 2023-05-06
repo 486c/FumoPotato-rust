@@ -10,7 +10,7 @@ use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
 use twilight_model::{http::{
     interaction::{ InteractionResponse, InteractionResponseType },
     attachment::Attachment,
-}, guild::PartialMember, user::User, id::marker::UserMarker};
+}, guild::PartialMember, user::User, id::marker::UserMarker, channel::Channel};
 
 use twilight_model::channel::message::{ 
     component::Component, 
@@ -76,7 +76,7 @@ impl MessageBuilder {
 
 #[derive(Debug)]
 pub struct InteractionComponent {
-    pub channel_id: Option<Id<ChannelMarker>>,
+    pub channel: Option<Channel>,
     pub data: Option<MessageComponentInteractionData>,
     pub kind: InteractionType,
     pub guild_id: Option<Id<GuildMarker>>,

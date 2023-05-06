@@ -23,11 +23,11 @@ serde_json = "1.0.85"
 sqlx = { version = "0.6.2", features = [ "runtime-tokio-native-tls" , "postgres" ] }
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-stream = "0.1.11"
-twilight-gateway = "0.15.1"
-twilight-http = "0.15.1"
-twilight-model = "0.15.1"
-twilight-standby = "0.15.1"
-twilight-util = { version = "0.15.1", features = ["builder"] }
+twilight-gateway = "0.15.2"
+twilight-http = "0.15.2"
+twilight-model = "0.15.2"
+twilight-standby = "0.15.2"
+twilight-util = { version = "0.15.2", features = ["builder"] }
 
 [dev-dependencies]
 async-once-cell = "0.5.0"

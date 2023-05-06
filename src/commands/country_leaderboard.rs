@@ -233,7 +233,7 @@ pub async fn country_leaderboard(
     }) 
     .map(|event| {
         let Interaction {
-            channel_id,
+            channel,
             data,
             guild_id,
             kind,
@@ -244,7 +244,7 @@ pub async fn country_leaderboard(
 
         if let Some(InteractionData::MessageComponent(data)) = data {
             InteractionComponent {
-                channel_id,
+                channel,
                 data: Some(data),
                 kind,
                 id,
@@ -253,7 +253,7 @@ pub async fn country_leaderboard(
             } 
         } else {
             InteractionComponent {
-                channel_id,
+                channel,
                 data: None,
                 kind,
                 id,
