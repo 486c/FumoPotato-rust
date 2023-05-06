@@ -59,6 +59,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
+name = "async-once-cell"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1de3770f6dce2f61f5df9e99144fdd579a5f464f7a8573540026afefa9cafb5e"
+
+[[package]]
 name = "atoi"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -439,6 +445,7 @@ dependencies = [
 name = "fumo_potato"
 version = "0.1.0"
 dependencies = [
+ "async-once-cell",
  "bitflags",
  "chrono",
  "dotenv",

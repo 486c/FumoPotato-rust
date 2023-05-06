@@ -27,6 +27,7 @@ use serde::de::DeserializeOwned;
 
 type ApiResult<T> = Result<T, OsuApiError>;
 
+#[derive(Debug)]
 pub struct OsuApi {
     inner: Arc<OsuToken>,
     fallback_url: String,
@@ -317,21 +318,28 @@ mod tests {
 
     use std::env;
     use dotenv::dotenv;
+    use async_once_cell::OnceCell;
 
-    async fn init_helper() -> Result<OsuApi, OsuApiError> {
+    static API_INSTANCE: OnceCell<OsuApi> = OnceCell::new();
+
+    async fn get_api() -> &'static OsuApi {
         dotenv().unwrap();
 
-        OsuApi::new(
-            env::var("CLIENT_ID").unwrap().parse().unwrap(),
-            env::var("CLIENT_SECRET").unwrap().as_str(),
-            env::var("FALLBACK_API").unwrap().as_str(),
-            false
-        ).await
+        API_INSTANCE.get_or_init(async {
+            OsuApi::new(
+                env::var("CLIENT_ID").unwrap().parse().unwrap(),
+                env::var("CLIENT_SECRET").unwrap().as_str(),
+                env::var("FALLBACK_API").unwrap().as_str(),
+                false
+            )
+            .await
+            .expect("Failed to initialize osu api")
+        }).await
     }
-
+    
     #[tokio::test]
     async fn test_get_scores() {
-        let api = init_helper().await.unwrap();
+        let api = get_api().await;
 
         let req = GetUserScores::new(
             6892711, 
@@ -354,7 +362,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user() {
-        let api = init_helper().await.unwrap();
+        let api = get_api().await;
 
         let user = api.get_user(
             UserId::Id(6892711),
@@ -382,7 +390,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_beatmap() {
-        let api = init_helper().await.unwrap();
+        let api = get_api().await;
 
         let mut op = api.get_beatmap(3153603).await;
 
@@ -407,7 +415,7 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_notfound_error() {
-        let api = init_helper().await.unwrap();
+        let api = get_api().await;
 
         let link = "https://osu.ppy.sh/apii/v2/beaaps/";
         let _: OsuBeatmap = api.make_request(link, Method::GET)

@@ -29,6 +29,9 @@ twilight-model = "0.15.1"
 twilight-standby = "0.15.1"
 twilight-util = { version = "0.15.1", features = ["builder"] }
 
+[dev-dependencies]
+async-once-cell = "0.5.0"
+
 [profile.dev.package.sqlx-macros]
 opt-level = 3
 

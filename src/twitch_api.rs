@@ -258,16 +258,26 @@ mod tests {
     use dotenv::dotenv;
 
     use eyre::Result;
+    use async_once_cell::OnceCell;
 
+    static API_INSTANCE: OnceCell<TwitchApi> = OnceCell::new();
+
+    async fn get_api() -> &'static TwitchApi {
+        dotenv().unwrap();
+        
+        API_INSTANCE.get_or_init(async {
+            TwitchApi::new(
+                env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
+                env::var("TWITCH_SECRET").unwrap().as_str()
+            )
+            .await
+            .expect("Failed to initialize twitch api")
+        }).await
+    }
 
     #[tokio::test]
     async fn test_get_users_non_existent_user() -> Result<()> {
-        dotenv().unwrap();
-
-        let twitch_api = TwitchApi::new(
-            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
-            env::var("TWITCH_SECRET").unwrap().as_str()
-        ).await?;
+        let twitch_api = get_api().await;
 
         let list = twitch_api.get_users_by_name(
             &["bebrikkakawka123"]
@@ -281,12 +291,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_streams_by_id() -> Result<()> {
-        dotenv().unwrap();
-
-        let twitch_api = TwitchApi::new(
-            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
-            env::var("TWITCH_SECRET").unwrap().as_str()
-        ).await?;
+        let twitch_api = get_api().await;
 
         let mut list = twitch_api.get_users_by_id(
             &[145052794, 12826]
@@ -315,12 +320,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_streams_by_name() -> Result<()> {
-        dotenv().unwrap();
-
-        let twitch_api = TwitchApi::new(
-            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
-            env::var("TWITCH_SECRET").unwrap().as_str()
-        ).await?;
+        let twitch_api = get_api().await;
 
         let mut list = twitch_api.get_users_by_name(
             &["lopijb", "twitch"]
@@ -349,12 +349,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_image() -> Result<()> {
-        dotenv().unwrap();
-
-        let twitch_api = TwitchApi::new(
-            env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
-            env::var("TWITCH_SECRET").unwrap().as_str()
-        ).await?;
+        let twitch_api = get_api().await;
 
         let image_bytes = twitch_api
             .download_image("https://static-cdn.jtvnw.net/ttv-boxart/21465_IGDB-188x250.jpg").await?;

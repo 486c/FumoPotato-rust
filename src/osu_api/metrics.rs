@@ -1,5 +1,6 @@
 use prometheus::{IntCounter, IntCounterVec, Opts};
 
+#[derive(Debug)]
 pub struct Metrics {
     pub counters: IntCounterVec,
 
