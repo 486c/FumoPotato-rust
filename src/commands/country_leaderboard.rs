@@ -1,3 +1,4 @@
+use crate::database::osu::OsuDbUser;
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
@@ -17,52 +18,83 @@ use std::time::Duration;
 
 use eyre::Result;
 
-struct LeaderboardListing<'a> {
+struct LeaderboardListing {
     pages: i32,
     curr_page: i32,
 
-    scores: &'a Vec<OsuScore>,
-    beatmap: &'a OsuBeatmap,
+    scores: Vec<OsuScore>,
+    beatmap: OsuBeatmap,
+    user_position: Option<usize>,
 
     embed: Embed,
+    msg: MessageBuilder,
 }
 
-impl<'a> LeaderboardListing<'a> {
-    fn new(s: &'a Vec<OsuScore>, b: &'a OsuBeatmap) -> LeaderboardListing<'a> {
-        let pages: i32 = (s.len() as f32 / 10.0)
+impl LeaderboardListing {
+    fn new(
+        user: Option<OsuDbUser>, 
+        scores: Vec<OsuScore>, 
+        beatmap: OsuBeatmap
+    ) -> LeaderboardListing {
+        let pages: i32 = (scores.len() as f32 / 10.0)
             .ceil()
             .clamp(1.0, 20.0) as i32;
 
-        let mut embed = EmbedBuilder::new();
-
-        let author = EmbedAuthorBuilder::new(b.metadata())
-            .url(format!("https://osu.ppy.sh/b/{}", b.id))
+        let author = EmbedAuthorBuilder::new(beatmap.metadata())
+            .url(format!("https://osu.ppy.sh/b/{}", beatmap.id))
             .build();
 
-        embed = embed
+        let embed = EmbedBuilder::new()
             .author(author)
+            .color(865846)
             .thumbnail(
                 ImageSource::url(format!(
                     "https://assets.ppy.sh/beatmaps/{}/covers/list.jpg",
-                    b.beatmapset_id
-                ))
-                .unwrap()
+                    beatmap.beatmapset_id
+                )).unwrap()
             )
-            .color(865846);
+            .build();
 
-        let embed = embed.build();
+        let user_position: Option<usize> = match user {
+            Some(user) => {
+                let pos_score = scores
+                    .iter()
+                    .enumerate()
+                    .find(|(_index, score)| {
+                        score.user_id == user.osu_id
+                    });
+
+
+                if let Some((index, _score)) = pos_score {
+                    Some(index+1)
+                } else {
+                    None
+                }
+
+            },
+            None => None,
+        };
+
+        let msg = MessageBuilder::new()
+            .components(LeaderboardListing::components());
 
         let mut lb = LeaderboardListing {
             pages,
             curr_page: 1,
-            scores: s,
-            beatmap: b,
+            scores,
+            beatmap,
+            user_position,
             embed,
+            msg
         };
 
-        lb.update_embed();
+        lb.update_state();
 
         lb
+    }
+
+    fn clear_components(&mut self) {
+        self.msg.components = Some(Vec::new());
     }
 
     fn components() -> Vec<Component> {
@@ -111,10 +143,19 @@ impl<'a> LeaderboardListing<'a> {
         }
     }
 
-    fn update_embed(&mut self) {
+    fn update_state(&mut self) {
+        let mut text = format!("Page {}/{}", self.curr_page, self.pages);
+
+        if let Some(pos) = self.user_position {
+            text.push_str(&format!(
+                " • Your position: {}/{}",
+                pos, self.scores.len()
+            ));
+        }
+
         self.embed.footer = Some(
             EmbedFooter{
-                text: format!("Page {}/{}", self.curr_page, self.pages),
+                text,
                 icon_url: None,
                 proxy_icon_url: None,
             }
@@ -128,14 +169,16 @@ impl<'a> LeaderboardListing<'a> {
             .take(10)
             .enumerate()
         {
-            let _ = writeln!(st, "{}. [{}](https://osu.ppy.sh/u/{}) +**{}**",
+            let _ = writeln!(
+                st, 
+                "{}. [{}](https://osu.ppy.sh/u/{}) +**{}**",
                 index as i32 + 1  + start_at, 
                 s.user.username, 
                 s.user.id, 
                 s.mods.to_string()
             );
 
-            let pp: String = match self.beatmap.ranked {
+            let pp = match self.beatmap.ranked {
                 RankStatus::Loved => "\\❤️".to_owned(),
                 _ => format!("{:.2}pp", s.pp.unwrap_or(0.0)),
             };
@@ -157,6 +200,8 @@ impl<'a> LeaderboardListing<'a> {
         }
 
         self.embed.description = Some(st);
+
+        self.msg.embed = Some(self.embed.clone()); //TODO remove clone???
     }
 }
 
@@ -199,6 +244,8 @@ pub async fn country_leaderboard(
 ) -> Result<()> {
     let mut builder = MessageBuilder::new();
 
+    let osu_user = osu_user!(ctx, command);
+
     let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
         Ok(lb) => lb,
         Err(e) => {
@@ -219,7 +266,7 @@ pub async fn country_leaderboard(
         }
     };
 
-    let mut lb = LeaderboardListing::new(&clb.scores, &b);
+    let mut lb = LeaderboardListing::new(osu_user, clb.scores, b);
 
     builder = builder.embed(lb.embed.clone());
     builder = builder.components(LeaderboardListing::components());
@@ -275,16 +322,14 @@ pub async fn country_leaderboard(
             }
         } 
 
-        lb.update_embed();
-        builder = builder.embed(lb.embed.clone()); // TODO remove cloning
-                                                   // - hold builder inside?
-                                                   // - idk tbh
-        component.defer(ctx).await?;
-        command.update(ctx, &builder).await?;
-    }
+        lb.update_state();
 
-    builder = builder.components(Vec::new());
-    command.update(ctx, &builder).await?;
+        component.defer(ctx).await?;
+        command.update(ctx, &lb.msg).await?;
+    }
+    
+    lb.clear_components();
+    command.update(ctx, &lb.msg).await?;
 
     Ok(())
 

@@ -1,10 +1,10 @@
 use eyre::{Result, bail};
-use twilight_model::application::interaction::{
+use twilight_model::application::interaction::
     application_command::CommandOptionValue::{
         self,
         String as OptionString
-    }
 };
+
 
 use crate::{
     fumo_context::FumoContext, 

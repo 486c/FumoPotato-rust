@@ -37,7 +37,7 @@ use crate::fumo_context::FumoContext;
 #[derive(Debug, Default)]
 pub struct MessageBuilder {
     content: Option<String>,
-    embed: Option<Embed>,
+    pub embed: Option<Embed>,
     pub components: Option<Vec<Component>>,
     pub attachments: Option<Vec<Attachment>>,
 }
