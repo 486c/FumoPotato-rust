@@ -10,7 +10,7 @@ use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
 use twilight_model::{http::{
     interaction::{ InteractionResponse, InteractionResponseType },
     attachment::Attachment,
-}, guild::PartialMember, user::User, id::marker::UserMarker, channel::Channel};
+}, guild::PartialMember, user::User, id::marker::UserMarker, channel::{Channel, message::MessageFlags}};
 
 use twilight_model::channel::message::{ 
     component::Component, 
@@ -31,15 +31,17 @@ use twilight_model::application::interaction::{
 use twilight_model::application::interaction::application_command::{ 
     CommandOptionValue, CommandDataOption 
 };
+use twilight_util::builder::InteractionResponseDataBuilder;
 
 use crate::fumo_context::FumoContext;
 
 #[derive(Debug, Default)]
 pub struct MessageBuilder {
-    content: Option<String>,
+    pub content: Option<String>,
     pub embed: Option<Embed>,
     pub components: Option<Vec<Component>>,
     pub attachments: Option<Vec<Attachment>>,
+    pub flags: Option<MessageFlags>
 }
 
 impl MessageBuilder {
@@ -47,6 +49,14 @@ impl MessageBuilder {
         MessageBuilder {
             ..Default::default()
         }
+    }
+
+    pub fn flags(
+        mut self,
+        flags: impl Into<MessageFlags>
+    ) -> Self {
+        self.flags = Some(flags.into());
+        self
     }
 
     pub fn attachments(
@@ -116,8 +126,8 @@ impl InteractionCommand {
             data: None,
         };
 
-        ctx.interaction().
-            create_response(
+        ctx.interaction()
+            .create_response(
                 self.id,
                 &self.token,
                 &response
@@ -125,21 +135,6 @@ impl InteractionCommand {
             .into_future()
     }
 
-    pub fn user_id(
-        &self
-    ) -> Option<Id<UserMarker>> {
-        if let Some(member) = &self.member {
-            if let Some(user) = &member.user {
-                return Some(user.id)
-            }
-        }
-
-        if let Some(user) = &self.user {
-            return Some(user.id)
-        }
-
-        None
-    }
 
     pub fn update<'a>(
         &self, 
@@ -170,6 +165,65 @@ impl InteractionCommand {
         }
 
         req.into_future()
+    }
+
+    pub fn response<'a>(
+        &self, 
+        ctx: &'a FumoContext,
+        builder: &'a MessageBuilder
+    ) -> ResponseFuture<EmptyBody> {
+        let mut data = InteractionResponseDataBuilder::new();
+
+        // TODO Remove cloning
+
+        if let Some(ref content) = builder.content {
+            data = data.content(content)
+        }
+
+        if let Some(ref embed) = builder.embed {
+            data = data.embeds([embed.clone()])
+        }
+
+        if let Some(ref components) = builder.components {
+            data = data.components(components.clone())
+        }
+
+        if let Some(ref attachments) = builder.attachments {
+            data = data.attachments(attachments.clone())
+        }
+
+        if let Some(ref flags) = builder.flags {
+            data = data.flags(flags.clone());
+        }
+
+        let response = InteractionResponse {
+            kind: InteractionResponseType::ChannelMessageWithSource,
+            data: Some(data.build())
+        };
+
+        ctx.interaction()
+            .create_response(
+                self.id,
+                &self.token,
+                &response
+            )
+            .into_future()
+    }
+
+    pub fn user_id(
+        &self
+    ) -> Option<Id<UserMarker>> {
+        if let Some(member) = &self.member {
+            if let Some(user) = &member.user {
+                return Some(user.id)
+            }
+        }
+
+        if let Some(user) = &self.user {
+            return Some(user.id)
+        }
+
+        None
     }
 
     #[inline]

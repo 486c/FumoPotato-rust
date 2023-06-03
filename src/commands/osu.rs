@@ -1,9 +1,9 @@
 use eyre::{Result, bail};
-use twilight_model::application::interaction::
+use twilight_model::{application::interaction::
     application_command::CommandOptionValue::{
         self,
         String as OptionString
-};
+}, channel::message::MessageFlags};
 
 
 use crate::{
@@ -15,23 +15,24 @@ pub async fn osu_unlink(
     ctx: &FumoContext, 
     command: &InteractionCommand,
 ) -> Result<()> {
-    command.defer(ctx).await?;
     let osu_user = osu_user!(ctx, command);
+    let mut msg = MessageBuilder::new()
+        .flags(MessageFlags::EPHEMERAL);
 
     if osu_user.is_none() {
-        let msg = MessageBuilder::new()
+        msg = msg
             .content("No linked account found!");
-        command.update(ctx, &msg).await?;
+        command.response(ctx, &msg).await?;
         return Ok(())
     }
 
     ctx.db.unlink_osu(discord_id!(command).get() as i64)
         .await?;
 
-    let msg = MessageBuilder::new()
+    msg = msg
         .content("Successfully unlinked account!");
 
-    command.update(ctx, &msg).await?;
+    command.response(ctx, &msg).await?;
 
     Ok(())
 }
@@ -41,15 +42,16 @@ pub async fn osu_link(
     command: &InteractionCommand,
     name: &str
 ) -> Result<()> {
-    command.defer(ctx).await?;
-
     let osu_user = osu_user!(ctx, command);
+    let mut msg = MessageBuilder::new()
+        .flags(MessageFlags::EPHEMERAL);
 
     if osu_user.is_some() {
-        let msg = MessageBuilder::new()
-            .content(
-                r#"You already have linked account. Please use `/unlink` to unlink it."#);
-        command.update(ctx, &msg).await?;
+        msg = msg.content(
+            r#"You already have linked account. Please use `/unlink` to unlink it."#
+        );
+
+        command.response(ctx, &msg).await?;
         return Ok(())
     }
 
@@ -59,9 +61,9 @@ pub async fn osu_link(
     ).await;
 
     if let Err(OsuApiError::NotFound{..}) = user {
-        let msg = MessageBuilder::new()
+        msg = msg
             .content("User not found!");
-        command.update(ctx, &msg).await?;
+        command.response(ctx, &msg).await?;
         return Ok(())
     }
 
@@ -72,10 +74,10 @@ pub async fn osu_link(
         user.id
     ).await?;
 
-    let msg = MessageBuilder::new()
+    msg = msg
         .content("Successfully linked account!");
 
-    command.update(ctx, &msg).await?;
+    command.response(ctx, &msg).await?;
 
     Ok(())
 }
