@@ -193,7 +193,7 @@ impl InteractionCommand {
         }
 
         if let Some(ref flags) = builder.flags {
-            data = data.flags(flags.clone());
+            data = data.flags(*flags);
         }
 
         let response = InteractionResponse {
