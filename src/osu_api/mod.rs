@@ -289,7 +289,7 @@ impl OsuApi {
     ) {
         loop {
             expire /= 2;
-            println!("Token update scheduled in {expire} seconds");
+            println!("osu! token update scheduled in {expire} seconds");
             tokio::select!{
                 _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
                 _ = &mut rx => {
@@ -385,7 +385,7 @@ mod tests {
         let user = api.get_user(
             UserId::Username("ASD4235".to_owned()),
             None
-        ).await;
+        ).await.unwrap();
     }
 
     #[tokio::test]

@@ -6,7 +6,11 @@ use eyre::Result;
 use serde::Deserialize;
 
 use serde::de::{ Visitor, Deserializer, Error, DeserializeOwned };
+use tokio::sync::RwLock;
+use tokio::sync::oneshot::{ channel, Receiver, Sender };
 use std::fmt::{ self, Write };
+use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StreamType {
@@ -58,6 +62,7 @@ pub struct TwitchUser {
 #[derive(Deserialize, Debug)]
 pub struct OuathResponse {
     access_token: String,
+    expires_in: u64,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -80,12 +85,49 @@ pub struct TwitchResponse<T> {
     data: Option<Vec<T>>,
 }
 
-pub struct TwitchApi {
+pub struct TwitchToken {
     client: Client,
-    
     client_id: String,
     client_secret: String,
-    token: Option<String>,
+
+    token: RwLock<Option<String>>,
+    expire: u64,
+}
+
+impl TwitchToken {
+    async fn request_oauth(&self) -> Result<OuathResponse> {
+        let form = multipart::Form::new()
+            .text("grant_type", "client_credentials")
+            .text("client_id", self.client_id.clone())
+            .text("client_secret", self.client_secret.clone());
+
+        let r = self.client.post(
+            "https://id.twitch.tv/oauth2/token"
+            )
+            .multipart(form)
+            .header(ACCEPT, "application/json")
+            .header(CONTENT_TYPE, "application/json")
+            .header("Client-Id", &self.client_id)
+            .send()
+            .await?;
+
+        let resp: OuathResponse = r.json().await?;
+
+        Ok(resp)
+    }
+}
+
+pub struct TwitchApi {
+    inner: Arc<TwitchToken>,
+    sender: Option<Sender<()>>,
+}
+
+impl Drop for TwitchApi {
+    fn drop(&mut self) {
+        if let Some(tx) = self.sender.take() {
+            let _ = tx.send(());
+        }
+    }
 }
 
 impl TwitchApi {
@@ -98,21 +140,73 @@ impl TwitchApi {
             .use_native_tls()
             .build()?;
 
-        let mut api = TwitchApi {
+        let mut inner = TwitchToken {
             client,
-            token: None,
-            client_secret: client_secret.to_string(),
-            client_id: client_id.to_string(),
+            client_id: client_id.to_owned(),
+            client_secret: client_secret.to_owned(),
+            token: None.into(),
+            expire: 0,
         };
 
-        let token = api.request_oauth().await?;
+        let token = inner.request_oauth().await?;
 
-        api.token = Some(token);
+        let (tx, rx) = channel::<()>();
+
+        let mut lock = inner.token.write().await;
+
+        *lock = Some(token.access_token);
+        inner.expire = token.expires_in;
+
+        drop(lock);
+
+        let inner = Arc::new(inner);
+
+        let api = TwitchApi {
+            sender: Some(tx),
+            inner: Arc::clone(&inner),
+        };
+
+        TwitchApi::update_token(
+            Arc::clone(&inner),
+            //api.inner.expire,
+            10,
+            rx
+        ).await;
+
         Ok(api)
     }
 
+    async fn update_token(
+        inner: Arc<TwitchToken>,
+        mut expire: u64,
+        mut rx: Receiver<()>
+    ) {
+        tokio::spawn(async move {
+            loop {
+                expire /= 2;
+                println!("Twitch token update scheduled in {expire} seconds");
+                tokio::select!{
+                    _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
+                    _ = &mut rx => {
+                        println!("twitch token loop is closed!");
+                        break;
+                    }
+                }
+
+                let response = inner.request_oauth().await.unwrap();
+                
+                let mut token = inner.token.write().await;
+                *token = Some(response.access_token);
+
+                expire = response.expires_in;
+                println!("Successfully updated twitch api token");
+            }
+
+        });
+    }
+
     pub async fn download_image(&self, link: &str) -> Result<Vec<u8>> {
-        let r = self.client.get(link)
+        let r = self.inner.client.get(link)
             .header(ACCEPT, "image/jpeg")
             .header("Cache-Control", "no-cache")
             .header("User-Agent", "fumo_potato")
@@ -122,6 +216,7 @@ impl TwitchApi {
 
         Ok(bytes.to_vec())
     }
+    
 
     async fn make_request(
         &self, 
@@ -129,12 +224,14 @@ impl TwitchApi {
         method: Method
     ) -> Result<Response> {
 
-        let token = match &self.token { 
+        let lock = &self.inner.token.read().await;
+
+        let token = match lock.as_ref() { 
             Some(s) => s,
             None => return Err(eyre::Report::msg("No token found!"))
         };
 
-        let r = &self.client;
+        let r = &self.inner.client;
         let r = match method {
             Method::GET => r.get(link),
             Method::POST => r.post(link),
@@ -145,29 +242,11 @@ impl TwitchApi {
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
             .header(AUTHORIZATION, format!("Bearer {token}"))
-            .header("Client-Id", &self.client_id);
+            .header("Client-Id", &self.inner.client_id);
 
         Ok(r.send().await?)
     }
 
-    async fn request_oauth(&self) -> Result<String> {
-        let form = multipart::Form::new()
-            .text("grant_type", "client_credentials")
-            .text("client_id", self.client_id.clone())
-            .text("client_secret", self.client_secret.clone());
-
-        let r = self.client.post("https://id.twitch.tv/oauth2/token")
-            .multipart(form)
-            .header(ACCEPT, "application/json")
-            .header(CONTENT_TYPE, "application/json")
-            .header("Client-Id", &self.client_id)
-            .send()
-            .await?;
-
-        let resp: OuathResponse = r.json().await?;
-
-        Ok(resp.access_token)
-    }
     
     async fn request_list<T: DeserializeOwned, U: std::fmt::Display>(
         &self,
