@@ -23,6 +23,22 @@ use crate::server::run_server;
 use tokio::signal;
 use tokio::sync::oneshot::channel;
 
+async fn spawn_twitch_worker(
+    twitch_ctx: Arc<FumoContext>,
+    rx: tokio::sync::oneshot::Receiver<()>
+) {
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = commands::twitch::twitch_worker(
+                twitch_ctx
+            ) => {
+                println!("Twitch checker loop sudenly ended!")
+            }
+            _ = rx => ()
+        }
+    });
+}
+
 #[tokio::main(worker_threads = 4)]
 async fn main() -> Result<()> {
     dotenv()?;
@@ -33,30 +49,21 @@ async fn main() -> Result<()> {
     let ctx = Arc::new(ctx);
 
 
-    // Set global commands
     let application_id = ctx.http.current_user()
         .await?
         .model()
         .await?
         .id.cast();
 
+    // Set global commands
     ctx.http.interaction(application_id)
         .set_global_commands(&global_commands())
         .await?;
 
     // Spawn twitch checker
-    let (tx, recv) = channel::<()>();
+    let (tx, rx) = channel::<()>();
     let twitch_ctx = Arc::clone(&ctx);
-    tokio::spawn(async move {
-        tokio::select! {
-            _ = commands::twitch::twitch_worker(
-                Arc::clone(&twitch_ctx)
-            ) => {
-                println!("Twitch checker loop sudenly ended!")
-            }
-            _ = recv => ()
-        }
-    });
+    spawn_twitch_worker(twitch_ctx, rx).await;
 
     // Spawn http server
     let server_tx = {
