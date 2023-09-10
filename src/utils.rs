@@ -58,7 +58,9 @@ impl MessageBuilder {
         self.flags = Some(flags.into());
         self
     }
-
+    
+    /*
+    TODO uncomment if ever gonna be used
     pub fn attachments(
         mut self, 
         attachments: impl Into<Vec<Attachment>>
@@ -66,6 +68,7 @@ impl MessageBuilder {
         self.attachments = Some(attachments.into());
         self
     }
+    */
 
     pub fn content(mut self, s: impl Into<String>) -> Self {
         self.content = Some(s.into());
