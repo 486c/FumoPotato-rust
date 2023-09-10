@@ -91,7 +91,6 @@ pub struct TwitchToken {
     client_secret: String,
 
     token: RwLock<Option<String>>,
-    expire: u64,
 }
 
 impl TwitchToken {
@@ -140,12 +139,11 @@ impl TwitchApi {
             .use_native_tls()
             .build()?;
 
-        let mut inner = TwitchToken {
+        let inner = TwitchToken {
             client,
             client_id: client_id.to_owned(),
             client_secret: client_secret.to_owned(),
             token: None.into(),
-            expire: 0,
         };
 
         let token = inner.request_oauth().await?;
@@ -155,7 +153,6 @@ impl TwitchApi {
         let mut lock = inner.token.write().await;
 
         *lock = Some(token.access_token);
-        inner.expire = token.expires_in;
 
         drop(lock);
 
@@ -168,8 +165,7 @@ impl TwitchApi {
 
         TwitchApi::update_token(
             Arc::clone(&inner),
-            //api.inner.expire,
-            10,
+            token.expires_in,
             rx
         ).await;
 
