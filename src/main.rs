@@ -48,7 +48,6 @@ async fn main() -> Result<()> {
     let (ctx, mut shards) = FumoContext::new(&token).await?;
     let ctx = Arc::new(ctx);
 
-
     let application_id = ctx.http.current_user()
         .await?
         .model()
@@ -61,7 +60,7 @@ async fn main() -> Result<()> {
         .await?;
 
     // Spawn twitch checker
-    let (tx, rx) = channel::<()>();
+    let (twitch_tx, rx) = channel::<()>();
     let twitch_ctx = Arc::clone(&ctx);
     spawn_twitch_worker(twitch_ctx, rx).await;
 
@@ -97,7 +96,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    if tx.send(()).is_err() {
+    if twitch_tx.send(()).is_err() {
         println!("Failed to close twitch loop!");
     }
     println!("Closed twitch loop!");

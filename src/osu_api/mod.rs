@@ -134,12 +134,20 @@ impl OsuApi {
         };
 
         let bytes = r.bytes().await?;
-        let parsed: ApiError = match serde_json::from_slice(&bytes) {
+        let parsed: ApiError = match serde_json::from_slice(
+            &bytes
+        ) {
             Ok(v) => v,
-            Err(e) => return Err(OsuApiError::Parsing {
-                source: e,
-                body: bytes,
-            })
+            Err(e) => { 
+                if bytes.len() <= 1 {
+                    return Err(OsuApiError::EmptyBody)
+                }
+
+                return Err(OsuApiError::Parsing {
+                    source: e,
+                    body: bytes 
+                })
+            }
         };
 
         Err(OsuApiError::ApiError {
@@ -202,8 +210,13 @@ impl OsuApi {
         Ok(r)
     }
     
-    pub async fn get_beatmap(&self, bid: i32) -> ApiResult<OsuBeatmap> {
-        let link = format!("https://osu.ppy.sh/api/v2/beatmaps/{bid}");
+    pub async fn get_beatmap(
+        &self, 
+        bid: i32
+    ) -> ApiResult<OsuBeatmap> {
+        let link = format!(
+            "https://osu.ppy.sh/api/v2/beatmaps/{bid}"
+        );
 
         let r = self.make_request(&link, Method::GET).await?;
         self.stats.beatmap.inc();
@@ -222,10 +235,28 @@ impl OsuApi {
             self.fallback_url,
             bid
         );
+        
+        // FIXME Temporary solution since seneaL's api is BS
+        // at the moment
+        let mut retries = 0;
+        while retries <= 5 {
+            let resp = self.make_request(&link, Method::GET).await;
+            self.stats.country_leaderboard.inc();
 
-        let r = self.make_request(&link, Method::GET).await?;
-        self.stats.country_leaderboard.inc();
-        Ok(r)
+            match resp {
+                Ok(r) => return Ok(r),
+                Err(e) => {
+                    if let OsuApiError::EmptyBody = e {
+                        retries += 1;
+                        continue
+                    } else {
+                        return Err(e)
+                    }
+                },
+            }
+        }
+
+        Err(OsuApiError::ExceededMaxRetries)
     }
 }
 

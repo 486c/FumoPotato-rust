@@ -12,6 +12,8 @@ pub enum OsuApiError {
     TooManyRequests,
     UnprocessableEntity,
     ServiceUnavailable,
+    EmptyBody,
+    ExceededMaxRetries,
 }
 
 impl From<reqwest::Error> for OsuApiError {
@@ -34,6 +36,8 @@ impl StdError for OsuApiError {
             OsuApiError::TooManyRequests => None,
             OsuApiError::UnprocessableEntity => None,
             OsuApiError::ServiceUnavailable => None,
+            OsuApiError::EmptyBody => None,
+            OsuApiError::ExceededMaxRetries => None,
         }
     }
 }
@@ -41,16 +45,27 @@ impl StdError for OsuApiError {
 impl fmt::Display for OsuApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OsuApiError::FromStrError => f.write_str("converting to string error"),
-            OsuApiError::ReqwestError { .. } => f.write_str("Got reqwest error!"),
-            OsuApiError::UnhandledStatusCode { .. } => f.write_str("Got unknown status code"),
-            OsuApiError::ApiError { .. } => f.write_str("Got internal osu!api error"),
+            OsuApiError::FromStrError => 
+                f.write_str("converting to string error"),
+            OsuApiError::ReqwestError { .. } => 
+                f.write_str("Got reqwest error!"),
+            OsuApiError::UnhandledStatusCode { .. } => 
+                f.write_str("Got unknown status code"),
+            OsuApiError::ApiError { .. } => 
+                f.write_str("Got internal osu!api error"),
             OsuApiError::NotFound { .. } => 
                 f.write_str("Url doesn't found"),
-            OsuApiError::Parsing { .. } => f.write_str("Got error during json parsing"),
+            OsuApiError::Parsing { .. } => 
+                f.write_str("Got error during json parsing"),
             OsuApiError::TooManyRequests => f.write_str("Got 429!"),
-            OsuApiError::UnprocessableEntity => f.write_str("Got unprocessable entity"),
-            OsuApiError::ServiceUnavailable => f.write_str("Service is unavailable"),
+            OsuApiError::UnprocessableEntity => 
+                f.write_str("Got unprocessable entity"),
+            OsuApiError::ServiceUnavailable => 
+                f.write_str("Service is unavailable"),
+            OsuApiError::EmptyBody => 
+                f.write_str("Got empty response"),
+            OsuApiError::ExceededMaxRetries => 
+                f.write_str("Exceeded max retries for api call"),
         }
     }
 }
