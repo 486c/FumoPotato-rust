@@ -31,7 +31,7 @@ where
                 );
 
                 if let Ok(ndt) = parse {
-                    return Ok(DateTime::from_utc(ndt, Utc));
+                    return Ok(DateTime::from_naive_utc_and_offset(ndt, Utc));
                 }
 
                 let parse = NaiveDateTime::parse_from_str(
@@ -40,9 +40,8 @@ where
                 );
 
                 if let Ok(ndt) = parse {
-                    return Ok(DateTime::from_utc(ndt, Utc));
+                    return Ok(DateTime::from_naive_utc_and_offset(ndt, Utc));
                 }
-                
 
                 Err(E::custom(
                     format!("Failed to parse datetime {value}")
