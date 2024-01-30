@@ -408,9 +408,9 @@ pub struct OsuScoreStatistics {
     #[serde(rename = "count_300")]
     pub count300: i32,
     #[serde(rename = "count_geki")]
-    pub countgeki: i32,
+    pub countgeki: Option<i32>,
     #[serde(rename = "count_katu")]
-    pub countkatu: i32,
+    pub countkatu: Option<i32>,
     #[serde(rename = "count_miss")]
     pub countmiss: i32,
 }

@@ -253,7 +253,7 @@ pub async fn country_leaderboard(
                 "Issues with leaderboard api. blame seneal"
             );
             command.update(ctx, &builder).await?;
-            return Err(eyre::Report::new(e))
+            return Err(e.into())
         }
     };
 

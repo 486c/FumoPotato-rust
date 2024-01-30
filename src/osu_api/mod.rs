@@ -115,6 +115,8 @@ impl OsuApi {
                 let bytes = r.bytes().await?;
                 return serde_json::from_slice::<T>(&bytes)
                     .map_err(|s| {
+                        // TODO wrap serde error
+                        // for more informative response
                         OsuApiError::Parsing {
                             source: s,
                             body: bytes,
