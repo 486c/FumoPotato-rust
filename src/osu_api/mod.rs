@@ -1,5 +1,6 @@
 mod datetime;
 mod metrics;
+
 pub mod models;
 pub mod error;
 
@@ -11,6 +12,7 @@ use hyper::header::{USER_AGENT, COOKIE};
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };
 
+use self::models::osu_leaderboard::OsuLeaderboardLazer;
 use self::models::{ 
     OauthResponse, OsuBeatmap, OsuLeaderboard, 
     ApiError, UserId, OsuGameMode, OsuUser, GetUserScores, OsuScore 
@@ -25,6 +27,9 @@ use tokio::sync::{ RwLock, oneshot::{ channel, Receiver, Sender } };
 
 use crate::osu_api::error::OsuApiError;
 use serde::de::DeserializeOwned;
+
+static OSU_BASE: &str = "https://osu.ppy.sh";
+static OSU_API_BASE: &str = "https://osu.ppy.sh/api";
 
 type ApiResult<T> = Result<T, OsuApiError>;
 
@@ -113,7 +118,7 @@ impl OsuApi {
             ApiKind::Hidden => {
                 r
                 .header(USER_AGENT, "fumo_potato")
-                .header(COOKIE, &self.osu_session)
+                .header(COOKIE, format!("osu_session={}", self.osu_session))
             },
         };
 
@@ -136,7 +141,7 @@ impl OsuApi {
                         // for more informative response
                         OsuApiError::Parsing {
                             source: s,
-                            body: bytes,
+                            body: std::str::from_utf8(&bytes).unwrap().to_owned(),
                         }
                     });
             }
@@ -147,8 +152,13 @@ impl OsuApi {
             ),
             StatusCode::TOO_MANY_REQUESTS => 
                 return Err(OsuApiError::TooManyRequests),
-            StatusCode::UNPROCESSABLE_ENTITY => 
-                return Err(OsuApiError::UnprocessableEntity),
+            StatusCode::UNPROCESSABLE_ENTITY => {
+                let bytes = r.bytes().await?;
+
+                return Err(OsuApiError::UnprocessableEntity{
+                    body: std::str::from_utf8(&bytes).unwrap().to_owned(),
+                })
+            },
             _ => (),
         };
 
@@ -164,7 +174,7 @@ impl OsuApi {
 
                 return Err(OsuApiError::Parsing {
                     source: e,
-                    body: bytes 
+                    body: std::str::from_utf8(&bytes).unwrap().to_owned(),
                 })
             }
         };
@@ -253,9 +263,29 @@ impl OsuApi {
         Ok(r)
     }
 
+    pub async fn get_leaderboard_hidden(
+        &self,
+        bid: i32,
+        country: bool,
+    ) -> ApiResult<OsuLeaderboardLazer> {
+        let mut link = format!(
+            "{OSU_BASE}/beatmaps/{bid}/scores?"
+        );
+
+        if country {
+            link.push_str("type=country")
+        }
+
+        self.make_request(
+            &link,
+            Method::GET,
+            ApiKind::Hidden
+        ).await
+    }
+
     // This method works only if FALLBACK_API variable
     // is set.
-    pub async fn get_countryleaderboard(
+    pub async fn get_countryleaderboard_fallback(
         &self, 
         bid: i32
     ) -> ApiResult<OsuLeaderboard> {
@@ -403,6 +433,25 @@ mod tests {
             .await
             .expect("Failed to initialize osu api")
         }).await
+    }
+
+    #[tokio::test]
+    async fn test_get_leaderboard_hidden() {
+        let api = get_api().await;
+
+        let leaderboard = api.get_leaderboard_hidden(
+            1804553, 
+            false
+        ).await.unwrap();
+
+        assert!(leaderboard.scores.len() == 50);
+
+        let leaderboard = api.get_leaderboard_hidden(
+            1804553, 
+            true
+        ).await.unwrap();
+
+        assert!(leaderboard.scores.len() > 2);
     }
     
     #[tokio::test]

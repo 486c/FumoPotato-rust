@@ -1,4 +1,5 @@
 use crate::database::osu::OsuDbUser;
+use crate::osu_api::models::osu_leaderboard::OsuScoreLazer;
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
@@ -22,7 +23,7 @@ struct LeaderboardListing {
     pages: i32,
     curr_page: i32,
 
-    scores: Vec<OsuScore>,
+    scores: Vec<OsuScoreLazer>,
     beatmap: OsuBeatmap,
     user_position: Option<usize>,
 
@@ -33,7 +34,7 @@ struct LeaderboardListing {
 impl LeaderboardListing {
     fn new(
         user: Option<OsuDbUser>, 
-        scores: Vec<OsuScore>, 
+        scores: Vec<OsuScoreLazer>, 
         beatmap: OsuBeatmap
     ) -> LeaderboardListing {
         let pages: i32 = (scores.len() as f32 / 10.0)
@@ -61,7 +62,7 @@ impl LeaderboardListing {
                     .iter()
                     .enumerate()
                     .find(|(_index, score)| {
-                        score.user_id == user.osu_id
+                        score.user_id == user.osu_id as u64
                     });
 
 
@@ -175,7 +176,8 @@ impl LeaderboardListing {
                 index as i32 + 1  + start_at, 
                 s.user.username, 
                 s.user.id, 
-                s.mods.to_string()
+                s.mods 
+                //s.mods.to_string()
             );
 
             let pp = match self.beatmap.ranked {
@@ -185,17 +187,19 @@ impl LeaderboardListing {
 
             let _ = writeln!(st, "{} • {:.2}% • {} • {}",
                 s.rank.to_emoji(), s.accuracy * 100.0, pp,
-                s.score.to_formatted_string(&Locale::en)
+                s.total_score.to_formatted_string(&Locale::en)
             );
-
+            
             let _  = writeln!(st, "[{}x/{}x] [{}/{}/{}/{}]",
                 s.max_combo, self.beatmap.max_combo,
-                s.stats.count300, s.stats.count100, s.stats.count50,
-                s.stats.countmiss
+                s.statistics.great.unwrap_or(0),
+                s.statistics.ok.unwrap_or(0), 
+                s.statistics.meh.unwrap_or(0),
+                s.statistics.miss.unwrap_or(0),
             );
-
+        
             let _  = writeln!(st, "<t:{}:R>",
-                s.created_at.timestamp()
+                s.ended_at.timestamp()
             );
         }
 
@@ -245,8 +249,8 @@ pub async fn country_leaderboard(
     let mut builder = MessageBuilder::new();
 
     let osu_user = osu_user!(ctx, command);
-
-    let clb = match ctx.osu_api.get_countryleaderboard(bid).await {
+    
+    let clb = match ctx.osu_api.get_leaderboard_hidden(bid, true).await {
         Ok(lb) => lb,
         Err(e) => {
             builder = builder.content(

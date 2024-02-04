@@ -1,3 +1,6 @@
+pub mod osu_mods;
+pub mod osu_leaderboard;
+
 use crate::osu_api::datetime::deserialize_datetime;
 
 use crate::osu_api::error::OsuApiError;
@@ -14,6 +17,8 @@ use std::str::FromStr;
 use std::fmt;
 
 use bitflags::bitflags;
+
+use self::osu_mods::{OsuModsLazer, OsuModLazer};
 
 #[derive(Deserialize, Debug)]
 pub struct ApiError {
@@ -454,6 +459,7 @@ pub struct OsuScore {
     pub best_id: Option<i64>,
     pub user_id: i64,
     pub accuracy: f32,
+    
     pub mods: OsuMods,
     pub score: i64,
     pub perfect: bool,
@@ -486,7 +492,7 @@ pub struct OsuUserCompact {
     pub avatar_url: String,
     pub country_code: String,
     pub default_group: String,
-    pub id: i64,
+    pub id: u64,
     pub is_active: bool,
     pub is_bot: bool,
     pub is_deleted: bool,

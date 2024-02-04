@@ -8,9 +8,9 @@ pub enum OsuApiError {
     UnhandledStatusCode { code: u16, url: String },
     ApiError { source: ApiError },
     NotFound { url: String },
-    Parsing { source: serde_json::Error, body: hyper::body::Bytes },
+    Parsing { source: serde_json::Error, body: String },
     TooManyRequests,
-    UnprocessableEntity,
+    UnprocessableEntity { body: String },
     ServiceUnavailable,
     EmptyBody,
     ExceededMaxRetries,
@@ -34,7 +34,7 @@ impl StdError for OsuApiError {
             OsuApiError::NotFound { .. } => None,
             OsuApiError::Parsing { .. } => None,
             OsuApiError::TooManyRequests => None,
-            OsuApiError::UnprocessableEntity => None,
+            OsuApiError::UnprocessableEntity { .. } => None,
             OsuApiError::ServiceUnavailable => None,
             OsuApiError::EmptyBody => None,
             OsuApiError::ExceededMaxRetries => None,
@@ -58,7 +58,7 @@ impl fmt::Display for OsuApiError {
             OsuApiError::Parsing { .. } => 
                 f.write_str("Got error during json parsing"),
             OsuApiError::TooManyRequests => f.write_str("Got 429!"),
-            OsuApiError::UnprocessableEntity => 
+            OsuApiError::UnprocessableEntity{ .. } => 
                 f.write_str("Got unprocessable entity"),
             OsuApiError::ServiceUnavailable => 
                 f.write_str("Service is unavailable"),
