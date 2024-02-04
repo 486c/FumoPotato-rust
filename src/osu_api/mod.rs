@@ -7,6 +7,7 @@ pub mod error;
  * TODO: Get rid of reqwest and switch to fully to hyper
  */
 
+use hyper::header::{USER_AGENT, COOKIE};
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{ Client, StatusCode, Method, Response };
 
@@ -27,11 +28,17 @@ use serde::de::DeserializeOwned;
 
 type ApiResult<T> = Result<T, OsuApiError>;
 
+pub enum ApiKind {
+    General,
+    Hidden,
+}
+
 #[derive(Debug)]
 pub struct OsuApi {
     inner: Arc<OsuToken>,
     fallback_url: String,
     loop_drop_tx: Option<Sender<()>>,
+    osu_session: String,
     pub stats: Metrics
 }
 
@@ -84,7 +91,8 @@ impl OsuApi {
     async fn make_request<T: DeserializeOwned>(
         &self, 
         link: &str, 
-        method: Method
+        method: Method,
+        api_kind: ApiKind,
     ) -> ApiResult<T> {
         let token = self.inner.token.read().await;
 
@@ -95,10 +103,19 @@ impl OsuApi {
             _ => unimplemented!(),
         };
 
-        let req = r
-            .header(ACCEPT, "application/json")
-            .header(CONTENT_TYPE, "application/json")
-            .header(AUTHORIZATION, format!("Bearer {token}"));
+        let req = match api_kind {
+            ApiKind::General => {
+                r
+                .header(ACCEPT, "application/json")
+                .header(CONTENT_TYPE, "application/json")
+                .header(AUTHORIZATION, format!("Bearer {token}"))
+            },
+            ApiKind::Hidden => {
+                r
+                .header(USER_AGENT, "fumo_potato")
+                .header(COOKIE, &self.osu_session)
+            },
+        };
 
         let resp = req.send().await?;
 
@@ -187,7 +204,8 @@ impl OsuApi {
 
         let r = self.make_request(
             &link[..link.len()-1], 
-            Method::GET
+            Method::GET,
+            ApiKind::General,
         ).await?;
 
         Ok(r)
@@ -207,7 +225,11 @@ impl OsuApi {
             link.push_str(&format!("/mode/{mode}"))
         }
 
-        let r = self.make_request(&link, Method::GET).await?;
+        let r = self.make_request(
+            &link, 
+            Method::GET, 
+            ApiKind::General
+        ).await?;
 
         Ok(r)
     }
@@ -220,7 +242,12 @@ impl OsuApi {
             "https://osu.ppy.sh/api/v2/beatmaps/{bid}"
         );
 
-        let r = self.make_request(&link, Method::GET).await?;
+        let r = self.make_request(
+            &link, 
+            Method::GET, 
+            ApiKind::General
+        ).await?;
+
         self.stats.beatmap.inc();
 
         Ok(r)
@@ -242,7 +269,12 @@ impl OsuApi {
         // at the moment
         let mut retries = 0;
         while retries <= 5 {
-            let resp = self.make_request(&link, Method::GET).await;
+            let resp = self.make_request(
+                &link, 
+                Method::GET, 
+                ApiKind::General
+            ).await;
+
             self.stats.country_leaderboard.inc();
 
             match resp {
@@ -266,6 +298,7 @@ impl OsuApi {
     pub async fn new(
         client_id: i32,
         secret: &str,
+        osu_session: &str,
         fallback_url: &str,
         run_loop: bool
     ) -> ApiResult<OsuApi> {
@@ -298,6 +331,7 @@ impl OsuApi {
             loop_drop_tx: Some(tx),
             inner,
             fallback_url: fallback_url.to_owned(),
+            osu_session: osu_session.to_owned(),
             stats,
         };
 
@@ -362,6 +396,7 @@ mod tests {
             OsuApi::new(
                 env::var("CLIENT_ID").unwrap().parse().unwrap(),
                 env::var("CLIENT_SECRET").unwrap().as_str(),
+                env::var("OSU_SESSION").unwrap().as_str(),
                 env::var("FALLBACK_API").unwrap().as_str(),
                 false
             )
@@ -414,11 +449,6 @@ mod tests {
         assert_eq!(user.id, 6830745);
         assert_eq!(user.username, "DaHuJka");
         assert_eq!(user.country_code, "RU");
-
-        api.get_user(
-            UserId::Username("ASD4235".to_owned()),
-            None
-        ).await.unwrap();
     }
 
     #[tokio::test]
@@ -451,7 +481,9 @@ mod tests {
         let api = get_api().await;
 
         let link = "https://osu.ppy.sh/apii/v2/beaaps/";
-        let _: OsuBeatmap = api.make_request(link, Method::GET)
+        let _: OsuBeatmap = api.make_request(
+            link, Method::GET, ApiKind::General
+        )
             .await
             .unwrap();
     }

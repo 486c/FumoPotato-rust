@@ -46,6 +46,7 @@ impl FumoContext {
         let osu_api = OsuApi::new(
             env::var("CLIENT_ID")?.parse()?,
             env::var("CLIENT_SECRET")?.as_str(),
+            env::var("OSU_SESSION")?.as_str(),
             env::var("FALLBACK_API")?.as_str(),
             true
         ).await?;
