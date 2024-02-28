@@ -23,7 +23,7 @@ struct LeaderboardListing {
     pages: i32,
     curr_page: i32,
 
-    scores: Vec<OsuScoreLazer>,
+    scores: Vec<OsuScore>,
     beatmap: OsuBeatmap,
     user_position: Option<usize>,
 
@@ -34,7 +34,7 @@ struct LeaderboardListing {
 impl LeaderboardListing {
     fn new(
         user: Option<OsuDbUser>, 
-        scores: Vec<OsuScoreLazer>, 
+        scores: Vec<OsuScore>, 
         beatmap: OsuBeatmap
     ) -> LeaderboardListing {
         let pages: i32 = (scores.len() as f32 / 10.0)
@@ -62,7 +62,7 @@ impl LeaderboardListing {
                     .iter()
                     .enumerate()
                     .find(|(_index, score)| {
-                        score.user_id == user.osu_id as u64
+                        score.user_id == user.osu_id
                     });
 
 
@@ -176,7 +176,7 @@ impl LeaderboardListing {
                 index as i32 + 1  + start_at, 
                 s.user.username, 
                 s.user.id, 
-                s.mods 
+                s.mods.to_string() 
                 //s.mods.to_string()
             );
 
@@ -187,19 +187,19 @@ impl LeaderboardListing {
 
             let _ = writeln!(st, "{} • {:.2}% • {} • {}",
                 s.rank.to_emoji(), s.accuracy * 100.0, pp,
-                s.total_score.to_formatted_string(&Locale::en)
+                s.score.to_formatted_string(&Locale::en)
             );
             
             let _  = writeln!(st, "[{}x/{}x] [{}/{}/{}/{}]",
                 s.max_combo, self.beatmap.max_combo,
-                s.statistics.great.unwrap_or(0),
-                s.statistics.ok.unwrap_or(0), 
-                s.statistics.meh.unwrap_or(0),
-                s.statistics.miss.unwrap_or(0),
+                s.stats.count300,
+                s.stats.count100,
+                s.stats.count50, 
+                s.stats.countmiss,
             );
         
             let _  = writeln!(st, "<t:{}:R>",
-                s.ended_at.timestamp()
+                s.created_at.timestamp()
             );
         }
 
@@ -250,7 +250,7 @@ pub async fn country_leaderboard(
 
     let osu_user = osu_user!(ctx, command);
     
-    let clb = match ctx.osu_api.get_leaderboard_hidden(bid, true).await {
+    let clb = match ctx.osu_api.get_countryleaderboard_fallback(bid).await {
         Ok(lb) => lb,
         Err(e) => {
             builder = builder.content(
