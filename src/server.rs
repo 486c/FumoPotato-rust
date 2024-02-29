@@ -12,7 +12,6 @@ use bytes::Bytes;
 use hyper_util::rt::tokio::TokioIo;
 use hyper::server::conn::http1;
 
-
 async fn metrics_handler(
     ctx: Arc<FumoContext>,
     _req: Request<hyper::body::Incoming>
@@ -58,25 +57,6 @@ pub async fn server_loop(ctx: Arc<FumoContext>) {
 pub async fn run_server(ctx: Arc<FumoContext>, shutdown_rx: Receiver<()>) {
     tokio::select!{
         _ = server_loop(ctx.clone()) => println!("wtf"),
-        _ = shutdown_rx => println!("Bye"),
+        _ = shutdown_rx => println!("Bye http server"),
     };
-
-    println!("Bye http server");
 }
-
-    
-    /*
-    let service = RouterService::new(router).unwrap();
-
-    let server = Server::bind(&addr).serve(service)
-        .with_graceful_shutdown(async {
-            let _ = shutdown_rx.await;
-        });
-    
-    println!("Started http server!");
-
-    if let Err(err) = server.await {
-        eprintln!("Server error: {err}");
-   }
-   */
-

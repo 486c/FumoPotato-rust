@@ -84,6 +84,7 @@ pub async fn announce_channel(
 }
 
 pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
+    // TODO refactor, get rid of useless database writes
     let data_db = ctx.db.get_streamers().await?;
 
     let names: Vec<i64> = data_db.iter()
