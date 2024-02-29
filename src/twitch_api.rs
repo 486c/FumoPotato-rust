@@ -212,7 +212,6 @@ impl TwitchApi {
 
         Ok(bytes.to_vec())
     }
-    
 
     async fn make_request(
         &self, 
@@ -239,7 +238,8 @@ impl TwitchApi {
             .header(CONTENT_TYPE, "application/json")
             .header(AUTHORIZATION, format!("Bearer {token}"))
             .header("Client-Id", &self.inner.client_id);
-
+        
+        // Check for errors?
         Ok(r.send().await?)
     }
 

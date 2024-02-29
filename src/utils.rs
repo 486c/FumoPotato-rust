@@ -138,7 +138,6 @@ impl InteractionCommand {
             .into_future()
     }
 
-
     pub fn update<'a>(
         &self, 
         ctx: &'a FumoContext,

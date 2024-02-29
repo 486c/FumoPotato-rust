@@ -22,7 +22,10 @@ use crate::random_string;
 use eyre::{ Result, bail };
 
 pub async fn twitch_worker(ctx: Arc<FumoContext>) {
-    println!("Started twitch checker loop!");
+    println!("Syncing twitch checker list!");
+    twitch_sync_db_with_map(&ctx).await.unwrap();
+
+    println!("Starting twitch checker loop!");
     loop {
         if let Err(e) = twitch_checker(&ctx).await {
             println!("{:?}", 
@@ -83,9 +86,90 @@ pub async fn announce_channel(
     Ok(())
 }
 
+pub async fn twitch_sync_db_with_map(ctx: &FumoContext) -> Result<()> {
+    let streamers = ctx.db.get_streamers().await?;
+
+    let mut lock = ctx.twitch_checker_list.lock().await;
+    
+    for streamer in streamers {
+        let _ = lock.entry(streamer.id).or_insert(streamer.online);
+    }
+
+    Ok(())
+}
+
 pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
     // TODO refactor, get rid of useless database writes
-    let data_db = ctx.db.get_streamers().await?;
+    //let data_db = ctx.db.get_streamers().await?;
+    
+    // Taking lock of currently tracked streamers
+    let mut tracked_list = ctx.twitch_checker_list.lock().await;
+
+    // Fetching current status of all selected streamers
+    let ids_to_fetch: Vec<i64> = tracked_list.keys()
+        .map(|k| *k)
+        .collect();
+
+    let fetched_streamers = match ctx.twitch_api.get_streams_by_id(
+        ids_to_fetch.as_slice()
+    ).await? {
+        Some(s) => s,
+        None => bail!("Got None from twitch api")
+    };
+
+    for (id, is_online) in tracked_list.iter_mut() {
+        let streamer_status = 'blk: {
+            for twitch_streamer in &fetched_streamers {
+                if twitch_streamer.user_id == *id {
+                    break 'blk Some(twitch_streamer);
+                }
+
+            };
+
+            break 'blk None;
+        };
+
+        match streamer_status {
+            Some(streamer_status) => {
+                // If currently offline streamer goes online
+                if streamer_status.stream_type == StreamType::Live 
+                && *is_online == false {
+                    *is_online = true;
+                    
+                    // TODO move channel handling into announce function
+                    // and also spawn another task for that instead
+                    // of keeping lock forever
+                    let channels = ctx.db.get_channels_by_twitch_id(
+                        *id
+                    ).await?;
+
+                    for channel in channels {
+                        let channel_id: Id<ChannelMarker> = Id::new(channel.channel_id as u64);
+
+                        announce_channel(
+                            ctx, 
+                            channel_id, 
+                            streamer_status
+                        ).await?;
+
+                    }
+                }
+                
+                // If currently online streamer goes offline
+                if streamer_status.stream_type == StreamType::Offline
+                && *is_online == true {
+                    *is_online = false;
+                }
+            },
+            None => {
+                println!("TODO")
+            },
+        }
+
+    }
+
+
+    /*
 
     let names: Vec<i64> = data_db.iter()
         .map(|s: &TwitchTrackedStreamer| s.id)
@@ -122,6 +206,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
             }
         }
     }
+    */
 
     Ok(())
 }

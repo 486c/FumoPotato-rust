@@ -3,6 +3,7 @@ use crate::twitch_api::TwitchApi;
 use crate::database::Database;
 use crate::stats::BotStats;
 
+use tokio::sync::Mutex;
 use twilight_http::Client;
 use twilight_http::client::InteractionClient;
 use twilight_gateway::{ EventTypeFlags, Intents,  Config, stream, ShardId, ConfigBuilder, Shard };
@@ -12,6 +13,7 @@ use twilight_model::id::{
 };
 use twilight_standby::Standby;
 
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 
@@ -20,6 +22,7 @@ use eyre::Result;
 pub struct FumoContext {
     pub osu_api: OsuApi,
     pub twitch_api: TwitchApi,
+    pub twitch_checker_list: Mutex<HashMap<i64, bool>>,
     pub db: Database,
     pub stats: BotStats,
     pub http: Arc<Client>,
@@ -103,6 +106,7 @@ impl FumoContext {
             application_id,
             standby,
             stats,
+            twitch_checker_list: Mutex::new(HashMap::new()),
         };
 
         Ok((ctx, shards))
