@@ -190,7 +190,7 @@ async fn twitch_add(
         .unwrap();
 
     // Checking if user with provided name actually exists
-    let streamer = match streamers.get(0) {
+    let streamer = match streamers.first() {
         Some(s) => s,
         None => {
             msg = msg.content(
@@ -241,7 +241,7 @@ async fn twitch_remove(
         .await?
         .unwrap();
 
-    let streamer = match streamers.get(0) {
+    let streamer = match streamers.first() {
         Some(s) => s,
         None => {
             msg = msg.content(format!(
@@ -289,7 +289,7 @@ pub async fn run(
     ctx: &FumoContext, 
     command: InteractionCommand
 ) -> Result<()> {
-    if let Some(option) = command.data.options.get(0) {
+    if let Some(option) = command.data.options.first() {
         if let CommandOptionValue::SubCommand(args) = &option.value {
             match option.name.as_ref() {
                 "add" => {

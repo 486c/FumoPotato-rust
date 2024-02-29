@@ -86,7 +86,7 @@ pub async fn run(
     ctx: &FumoContext, 
     command: InteractionCommand
 ) -> Result<()> {
-    if let Some(option) = command.data.options.get(0) {
+    if let Some(option) = command.data.options.first() {
         if let CommandOptionValue::SubCommand(args) = &option.value {
             match option.name.as_ref() {
                 "link" => {

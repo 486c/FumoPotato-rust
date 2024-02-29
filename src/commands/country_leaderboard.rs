@@ -1,5 +1,4 @@
 use crate::database::osu::OsuDbUser;
-use crate::osu_api::models::osu_leaderboard::OsuScoreLazer;
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
@@ -213,12 +212,12 @@ fn find_link(msg: &Message) -> Option<&String> {
     match msg.author.id.get() {
         // owo bot
         289066747443675143 => {
-            msg.embeds.get(0)?.author.as_ref()?
+            msg.embeds.first()?.author.as_ref()?
                 .url.as_ref()
         },
         // bath bot & mikaizuku
         297073686916366336 | 839937716921565252 => {
-            msg.embeds.get(0)?.url.as_ref()
+            msg.embeds.first()?.url.as_ref()
         }
 
         _ => None,

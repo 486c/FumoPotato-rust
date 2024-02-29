@@ -29,7 +29,7 @@ use crate::osu_api::error::OsuApiError;
 use serde::de::DeserializeOwned;
 
 static OSU_BASE: &str = "https://osu.ppy.sh";
-static OSU_API_BASE: &str = "https://osu.ppy.sh/api";
+static OSU_API_BASE: &str = "https://osu.ppy.sh/api/v2";
 
 type ApiResult<T> = Result<T, OsuApiError>;
 
@@ -188,13 +188,11 @@ impl OsuApi {
         &self,
         user_scores: GetUserScores
     ) -> ApiResult<Vec<OsuScore>> {
-        let mut link = "https://osu.ppy.sh/api/v2".to_owned();
-
-        link.push_str(&format!(
-            "/users/{}/scores/{}?",
+        let mut link = format!(
+            "{OSU_API_BASE}/users/{}/scores/{}?",
             user_scores.user_id,
             user_scores.kind
-        ));
+        );
 
         // TODO think of better ways of handling query arguments
         // TODO handle pagination 
@@ -226,7 +224,7 @@ impl OsuApi {
         user_id: UserId,
         mode: Option<OsuGameMode>
     ) -> ApiResult<OsuUser> {
-        let mut link = "https://osu.ppy.sh/api/v2".to_owned();
+        let mut link = OSU_API_BASE.to_owned();
 
         // TODO ?key=
         link.push_str(&format!("/users/{user_id}"));
@@ -249,7 +247,7 @@ impl OsuApi {
         bid: i32
     ) -> ApiResult<OsuBeatmap> {
         let link = format!(
-            "https://osu.ppy.sh/api/v2/beatmaps/{bid}"
+            "{OSU_API_BASE}/beatmaps/{bid}"
         );
 
         let r = self.make_request(

@@ -18,8 +18,6 @@ use std::fmt;
 
 use bitflags::bitflags;
 
-use self::osu_mods::{OsuModsLazer, OsuModLazer};
-
 #[derive(Deserialize, Debug)]
 pub struct ApiError {
     pub error: Option<String>
