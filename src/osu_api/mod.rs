@@ -4,12 +4,7 @@ mod metrics;
 pub mod models;
 pub mod error;
 
-/*
- * TODO: Get rid of reqwest and switch to fully to hyper
- */
-
-use hyper::header::{USER_AGENT, COOKIE};
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT};
 use reqwest::{ Client, StatusCode, Method, Response };
 
 use self::models::osu_leaderboard::OsuLeaderboardLazer;
