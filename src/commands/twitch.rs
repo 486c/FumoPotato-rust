@@ -15,7 +15,6 @@ use rand::distributions::{Alphanumeric, DistString};
 use crate::twitch_api::{ TwitchStream, StreamType };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ MessageBuilder, InteractionCommand};
-use crate::database::twitch::TwitchTrackedStreamer;
 
 use crate::random_string;
 
@@ -23,7 +22,7 @@ use eyre::{ Result, bail };
 
 pub async fn twitch_worker(ctx: Arc<FumoContext>) {
     println!("Syncing twitch checker list!");
-    twitch_sync_db_with_map(&ctx).await.unwrap();
+    twitch_sync_checker_list(&ctx).await.unwrap();
 
     println!("Starting twitch checker loop!");
     loop {
@@ -86,7 +85,8 @@ pub async fn announce_channel(
     Ok(())
 }
 
-pub async fn twitch_sync_db_with_map(ctx: &FumoContext) -> Result<()> {
+/// Syncing database with checker list
+pub async fn twitch_sync_checker_list(ctx: &FumoContext) -> Result<()> {
     let streamers = ctx.db.get_streamers().await?;
 
     let mut lock = ctx.twitch_checker_list.lock().await;
@@ -98,10 +98,20 @@ pub async fn twitch_sync_db_with_map(ctx: &FumoContext) -> Result<()> {
     Ok(())
 }
 
-pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
-    // TODO refactor, get rid of useless database writes
-    //let data_db = ctx.db.get_streamers().await?;
+/// Syncing checker list with database
+/// Happens on shutdown
+pub async fn twitch_sync_db(ctx: Arc<FumoContext>) -> Result<()> {
+    let lock = ctx.twitch_checker_list.lock().await;
     
+    for (streamer_id, status) in lock.iter() {
+        ctx.db.set_online_status(*streamer_id, *status).await?;
+    }
+
+    println!("Database is successfully synced with checker list");
+    Ok(())
+}
+
+pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
     // Taking lock of currently tracked streamers
     let mut tracked_list = ctx.twitch_checker_list.lock().await;
 
@@ -109,6 +119,10 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
     let ids_to_fetch: Vec<i64> = tracked_list.keys()
         .map(|k| *k)
         .collect();
+
+    if ids_to_fetch.is_empty() {
+        return Ok(())
+    }
 
     let fetched_streamers = match ctx.twitch_api.get_streams_by_id(
         ids_to_fetch.as_slice()
@@ -144,7 +158,9 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                     ).await?;
 
                     for channel in channels {
-                        let channel_id: Id<ChannelMarker> = Id::new(channel.channel_id as u64);
+                        let channel_id: Id<ChannelMarker> = Id::new(
+                            channel.channel_id as u64
+                        );
 
                         announce_channel(
                             ctx, 
@@ -161,52 +177,15 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                     *is_online = false;
                 }
             },
+            // None returned means it's probably offline
             None => {
-                println!("TODO")
+                if *is_online {
+                    *is_online = false;
+                }
             },
         }
 
     }
-
-
-    /*
-
-    let names: Vec<i64> = data_db.iter()
-        .map(|s: &TwitchTrackedStreamer| s.id)
-        .collect();
-
-    let data_api = match ctx.twitch_api.get_streams_by_id(
-        names.as_slice()
-    ).await? {
-        Some(s) => s,
-        None => bail!("Got None from twitch api")
-    };
-
-    for s_db in data_db {
-        let online = s_db.online;
-
-        match data_api.iter().find(|&i| i.user_id == s_db.id) {
-            // If Some(_) that means that current streamer from database is online
-            Some(s) => {
-                if s.stream_type == StreamType::Live && !online {
-                    ctx.db.toggle_online(s_db.id).await?;
-
-                    let channels = ctx.db.get_channels_by_twitch_id(s_db.id).await?;
-                    for channel in channels {
-                        let channel_id: Id<ChannelMarker> = Id::new(channel.channel_id as u64);
-                        announce_channel(ctx, channel_id, s).await?;
-                    }
-                }
-            },
-            // None means streamer from database is not currenly online
-            None => {
-                if online {
-                    ctx.db.toggle_online(s_db.id).await?;
-                }
-            }
-        }
-    }
-    */
 
     Ok(())
 }
@@ -308,6 +287,9 @@ async fn twitch_add(
                 format!("Successfully added `{name}` to tracking!")
             );
             command.update(ctx, &msg).await?;
+
+            twitch_sync_checker_list(&ctx).await?;
+
             Ok(())
         },
     }

@@ -15,6 +15,7 @@ use twilight_gateway::CloseFrame;
 
 use std::env;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::fumo_context::FumoContext;
 use crate::handlers::{ event_loop, global_commands };
@@ -30,11 +31,15 @@ async fn spawn_twitch_worker(
     tokio::spawn(async move {
         tokio::select! {
             _ = commands::twitch::twitch_worker(
-                twitch_ctx
+                twitch_ctx.clone()
             ) => {
                 println!("Twitch checker loop sudenly ended!")
             }
-            _ = rx => ()
+            _ = rx => {
+                commands::twitch::twitch_sync_db(
+                    twitch_ctx.clone()
+                ).await.expect("Failed to sync checker list with db");
+            }
         }
     });
 }
@@ -105,7 +110,11 @@ async fn main() -> Result<()> {
         println!("Failed to close http server!");
     }
     println!("Closed http server!");
+    
+    // Wait for all threads complete peacefully
+    tokio::time::sleep(Duration::from_secs(5)).await;
 
     println!("Bye!!!");
+
     Ok(())
 }
