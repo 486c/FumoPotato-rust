@@ -18,4 +18,17 @@ impl Database {
             pool
         })
     }
+
+    pub async fn add_discord_channel(
+        &self, 
+        channel_id: i64
+    ) -> Result<()> {
+
+        sqlx::query!(
+            "INSERT INTO discord_channels VALUES($1) ON CONFLICT DO NOTHING",
+            channel_id
+        ).execute(&self.pool).await?;
+
+        Ok(())
+    }
 }

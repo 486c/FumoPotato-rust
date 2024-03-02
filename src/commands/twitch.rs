@@ -92,7 +92,7 @@ pub async fn twitch_sync_checker_list(ctx: &FumoContext) -> Result<()> {
     let mut lock = ctx.twitch_checker_list.lock().await;
     
     for streamer in streamers {
-        let _ = lock.entry(streamer.id).or_insert(streamer.online);
+        let _ = lock.entry(streamer.twitch_id).or_insert(streamer.online);
     }
 
     Ok(())
@@ -207,7 +207,9 @@ async fn twitch_list(
     // Early exit just in case
     if channels.is_empty() {
         let builder = MessageBuilder::new()
-            .content("Couldn't find any tracked twitch channels on current channel!");
+            .content(
+                "Couldn't find any tracked twitch channels on current channel!"
+            );
         command.update(ctx, &builder).await?;
         return Ok(())
     };
@@ -215,12 +217,14 @@ async fn twitch_list(
     
     let mut display_list: Vec<i64> = Vec::new();
     for ch in channels {
-        let s = match streamers.iter().find(|&x| x.id == ch.id) {
-            Some(streamer) => streamer,
-            None => bail!("Couldn't find twitch streamer???")
-        };
+        let s = match streamers
+            .iter()
+            .find(|&x| x.twitch_id == ch.twitch_id) {
+                Some(streamer) => streamer,
+                None => bail!("Couldn't find twitch streamer???")
+            };
 
-        display_list.push(s.id)
+        display_list.push(s.twitch_id)
     };
     
     // Getting users list from api to keep up with actual user name
@@ -259,8 +263,11 @@ async fn twitch_add(
         Some(s) => s,
         None => {
             msg = msg.content(
-                format!("User with name `{name}` does not exists on twitch!")
-                );
+                format!(
+                    "User with name `{name}` does not exists on twitch!"
+                )
+            );
+
             command.update(ctx, &msg).await?;
             return Ok(());
         }
@@ -272,7 +279,7 @@ async fn twitch_add(
     };
     
     let channel_id: i64 = command.channel_id.get().try_into()?;
-    match ctx.db.get_tracking(streamer.id, channel_id).await {
+    match ctx.db.get_tracking(streamer.twitch_id, channel_id).await {
         Some(_) => {
 
             msg = msg.content(
@@ -320,7 +327,7 @@ async fn twitch_remove(
         }
     };
 
-    let streamer_db = match ctx.db.get_streamer_by_id(streamer.id).await {
+    let streamer_db = match ctx.db.get_streamer(streamer.id).await {
         Some(s) => s,
         None => {
             msg = msg.content(format!(
@@ -332,7 +339,7 @@ async fn twitch_remove(
     };
     
     if ctx.db.get_tracking(
-        streamer_db.id, channel_id
+        streamer_db.twitch_id, channel_id
     )
     .await
     .is_none() {
@@ -343,7 +350,7 @@ async fn twitch_remove(
         return Ok(());
     }
     
-    ctx.db.remove_tracking(streamer_db.id, channel_id).await?;
+    ctx.db.remove_tracking(streamer_db.twitch_id, channel_id).await?;
 
     msg = msg.content(
         format!("Successfully removed `{name}` from current channel!")
