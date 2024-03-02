@@ -4,12 +4,11 @@ insert into discord_channels select distinct channel_id from twitch_tracking;
 create table twitch_streamers_new (
 	twitch_id int8 primary key not NULL,
 	online bool default false not null
-	--CONSTRAINT twitch_streamers_pkey PRIMARY KEY (twitch_id)
 );
 
 create table twitch_tracking_new (
-	channel_id bigint,
-	twitch_id bigint,
+	channel_id bigint NOT NULL,
+	twitch_id bigint NOT NULL,
 	constraint fk_channel_id foreign KEY("channel_id") REFERENCES discord_channels(channel_id),
 	constraint fk_twitch_id foreign KEY("twitch_id") REFERENCES twitch_streamers_new(twitch_id)
 	
