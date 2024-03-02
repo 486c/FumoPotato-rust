@@ -117,7 +117,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
 
     // Fetching current status of all selected streamers
     let ids_to_fetch: Vec<i64> = tracked_list.keys()
-        .map(|k| *k)
+        .copied()
         .collect();
 
     if ids_to_fetch.is_empty() {
@@ -147,7 +147,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
             Some(streamer_status) => {
                 // If currently offline streamer goes online
                 if streamer_status.stream_type == StreamType::Live 
-                && *is_online == false {
+                && !(*is_online) {
                     *is_online = true;
                     
                     // TODO move channel handling into announce function
@@ -173,7 +173,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                 
                 // If currently online streamer goes offline
                 if streamer_status.stream_type == StreamType::Offline
-                && *is_online == true {
+                && *is_online {
                     *is_online = false;
                 }
             },
@@ -295,7 +295,7 @@ async fn twitch_add(
             );
             command.update(ctx, &msg).await?;
 
-            twitch_sync_checker_list(&ctx).await?;
+            twitch_sync_checker_list(ctx).await?;
 
             Ok(())
         },
