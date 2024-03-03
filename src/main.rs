@@ -20,6 +20,7 @@ use std::time::Duration;
 use crate::fumo_context::FumoContext;
 use crate::handlers::{ event_loop, global_commands };
 use crate::server::run_server;
+use twilight_interactions::command::CreateCommand;
 
 use tokio::signal;
 use tokio::sync::oneshot::channel;
@@ -58,10 +59,19 @@ async fn main() -> Result<()> {
         .model()
         .await?
         .id.cast();
+    
+    // Mixing manually created commands 
+    // and twilight-interactions created commands :)
+    let mut commands = global_commands();
+
+    commands.push(
+        commands::osu_tracking::OsuTracking::create_command()
+            .into()
+    );
 
     // Set global commands
     ctx.http.interaction(application_id)
-        .set_global_commands(&global_commands())
+        .set_global_commands(&commands)
         .await?;
 
     // Spawn twitch checker

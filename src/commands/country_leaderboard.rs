@@ -338,7 +338,10 @@ pub async fn country_leaderboard(
 
 }
 
-pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
+pub async fn run(
+    ctx: &FumoContext, 
+    command: InteractionCommand
+) -> Result<()> {
     command.defer(ctx).await?;
 
     let mut builder = MessageBuilder::new();

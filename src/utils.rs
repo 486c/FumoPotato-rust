@@ -113,7 +113,7 @@ impl InteractionComponent {
 #[derive(Debug)]
 pub struct InteractionCommand {
     pub channel_id: Id<ChannelMarker>,
-    pub data: Box<CommandData>,
+    pub data: CommandData,
     pub kind: InteractionType,
     pub guild_id: Option<Id<GuildMarker>>,
     pub id: Id<InteractionMarker>,

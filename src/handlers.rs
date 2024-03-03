@@ -1,5 +1,6 @@
 use tokio_stream::StreamExt;
 use twilight_gateway::stream::ShardEventStream;
+use crate::commands::osu_tracking::OsuTracking;
 use crate::fumo_context::FumoContext;
 
 use std::sync::Arc;
@@ -26,13 +27,17 @@ use crate::utils::InteractionCommand;
 
 use eyre::Result;
 
-async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
+async fn handle_commands(
+    ctx: Arc<FumoContext>, 
+    cmd: InteractionCommand,
+) {
     let res = match cmd.data.name.as_str() {
         "leaderboard" | "Leaderboard" => 
             country_leaderboard::run(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,
         "ar" | "od" => attributes::run(&ctx, cmd).await,
         "osu" => osu::run(&ctx, cmd).await,
+        "osu-tracking" => OsuTracking::handle(&ctx, cmd).await,
         _ => return println!("Got unhandled interaction command"),
     };
     
@@ -215,7 +220,7 @@ async fn handle_interactions(
         Some(InteractionData::ApplicationCommand(data)) => {
             let cmd = InteractionCommand {
                 channel_id: channel.unwrap().id,
-                data,
+                data: *data,
                 kind,
                 guild_id,
                 id,
