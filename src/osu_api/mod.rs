@@ -218,7 +218,7 @@ impl OsuApi {
         &self,
         user_id: UserId,
         mode: Option<OsuGameMode>
-    ) -> ApiResult<OsuUser> {
+    ) -> ApiResult<Option<OsuUser>> {
         let mut link = OSU_API_BASE.to_owned();
 
         // TODO ?key=
@@ -228,13 +228,23 @@ impl OsuApi {
             link.push_str(&format!("/mode/{mode}"))
         }
 
-        let r = self.make_request(
+        let r: ApiResult<OsuUser> = self.make_request(
             &link, 
             Method::GET, 
             ApiKind::General
-        ).await?;
+        ).await;
 
-        Ok(r)
+        match r {
+            Ok(v) => {
+                Ok(Some(v))
+            },
+            Err(e) => {
+                match e {
+                    OsuApiError::NotFound { .. } => Ok(None),
+                    _ => Err(e)
+                }
+            },
+        }
     }
     
     pub async fn get_beatmap(
@@ -477,7 +487,7 @@ mod tests {
         let user = api.get_user(
             UserId::Id(6892711),
             None
-        ).await.unwrap();
+        ).await.unwrap().unwrap();
 
         assert_eq!(user.id, 6892711);
         assert_eq!(user.username, "LoPij");
@@ -486,11 +496,19 @@ mod tests {
         let user = api.get_user(
             UserId::Username("DaHuJka".to_owned()),
             None
-        ).await.unwrap();
+        ).await.unwrap().unwrap();
 
         assert_eq!(user.id, 6830745);
         assert_eq!(user.username, "DaHuJka");
         assert_eq!(user.country_code, "RU");
+
+
+        let user = api.get_user(
+            UserId::Id(34785329384),
+            None
+        ).await.unwrap();
+
+        assert!(user.is_none());
     }
 
     #[tokio::test]

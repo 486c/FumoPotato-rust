@@ -1,13 +1,6 @@
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::application::interaction::Interaction;
-use twilight_model::{
-    application::interaction::{application_command::CommandData},
-    channel::message::Embed,
-    http::interaction::{InteractionResponse, InteractionResponseType},
-};
 use crate::{fumo_context::FumoContext, utils::InteractionCommand};
 use eyre::Result;
-use twilight_interactions::command::CommandInputData;
 
 /// Osu tracking commands
 #[derive(CommandModel, CreateCommand, Debug)]

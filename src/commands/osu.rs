@@ -8,7 +8,7 @@ use twilight_model::{application::interaction::
 
 use crate::{
     fumo_context::FumoContext, 
-    utils::{InteractionCommand, MessageBuilder}, osu_api::{models::UserId, error::OsuApiError}
+    utils::{InteractionCommand, MessageBuilder}, osu_api::models::UserId
 };
 
 pub async fn osu_unlink(
@@ -58,22 +58,23 @@ pub async fn osu_link(
     let user = ctx.osu_api.get_user(
         UserId::Username(name.to_owned()), 
         None
-    ).await;
-
-    if let Err(OsuApiError::NotFound{..}) = user {
-        msg = msg
-            .content("User not found!");
-        command.response(ctx, &msg).await?;
-        return Ok(())
-    }
-
-    let user = user?;
-
-    ctx.db.link_osu(
-        discord_id!(command).get() as i64,
-        user.id
     ).await?;
 
+    match user {
+        Some(user) => {
+            ctx.db.link_osu(
+                discord_id!(command).get() as i64,
+                user.id
+            ).await?;
+        },
+        None => {
+            msg = msg
+                .content("User not found!");
+            command.response(ctx, &msg).await?;
+            return Ok(())
+        },
+    };
+    
     msg = msg
         .content("Successfully linked account!");
 
