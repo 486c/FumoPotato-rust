@@ -1,5 +1,6 @@
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use crate::{fumo_context::FumoContext, utils::InteractionCommand};
+use twilight_model::channel::message::MessageFlags;
+use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::UserId};
 use eyre::Result;
 
 /// Osu tracking commands
@@ -39,10 +40,53 @@ impl OsuTrackingAdd {
         ctx: &FumoContext,
         cmd: InteractionCommand
     ) -> Result<()> {
-        cmd.defer(&ctx).await?;
+        let osu_user = ctx.osu_api.get_user(
+            UserId::Username(self.osu_user.clone()), // TODO avoid stupid clones
+            None,
+        ).await?;
 
-        println!("{}", self.osu_user);
+        let channel_id = cmd.channel_id.get().try_into()?;
 
-        Ok(())
+
+        let mut msg = MessageBuilder::new()
+            .flags(MessageFlags::EPHEMERAL)
+            .content("User not found!");
+
+        match osu_user {
+            Some(osu_user) => {
+                // Check if user is already tracked
+                let osu_tracked = ctx.db.select_osu_tracking(
+                    channel_id,
+                    osu_user.id,
+                ).await?;
+
+                match osu_tracked {
+                    Some(_) => {
+                        msg = msg.content("User is already tracked");
+                        cmd.response(ctx, &msg).await?;
+                        return Ok(());
+                    },
+                    None => {
+                        add_osu_tracking_user!(
+                            ctx, 
+                            osu_user.id, 
+                            channel_id
+                        );
+
+                        msg = msg.content(
+                            "Successfully added user to the tracking!"
+                        );
+                        cmd.response(ctx, &msg).await?;
+                        return Ok(());
+                    },
+                }
+            },
+            None => {
+                msg = msg.content("User not found!");
+                cmd.response(ctx, &msg).await?;
+
+                Ok(())
+            },
+        }
     }
 }

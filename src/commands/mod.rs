@@ -8,12 +8,28 @@ macro_rules! discord_id {
     };
 }
 
+/// Gets [`OsuDbUser`] from discord id
 macro_rules! osu_user {
     ($ctx:ident, $cmd:ident) => {{
         let discord_id = discord_id!($cmd);
 
         $ctx.db.get_osu_db_user(discord_id.get() as i64)
             .await?
+    }};
+}
+
+/// Inserts new tracking user while preserving all
+/// database relations
+macro_rules! add_osu_tracking_user{
+    ($ctx:ident, $osu_id:expr, $discord_channel_id:expr) => {{
+        // Insert discord channel
+        $ctx.db.add_discord_channel($discord_channel_id).await?;
+        
+        // Insert new tracking
+        $ctx.db.add_osu_tracking(
+            $discord_channel_id,
+            $osu_id
+        ).await?;
     }};
 }
 
