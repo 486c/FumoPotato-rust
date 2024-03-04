@@ -26,6 +26,71 @@ impl OsuTracking {
     }
 }
 
+/// Remove osu user from tracking
+#[derive(CommandModel, CreateCommand, Debug)]
+#[command(name = "remove")]
+pub struct OsuTrackingRemove {
+    /// osu! username or user id
+    osu_user: String
+}
+
+
+impl OsuTrackingRemove {
+    pub async fn run(
+        &self,
+        ctx: &FumoContext,
+        cmd: InteractionCommand
+    ) -> Result<()> {
+        let channel_id = cmd.channel_id.get().try_into()?;
+
+        let osu_user = ctx.osu_api.get_user(
+            UserId::Username(self.osu_user.clone()), // TODO avoid stupid clones
+            None,
+        ).await?;
+
+        let mut msg = MessageBuilder::new()
+            .flags(MessageFlags::EPHEMERAL);
+
+        if osu_user.is_none() {
+            msg = msg.content("User not found!");
+            cmd.response(ctx, &msg).await?;
+            return Ok(());
+        }
+
+        let osu_user = osu_user.unwrap();
+
+        let osu_tracked = ctx.db.select_osu_tracking(
+            channel_id,
+            osu_user.id,
+        ).await?;
+
+        match osu_tracked {
+            Some(_) => {
+                ctx.db.remove_osu_tracking(
+                    channel_id,
+                    osu_user.id
+                ).await?;
+
+                msg = msg.content(
+                    "Successfully remove user from tracking"
+                );
+
+                cmd.response(ctx, &msg).await?;
+            },
+            None => {
+                msg = msg.content(
+                    "This user is not currently tracked on this channel!"
+                );
+
+                cmd.response(ctx, &msg).await?;
+            },
+        }
+
+        Ok(())
+
+    }
+}
+
 /// Add osu user to the tracking
 #[derive(CommandModel, CreateCommand, Debug)]
 #[command(name = "add")]
@@ -46,7 +111,6 @@ impl OsuTrackingAdd {
         ).await?;
 
         let channel_id = cmd.channel_id.get().try_into()?;
-
 
         let mut msg = MessageBuilder::new()
             .flags(MessageFlags::EPHEMERAL)
