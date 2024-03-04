@@ -363,13 +363,12 @@ mod tests {
         Ok(())
     }
 
-
     #[tokio::test]
     async fn test_get_streams_by_id() -> Result<()> {
         let twitch_api = get_api().await;
 
         let mut list = twitch_api.get_users_by_id(
-            &[145052794, 12826]
+            &[145052794, 12826, 544067520]
         ).await?.unwrap();
         
         list.sort_by_key(|s| s.id);
@@ -385,6 +384,12 @@ mod tests {
                 id: 145052794,
                 login: "lopijb".to_owned(),
                 display_name: "バカです".to_owned(),
+                broadcaster_type: "".to_owned(),
+            },
+            TwitchUser {
+                id: 544067520,
+                login: "dados123osu".to_owned(),
+                display_name: "dados123osu".to_owned(),
                 broadcaster_type: "".to_owned(),
             },
         ];
