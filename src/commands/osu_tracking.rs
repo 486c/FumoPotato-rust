@@ -1,14 +1,99 @@
+use std::{sync::Arc, time::Duration};
+
+use chrono::Utc;
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::channel::message::MessageFlags;
-use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::UserId};
+use twilight_model::{channel::message::MessageFlags, id::Id};
+use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::{UserId, GetUserScores, ScoresType}};
 use eyre::Result;
+
+pub async fn osu_track_checker(ctx: &FumoContext) {
+        let mut lock = ctx.osu_checker_list.lock().await;
+
+
+        for (osu_id, last_checked) in lock.iter_mut() {
+            let now = Utc::now().naive_utc();
+
+            let user_scores = ctx.osu_api.get_user_scores(
+                GetUserScores::new(
+                    *osu_id,
+                    ScoresType::Best,
+                ),
+            ).await.unwrap(); // TODO remove
+
+            let linked_channels = 
+                ctx.db.select_osu_tracked_linked_channels(
+                    *osu_id
+                ).await.unwrap(); // TODO remove
+
+            for score in user_scores {
+                if score.created_at.naive_utc() > *last_checked {
+                    for c in &linked_channels {
+                        let _ = ctx.http.create_message(
+                            Id::new(c.channel_id as u64)
+                        ).content(
+                            &format!(
+                                "New top score {}pp by `{}`",
+                                score.pp.unwrap_or(0.0),
+                                score.user_id
+                            )
+                        ).unwrap().await;
+                    }
+                }
+            }
+
+            *last_checked = now;
+
+        }
+
+        drop(lock);
+}
+
+pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
+    println!("Syncing osu tracking list!");
+    osu_sync_checker_list(&ctx).await.unwrap();
+    
+    println!("Starting osu tracking loop!");
+    loop {
+        osu_track_checker(&ctx).await;
+        tokio::time::sleep(Duration::from_secs(360)).await;
+    }
+}
+
+pub async fn osu_sync_checker_list(ctx: &FumoContext) -> Result<()> {
+    let tracked_users = ctx.db.select_osu_tracked_users()
+        .await?;
+
+    let mut lock = ctx.osu_checker_list.lock().await;
+
+    for tracked_user in tracked_users {
+        let _ = lock.entry(tracked_user.osu_id)
+            .or_insert(tracked_user.last_checked);
+    }
+
+    Ok(())
+}
+
+pub async fn osu_sync_db(ctx: Arc<FumoContext>) -> Result<()> {
+    let lock = ctx.osu_checker_list.lock().await;
+
+    for (osu_id, last_checked) in lock.iter() {
+        ctx.db.update_tracked_user_status(*osu_id, *last_checked)
+            .await?;
+    };
+
+    println!("Successfully synced db with osu tracked list");
+
+    Ok(())
+}
 
 /// Osu tracking commands
 #[derive(CommandModel, CreateCommand, Debug)]
 #[command(name = "osu-tracking")]
 pub enum OsuTracking {
     #[command(name = "add")]
-    Add(OsuTrackingAdd)
+    Add(OsuTrackingAdd),
+    #[command(name = "remove")]
+    Remove(OsuTrackingRemove)
 }
 
 impl OsuTracking {
@@ -22,6 +107,7 @@ impl OsuTracking {
 
         match command {
             OsuTracking::Add(command) => command.run(&ctx, cmd).await,
+            OsuTracking::Remove(command) => command.run(&ctx, cmd).await,
         }
     }
 }
@@ -33,7 +119,6 @@ pub struct OsuTrackingRemove {
     /// osu! username or user id
     osu_user: String
 }
-
 
 impl OsuTrackingRemove {
     pub async fn run(
@@ -136,6 +221,8 @@ impl OsuTrackingAdd {
                             osu_user.id, 
                             channel_id
                         );
+
+                        osu_sync_checker_list(&ctx).await?;
 
                         msg = msg.content(
                             "Successfully added user to the tracking!"

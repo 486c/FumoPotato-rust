@@ -24,6 +24,11 @@ macro_rules! add_osu_tracking_user{
     ($ctx:ident, $osu_id:expr, $discord_channel_id:expr) => {{
         // Insert discord channel
         $ctx.db.add_discord_channel($discord_channel_id).await?;
+
+        // Insert new tracked user
+        $ctx.db.add_tracked_osu_user(
+            $osu_id
+        ).await?;
         
         // Insert new tracking
         $ctx.db.add_osu_tracking(

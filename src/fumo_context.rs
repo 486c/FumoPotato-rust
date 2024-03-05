@@ -3,6 +3,7 @@ use crate::twitch_api::TwitchApi;
 use crate::database::Database;
 use crate::stats::BotStats;
 
+use chrono::NaiveDateTime;
 use tokio::sync::Mutex;
 use twilight_http::Client;
 use twilight_http::client::InteractionClient;
@@ -22,7 +23,17 @@ use eyre::Result;
 pub struct FumoContext {
     pub osu_api: OsuApi,
     pub twitch_api: TwitchApi,
+
+    /// Checker list for all twitch users
+    /// where key is twitch id
+    /// and value is if streamer is online or not
     pub twitch_checker_list: Mutex<HashMap<i64, bool>>,
+
+    /// Checker list for all tracked osu users
+    /// where key is osu id
+    /// and value is timestamp of when last checking happened
+    pub osu_checker_list: Mutex<HashMap<i64, NaiveDateTime>>,
+
     pub db: Database,
     pub stats: BotStats,
     pub http: Arc<Client>,
@@ -107,6 +118,7 @@ impl FumoContext {
             standby,
             stats,
             twitch_checker_list: Mutex::new(HashMap::new()),
+            osu_checker_list: Mutex::new(HashMap::new()),
         };
 
         Ok((ctx, shards))

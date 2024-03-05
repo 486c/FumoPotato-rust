@@ -37,9 +37,23 @@ async fn spawn_twitch_worker(
                 println!("Twitch checker loop sudenly ended!")
             }
             _ = rx => {
-                commands::twitch::twitch_sync_db(
-                    twitch_ctx.clone()
-                ).await.expect("Failed to sync checker list with db");
+            }
+        }
+    });
+}
+
+async fn spawn_osu_worker(
+    ctx: Arc<FumoContext>,
+    rx: tokio::sync::oneshot::Receiver<()>
+) {
+    tokio::spawn(async move {
+        tokio::select! {
+            _ = commands::osu_tracking::osu_tracking_worker(
+                ctx.clone()
+            ) => {
+                println!("Osu tracking checker loop sudenly ended!");
+            }
+            _ = rx => {
             }
         }
     });
@@ -78,6 +92,11 @@ async fn main() -> Result<()> {
     let (twitch_tx, rx) = channel::<()>();
     let twitch_ctx = Arc::clone(&ctx);
     spawn_twitch_worker(twitch_ctx, rx).await;
+
+    // Spawn osu checker
+    let (osu_tx, rx) = channel::<()>();
+    let osu_tracker_ctx = Arc::clone(&ctx);
+    spawn_osu_worker(osu_tracker_ctx, rx).await;
 
     // Spawn http server
     let server_tx = {
@@ -120,6 +139,19 @@ async fn main() -> Result<()> {
         println!("Failed to close http server!");
     }
     println!("Closed http server!");
+
+    if osu_tx.send(()).is_err() {
+        println!("Failed to close osu tracking loop!");
+    }
+
+    // Doing it here to ensure that it executed
+    commands::osu_tracking::osu_sync_db(
+        ctx.clone()
+    ).await.expect("Failed to sync osu checker with db");
+
+    commands::twitch::twitch_sync_db(
+        ctx.clone()
+    ).await.expect("Failed to sync checker list with db");
     
     // Wait for all threads complete peacefully
     tokio::time::sleep(Duration::from_secs(5)).await;

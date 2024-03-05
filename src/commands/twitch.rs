@@ -57,7 +57,8 @@ pub async fn announce_channel(
 
     let attach = [Attachment::from_bytes(filename, image, 1337)];
 
-    // Using it like this cuz there are always will be atleast one and only one attachment
+    // Using it like this cuz there are always will be atleast 
+    // one and only one attachment
     let source = ImageSource::attachment(&attach[0].filename)?; 
 
     let source_footer = ImageSource::url(format!(
