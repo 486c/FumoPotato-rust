@@ -162,11 +162,21 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                             channel.channel_id as u64
                         );
 
-                        announce_channel(
+                        let res = announce_channel(
                             ctx, 
                             channel_id, 
                             streamer_status
-                        ).await?;
+                        ).await;
+
+                        if let Err(e) = res {
+                            println!(
+                                "Error happened during announcing"
+                            );
+
+                            println!(
+                                "{:?}", e
+                            );
+                        }
 
                     }
                 }
