@@ -109,7 +109,22 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                     let channels = ctx.db.get_channels_by_twitch_id(s_db.id).await?;
                     for channel in channels {
                         let channel_id: Id<ChannelMarker> = Id::new(channel.channel_id as u64);
-                        announce_channel(ctx, channel_id, s).await?;
+                        let res = announce_channel(
+                            ctx, 
+                            channel_id, 
+                            s
+                        ).await;
+
+                        match res {
+                            Ok(_) => (),
+                            Err(_) => {
+                                println!(
+                                    "Error inside checker loop happend"
+                                );
+
+                                println!("{:?}", res);
+                            },
+                        };
                     }
                 }
             },
