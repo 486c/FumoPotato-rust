@@ -34,7 +34,7 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
                             &format!(
                                 "New top score {}pp by `{}`",
                                 score.pp.unwrap_or(0.0),
-                                score.user_id
+                                &score.user.username
                             )
                         ).unwrap().await;
                     }

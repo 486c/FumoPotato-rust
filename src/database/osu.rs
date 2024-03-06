@@ -69,8 +69,6 @@ impl Database {
             last_checked, osu_id
         ).execute(&self.pool).await?;
 
-        println!("ues");
-
         Ok(())
     }
     

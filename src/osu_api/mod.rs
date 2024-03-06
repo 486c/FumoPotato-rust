@@ -10,8 +10,10 @@ use reqwest::{ Client, StatusCode, Method, Response };
 use self::models::osu_leaderboard::OsuLeaderboardLazer;
 use self::models::{ 
     OauthResponse, OsuBeatmap, OsuLeaderboard, 
-    ApiError, UserId, OsuGameMode, OsuUser, GetUserScores, OsuScore 
+    ApiError, UserId, OsuGameMode, OsuUserExtended, GetUserScores, OsuScore, GetRanking, Rankings 
 };
+
+use std::fmt::Write;
 
 use self::metrics::Metrics;
 
@@ -21,6 +23,7 @@ use std::time::Duration;
 use tokio::sync::{ RwLock, oneshot::{ channel, Receiver, Sender } };
 
 use crate::osu_api::error::OsuApiError;
+use crate::osu_api::models::OsuUserStatistics;
 use serde::de::DeserializeOwned;
 
 static OSU_BASE: &str = "https://osu.ppy.sh";
@@ -218,7 +221,7 @@ impl OsuApi {
         &self,
         user_id: UserId,
         mode: Option<OsuGameMode>
-    ) -> ApiResult<Option<OsuUser>> {
+    ) -> ApiResult<Option<OsuUserExtended>> {
         let mut link = OSU_API_BASE.to_owned();
 
         // TODO ?key=
@@ -228,7 +231,7 @@ impl OsuApi {
             link.push_str(&format!("/mode/{mode}"))
         }
 
-        let r: ApiResult<OsuUser> = self.make_request(
+        let r: ApiResult<OsuUserExtended> = self.make_request(
             &link, 
             Method::GET, 
             ApiKind::General
@@ -264,6 +267,45 @@ impl OsuApi {
         self.stats.beatmap.inc();
 
         Ok(r)
+    }
+
+    pub async fn get_rankings(
+        &self,
+        ranking: &GetRanking,
+        amount: usize,
+    ) -> ApiResult<Rankings> {
+
+        let mut link = String::with_capacity(50);
+        let mut buffer: Vec<OsuUserStatistics> = Vec::with_capacity(amount);
+
+        let pages: usize = (
+            (amount as f32 / 50.0).ceil() as usize
+        ).max(1);
+
+        for page in 1..=pages {
+            link.clear();
+            let _ = write!(
+                link, 
+                "{OSU_API_BASE}/rankings/{}/{}?filter={}&cursor[page]={}",
+                ranking.mode, ranking.kind, ranking.filter, page
+            );
+
+            let res: Rankings = self.make_request(
+                &link,
+                Method::GET,
+                ApiKind::General
+            ).await?;
+
+            let amount_to_append = (
+                amount - buffer.len()
+            ).min(res.ranking.len());
+
+            buffer.extend_from_slice(&res.ranking[0..amount_to_append])
+        }
+
+        Ok(Rankings {
+            ranking: buffer
+        })
     }
 
     pub async fn get_leaderboard_hidden(
@@ -546,6 +588,52 @@ mod tests {
         )
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_rankings() {
+        let api = get_api().await;
+
+        let req = GetRanking {
+            mode: OsuGameMode::Osu,
+            kind: RankingKind::Performance,
+            filter: RankingFilter::All,
+        };
+
+        let res = api.get_rankings(
+            &req,
+            50
+        ).await.unwrap();
+
+        assert_eq!(50, res.ranking.len());
+
+        let res = api.get_rankings(
+            &req,
+            10
+        ).await.unwrap();
+
+        assert_eq!(10, res.ranking.len());
+
+        let res = api.get_rankings(
+            &req,
+            1
+        ).await.unwrap();
+
+        assert_eq!(1, res.ranking.len());
+
+        let res = api.get_rankings(
+            &req,
+            253
+        ).await.unwrap();
+
+        assert_eq!(253, res.ranking.len());
+
+        let res = api.get_rankings(
+            &req,
+            111
+        ).await.unwrap();
+
+        assert_eq!(111, res.ranking.len());
     }
 
     #[test]

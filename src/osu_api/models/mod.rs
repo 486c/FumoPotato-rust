@@ -345,7 +345,7 @@ impl<'de> Deserialize<'de> for OsuMods {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum OsuGameMode {
     Fruits,
     Mania,
@@ -501,8 +501,25 @@ pub struct OsuUserCompact {
     // last_visit & profile_colour skipped
 }
 
-#[derive(Deserialize, Debug)]
-pub struct OsuUser {
+#[derive(Deserialize, Debug, Clone)]
+pub struct OsuUserStatistics {
+    count_300: u32,
+    count_100: u32,
+    count_50: u32,
+    count_miss: u32,
+
+    country_rank: Option<u32>,
+
+    pp: f32,
+    global_rank: u32,
+
+    is_ranked: bool,
+
+    user: OsuUser,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct OsuUserExtended {
     pub id: i64,
     pub username: String,
     pub country_code: String,
@@ -518,6 +535,20 @@ pub struct OsuUser {
     pub max_friends: i32,
     pub occupation: Option<String>,
     pub playmode: OsuGameMode,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct OsuUser {
+    pub id: i64,
+    pub username: String,
+    pub profile_colour: Option<String>,
+    pub avatar_url: String,
+    pub country_code: String,
+    pub is_active: bool,
+    pub is_bot: bool,
+    pub is_deleted: bool,
+    pub is_online: bool,
+    pub is_supporter: bool,
 }
 
 mod utils {
@@ -606,4 +637,50 @@ impl GetUserScores {
         self.include_fails = Some(include);
         self
     }
+}
+
+pub enum RankingKind {
+    Charts,
+    Country,
+    Performance,
+    Score,
+}
+
+impl fmt::Display for RankingKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RankingKind::Charts => write!(f, "charts"),
+            RankingKind::Country => write!(f, "country"),
+            RankingKind::Performance => write!(f, "performance"),
+            RankingKind::Score => write!(f, "score"),
+        }
+    }
+}
+
+pub enum RankingFilter {
+    All,
+    Friends
+}
+
+impl fmt::Display for RankingFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RankingFilter::All => write!(f, "all"),
+            RankingFilter::Friends => write!(f, "friends"),
+        }
+    }
+}
+
+pub struct GetRanking {
+    pub mode: OsuGameMode,
+    pub kind: RankingKind,
+    pub filter: RankingFilter,
+    // Cursor
+    // Country
+    // Variant
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Rankings {
+    pub ranking: Vec<OsuUserStatistics>,
 }
