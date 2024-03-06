@@ -10,7 +10,7 @@ use reqwest::{ Client, StatusCode, Method, Response };
 use self::models::osu_leaderboard::OsuLeaderboardLazer;
 use self::models::{ 
     OauthResponse, OsuBeatmap, OsuLeaderboard, 
-    ApiError, UserId, OsuGameMode, OsuUserExtended, GetUserScores, OsuScore, GetRanking, Rankings 
+    ApiError, UserId, OsuGameMode, OsuUserExtended, GetUserScores, OsuScore, GetRanking, Rankings, RankingKind 
 };
 
 use std::fmt::Write;
@@ -289,6 +289,17 @@ impl OsuApi {
                 "{OSU_API_BASE}/rankings/{}/{}?filter={}&cursor[page]={}",
                 ranking.mode, ranking.kind, ranking.filter, page
             );
+            
+            match (&ranking.kind, &ranking.country) {
+                (RankingKind::Performance, Some(country)) => {
+                    let _ = write!(
+                        link, 
+                        "&country={}", 
+                        &country
+                    );
+                },
+                _ => ()
+            };
 
             let res: Rankings = self.make_request(
                 &link,
@@ -544,7 +555,6 @@ mod tests {
         assert_eq!(user.username, "DaHuJka");
         assert_eq!(user.country_code, "RU");
 
-
         let user = api.get_user(
             UserId::Id(34785329384),
             None
@@ -591,6 +601,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_rankings_country() {
+        let api = get_api().await;
+
+        let req = GetRanking {
+            mode: OsuGameMode::Osu,
+            kind: RankingKind::Performance,
+            filter: RankingFilter::All,
+            country: Some("BY".to_owned()),
+        };
+
+        let res = api.get_rankings(
+            &req,
+            50
+        ).await.unwrap();
+
+        assert_eq!(50, res.ranking.len());
+        assert_eq!("BY", res.ranking[0].user.country_code);
+        assert_eq!("BY", res.ranking[20].user.country_code);
+        assert_eq!("BY", res.ranking[49].user.country_code);
+    }
+
+    #[tokio::test]
     async fn test_get_rankings() {
         let api = get_api().await;
 
@@ -598,6 +630,7 @@ mod tests {
             mode: OsuGameMode::Osu,
             kind: RankingKind::Performance,
             filter: RankingFilter::All,
+            country: None,
         };
 
         let res = api.get_rankings(

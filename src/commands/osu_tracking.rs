@@ -1,14 +1,15 @@
 use std::{sync::Arc, time::Duration};
 
+use std::fmt::Write;
+
 use chrono::Utc;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{channel::message::MessageFlags, id::Id};
-use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::{UserId, GetUserScores, ScoresType}};
+use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::{UserId, GetUserScores, ScoresType, GetRanking, OsuGameMode, RankingKind, RankingFilter}};
 use eyre::Result;
 
 pub async fn osu_track_checker(ctx: &FumoContext) {
         let mut lock = ctx.osu_checker_list.lock().await;
-
 
         for (osu_id, last_checked) in lock.iter_mut() {
             let now = Utc::now().naive_utc();
@@ -93,7 +94,9 @@ pub enum OsuTracking {
     #[command(name = "add")]
     Add(OsuTrackingAdd),
     #[command(name = "remove")]
-    Remove(OsuTrackingRemove)
+    Remove(OsuTrackingRemove),
+    #[command(name = "add-bulk")]
+    AddBulk(OsuTrackingAddBulk)
 }
 
 impl OsuTracking {
@@ -108,6 +111,7 @@ impl OsuTracking {
         match command {
             OsuTracking::Add(command) => command.run(&ctx, cmd).await,
             OsuTracking::Remove(command) => command.run(&ctx, cmd).await,
+            OsuTracking::AddBulk(command) => command.run(&ctx, cmd).await,
         }
     }
 }
@@ -157,7 +161,7 @@ impl OsuTrackingRemove {
                 ).await?;
 
                 msg = msg.content(
-                    "Successfully remove user from tracking"
+                    "Successfully removed user from tracking"
                 );
 
                 cmd.response(ctx, &msg).await?;
@@ -183,6 +187,7 @@ pub struct OsuTrackingAdd {
     /// osu! username or user id
     osu_user: String
 }
+
 
 impl OsuTrackingAdd {
     pub async fn run(
@@ -241,3 +246,98 @@ impl OsuTrackingAdd {
         }
     }
 }
+
+/// Add multiple users to the tracking, either based on country
+/// or global leaderboards
+#[derive(CommandModel, CreateCommand, Debug)]
+#[command(name = "add-bulk")]
+pub struct OsuTrackingAddBulk {
+    /// Amount of users to add
+    #[command(min_value=1, max_value=50)]
+    amount: i64,
+
+    /// Country code, if not specified then global leaderboard
+    /// is going to be used
+    #[command(min_length=2, max_length=2)]
+    country: Option<String>,
+}
+
+impl OsuTrackingAddBulk {
+    pub async fn run(
+        &self,
+        ctx: &FumoContext,
+        cmd: InteractionCommand
+    ) -> Result<()> {
+        let channel_id = cmd.channel_id.get().try_into()?;
+
+        ctx.db.add_discord_channel(channel_id).await?;
+
+        // Fetch all tracked users in current channel
+        let tracked_users = ctx.db.select_osu_tracking_by_channel(
+            channel_id,
+        ).await?;
+
+        let (ranking_kind, country_code) = match &self.country {
+            Some(country_code) => {
+                (RankingKind::Performance, Some(country_code.clone()))
+            },
+            None => {
+                (RankingKind::Performance, None)
+            },
+        };
+
+        let get_ranking = GetRanking {
+            mode: OsuGameMode::Osu,
+            kind: ranking_kind,
+            filter: RankingFilter::All,
+            country: country_code
+        };
+
+        // Fetch users that should be added
+        let rankings = ctx.osu_api.get_rankings(
+            &get_ranking,
+            self.amount as usize,
+        ).await?;
+
+        let mut str = String::new();
+
+        let _ = writeln!(str, "```");
+
+        for stats in rankings.ranking {
+            // TODO lmao wtf is this 
+            if tracked_users.iter().any(|x| x.osu_id == stats.user.id) {
+                let _ = writeln!(
+                    str, 
+                    "{} - Already tracked", 
+                    stats.user.username
+                );
+            } else {
+                ctx.db.add_tracked_osu_user(
+                    stats.user.id
+                ).await?;
+
+                ctx.db.add_osu_tracking(
+                    channel_id,
+                    stats.user.id
+                ).await?;
+
+                let _ = writeln!(
+                    str, 
+                    "{} - Added", 
+                    stats.user.username
+                );
+            }
+        };
+
+        let _ = writeln!(str, "```");
+
+        let msg = MessageBuilder::new()
+            .flags(MessageFlags::EPHEMERAL)
+            .content(str);
+
+        cmd.response(ctx, &msg).await?;
+
+        Ok(())
+    }
+}
+

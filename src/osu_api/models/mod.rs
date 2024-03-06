@@ -503,19 +503,18 @@ pub struct OsuUserCompact {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct OsuUserStatistics {
-    count_300: u32,
-    count_100: u32,
-    count_50: u32,
-    count_miss: u32,
+    pub count_300: u32,
+    pub count_100: u32,
+    pub count_50: u32,
+    pub count_miss: u32,
 
-    country_rank: Option<u32>,
+    pub country_rank: Option<u32>,
 
-    pp: f32,
-    global_rank: u32,
+    pub pp: f32,
+    pub global_rank: u32,
 
-    is_ranked: bool,
-
-    user: OsuUser,
+    pub is_ranked: bool,
+    pub user: OsuUser,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -639,6 +638,7 @@ impl GetUserScores {
     }
 }
 
+#[derive(PartialEq)]
 pub enum RankingKind {
     Charts,
     Country,
@@ -675,6 +675,7 @@ pub struct GetRanking {
     pub mode: OsuGameMode,
     pub kind: RankingKind,
     pub filter: RankingFilter,
+    pub country: Option<String>,
     // Cursor
     // Country
     // Variant

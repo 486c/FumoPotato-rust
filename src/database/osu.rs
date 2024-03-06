@@ -39,7 +39,19 @@ impl Database {
             discord_id
         ).fetch_optional(&self.pool).await?)
     }
-    
+
+    pub async fn select_osu_tracking_by_channel(
+        &self,
+        channel_id: i64,
+    ) -> Result<Vec<OsuLinkedTrackedUser>> {
+        Ok(sqlx::query_as!(
+            OsuLinkedTrackedUser,
+            "SELECT * FROM osu_tracking 
+            WHERE channel_id = $1",
+            channel_id 
+        ).fetch_all(&self.pool).await?)
+    }
+
     /// Select osu tracking user based on
     /// provided channel_id and osu_user_id
     /// Usually used to check if user is already
@@ -127,7 +139,13 @@ impl Database {
         channel_id: i64,
         osu_user_id: i64,
     ) -> Result<()> {
-        todo!()
+        sqlx::query!(
+            "DELETE FROM osu_tracking WHERE
+            osu_id = $1 and channel_id = $2",
+            osu_user_id, channel_id
+        ).execute(&self.pool).await?;
+
+        Ok(())
     }
 
     pub async fn link_osu(
