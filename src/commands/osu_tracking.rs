@@ -446,7 +446,8 @@ impl OsuTrackingList {
             }
 
         let embed = EmbedBuilder::new()
-            .color(111111)
+            .color(0xbd49ff)
+            .title("Tracked users")
             .footer(
                 EmbedFooterBuilder::new(
                     footer_text
