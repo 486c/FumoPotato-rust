@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use crate::osu_api::datetime::deserialize_datetime;
 
-use super::{osu_mods::OsuModsLazer, OsuRank, OsuUserCompact};
+use super::{osu_mods::OsuModsLazer, OsuGrade, OsuUserCompact};
 
 #[derive(Deserialize, Debug)]
 pub struct StatisticsLazer {
@@ -22,7 +22,7 @@ pub struct OsuScoreLazer {
     pub mods: OsuModsLazer,
     pub best_id: Option<u32>,
     pub id: u32,
-    pub rank: OsuRank,
+    pub rank: OsuGrade,
 
     pub statistics: StatisticsLazer,
 

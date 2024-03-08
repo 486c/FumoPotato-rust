@@ -276,7 +276,8 @@ impl OsuApi {
     ) -> ApiResult<Rankings> {
 
         let mut link = String::with_capacity(50);
-        let mut buffer: Vec<OsuUserStatistics> = Vec::with_capacity(amount);
+        let mut buffer: Vec<OsuUserStatistics> = 
+            Vec::with_capacity(amount);
 
         let pages: usize = (
             (amount as f32 / 50.0).ceil() as usize

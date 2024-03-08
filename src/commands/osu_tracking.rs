@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use num_format::{Locale, ToFormattedString};
 use tokio_stream::StreamExt;
 
 use std::fmt::Write;
@@ -8,10 +9,84 @@ use chrono::Utc;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::application::interaction::{Interaction, InteractionData};
 use twilight_model::{channel::message::MessageFlags, id::Id};
-use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
+use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder, ImageSource};
 use crate::utils::{pages_components, InteractionComponent};
 use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::{UserId, GetUserScores, ScoresType, GetRanking, OsuGameMode, RankingKind, RankingFilter}};
 use eyre::Result;
+
+macro_rules! osu_track_embed {
+    ($score:expr, $user:expr) => {{
+        let mut description_text = String::with_capacity(
+            100
+        );
+
+        let _ = writeln!(
+            description_text,
+            "[**{} - {} [{}]**](https://osu.ppy.sh/b/{})",
+            $score.beatmapset.artist,
+            $score.beatmapset.title,
+            $score.beatmap.version,
+            $score.beatmap.id
+        );
+
+        let _ = writeln!(
+            description_text,
+            "**{} • +{} • {}**",
+            $score.rank.to_emoji(),
+            &$score.mods.to_string(),
+            $score.score.to_formatted_string(&Locale::en)
+        );
+
+        let _ = writeln!(
+            description_text,
+            "**{:.2}pp** • <t:{}:R>",
+            $score.pp.unwrap_or(0.0),
+            $score.created_at.timestamp()
+        );
+
+        let _ = writeln!(
+            description_text,
+            "[{}/{}/{}/{}] • x{}",
+            $score.stats.count300,
+            $score.stats.count100,
+            $score.stats.count50,
+            $score.stats.countmiss,
+            $score.max_combo.unwrap_or(0)
+        );
+
+        let thumb_url = format!(
+            "https://b.ppy.sh/thumb/{}l.jpg",
+            $score.beatmap.beatmapset_id
+        );
+
+        let mapper_name = &$score.beatmapset.creator;
+
+        let footer = EmbedFooterBuilder::new(
+            format!("Mapper {}", mapper_name)
+        );
+
+        EmbedBuilder::new()
+            .color(0xbd49ff)
+            .description(description_text)
+            .footer(footer)
+            .thumbnail(
+                ImageSource::url(thumb_url).unwrap()
+                )
+            .title(
+                format!(
+                    "{} - {:.2} (#{})",
+                    &$user.username,
+                    $user.statistics.pp,
+                    $user.statistics.global_rank,
+                    )
+                )
+            .url(format!(
+                    "https://osu.ppy.sh/u/{}",
+                    $user.id
+                ))
+            .build()
+    }}
+}
 
 pub async fn osu_track_checker(ctx: &FumoContext) {
         let mut lock = ctx.osu_checker_list.lock().await;
@@ -41,21 +116,23 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
             for score in user_scores {
                 if score.created_at.naive_utc() > *last_checked {
                     for c in &linked_channels {
+
+                        let osu_user = ctx.osu_api.get_user(
+                            UserId::Id(score.user_id),
+                            None
+                        ).await.unwrap().unwrap(); // TODO remove;
+
+                        let embed = osu_track_embed!(score, osu_user);
+                        
+
                         let _ = ctx.http.create_message(
                             Id::new(c.channel_id as u64)
-                        ).content(
-                            &format!(
-                                "New top score {}pp by `{}`",
-                                score.pp.unwrap_or(0.0),
-                                &score.user.username
-                            )
-                        ).unwrap().await;
+                        ).embeds(&[embed]).unwrap().await;
                     }
                 }
             }
 
             *last_checked = now;
-
         }
 
         drop(lock);

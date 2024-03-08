@@ -96,7 +96,7 @@ impl<'de> Deserialize<'de> for RankStatus {
 }
 
 #[derive(Debug)]
-pub enum OsuRank {
+pub enum OsuGrade {
     GradeXH,
     GradeSH,
     GradeX,
@@ -108,34 +108,34 @@ pub enum OsuRank {
     GradeF,
 }
 
-impl OsuRank {
+impl OsuGrade {
     pub fn to_emoji(&self) -> &str {
         match self {
-            OsuRank::GradeXH => "<:r_XH:1004444329365999766>",
-            OsuRank::GradeSH => "<:r_SH:1004444326669066270>",
-            OsuRank::GradeX => "<:r_X:1004444328082538546>",
-            OsuRank::GradeS => "<:r_S:1004444324840349759>",
-            OsuRank::GradeA => "<:r_A:1004444322365702204>",
-            OsuRank::GradeB => "<:r_B:1004444032149233696>",
-            OsuRank::GradeC => "<:r_C:1004444033524957235>",
-            OsuRank::GradeD => "<:r_D:1004444323703701545>",
-            OsuRank::GradeF => "<:r_D:1004444323703701545>",
+            OsuGrade::GradeXH => "<:r_XH:1004444329365999766>",
+            OsuGrade::GradeSH => "<:r_SH:1004444326669066270>",
+            OsuGrade::GradeX => "<:r_X:1004444328082538546>",
+            OsuGrade::GradeS => "<:r_S:1004444324840349759>",
+            OsuGrade::GradeA => "<:r_A:1004444322365702204>",
+            OsuGrade::GradeB => "<:r_B:1004444032149233696>",
+            OsuGrade::GradeC => "<:r_C:1004444033524957235>",
+            OsuGrade::GradeD => "<:r_D:1004444323703701545>",
+            OsuGrade::GradeF => "<:r_D:1004444323703701545>",
         }
     }
 }
 
-impl fmt::Display for OsuRank {
+impl fmt::Display for OsuGrade {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OsuRank::GradeXH => write!(f, "XH"),
-            OsuRank::GradeSH => write!(f, "SH"),
-            OsuRank::GradeX => write!(f, "X"),
-            OsuRank::GradeS => write!(f, "S"),
-            OsuRank::GradeA => write!(f, "A"),
-            OsuRank::GradeB => write!(f, "B"),
-            OsuRank::GradeC => write!(f, "C"),
-            OsuRank::GradeD => write!(f, "D"),
-            OsuRank::GradeF => write!(f, "F"),
+            OsuGrade::GradeXH => write!(f, "XH"),
+            OsuGrade::GradeSH => write!(f, "SH"),
+            OsuGrade::GradeX => write!(f, "X"),
+            OsuGrade::GradeS => write!(f, "S"),
+            OsuGrade::GradeA => write!(f, "A"),
+            OsuGrade::GradeB => write!(f, "B"),
+            OsuGrade::GradeC => write!(f, "C"),
+            OsuGrade::GradeD => write!(f, "D"),
+            OsuGrade::GradeF => write!(f, "F"),
         }
     }
 }
@@ -143,7 +143,7 @@ impl fmt::Display for OsuRank {
 struct OsuRankVisitor;
 
 impl<'de> Visitor<'de> for OsuRankVisitor {
-    type Value = OsuRank;
+    type Value = OsuGrade;
 
     #[inline]
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -152,15 +152,15 @@ impl<'de> Visitor<'de> for OsuRankVisitor {
 
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
         let rank = match v {
-            "XH" => OsuRank::GradeXH,
-            "SH" => OsuRank::GradeSH,
-            "X" => OsuRank::GradeX,
-            "S" => OsuRank::GradeS,
-            "A" => OsuRank::GradeA,
-            "B" => OsuRank::GradeB,
-            "C" => OsuRank::GradeC,
-            "D" => OsuRank::GradeD,
-            "F" => OsuRank::GradeF,
+            "XH" => OsuGrade::GradeXH,
+            "SH" => OsuGrade::GradeSH,
+            "X" => OsuGrade::GradeX,
+            "S" => OsuGrade::GradeS,
+            "A" => OsuGrade::GradeA,
+            "B" => OsuGrade::GradeB,
+            "C" => OsuGrade::GradeC,
+            "D" => OsuGrade::GradeD,
+            "F" => OsuGrade::GradeF,
             _ => return Err(
                 Error::invalid_value(
                     Unexpected::Str(v),
@@ -172,7 +172,7 @@ impl<'de> Visitor<'de> for OsuRankVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for OsuRank {
+impl<'de> Deserialize<'de> for OsuGrade {
     #[inline]
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         d.deserialize_any(OsuRankVisitor)
@@ -454,6 +454,25 @@ impl OsuBeatmap {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct OsuBeatmapScore {
+    pub beatmapset_id: i32,
+    pub id: i32,
+    pub mode: String,
+
+    pub version: String,
+
+    pub max_combo: Option<i32>,
+    pub ranked: RankStatus,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct OsuBeatmapSetScore {
+    pub artist: String,
+    pub title: String,
+    pub creator: String,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct OsuScore {
     pub id: i64,
     pub best_id: Option<i64>,
@@ -468,7 +487,7 @@ pub struct OsuScore {
 
     pub max_combo: Option<i32>,
 
-    pub rank: OsuRank,
+    pub rank: OsuGrade,
 
     #[serde(deserialize_with = "deserialize_datetime")]
     pub created_at: DateTime<Utc>,
@@ -480,6 +499,8 @@ pub struct OsuScore {
     pub mode_int: i16,
     pub replay: bool,
     pub user: OsuUserCompact,
+    pub beatmap: OsuBeatmapScore,
+    pub beatmapset: OsuBeatmapSetScore
 }
 
 #[derive(Deserialize, Debug)]
@@ -520,6 +541,13 @@ pub struct OsuUserStatistics {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct OsuUserExtendedStatistics {
+    pub global_rank: u32,
+    pub country_rank: u32,
+    pub pp: f32,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct OsuUserExtended {
     pub id: i64,
     pub username: String,
@@ -536,6 +564,7 @@ pub struct OsuUserExtended {
     pub max_friends: i32,
     pub occupation: Option<String>,
     pub playmode: OsuGameMode,
+    pub statistics: OsuUserExtendedStatistics,
 }
 
 #[derive(Deserialize, Debug, Clone)]

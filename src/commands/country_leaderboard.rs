@@ -1,11 +1,10 @@
 use crate::database::osu::OsuDbUser;
 use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
-use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder };
+use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder, pages_components };
 use crate::utils::{ OSU_MAP_ID_NEW, OSU_MAP_ID_OLD };
 
 use twilight_util::builder::embed::{ image_source::ImageSource, EmbedBuilder, EmbedAuthorBuilder };
-use twilight_model::channel::message::component::{ Component, Button, ButtonStyle, ActionRow};
 use twilight_model::channel::message::{ embed::{ Embed, EmbedFooter}, Message };
 use twilight_model::application::interaction::{Interaction, InteractionData};
 
@@ -76,7 +75,7 @@ impl LeaderboardListing {
         };
 
         let msg = MessageBuilder::new()
-            .components(LeaderboardListing::components());
+            .components(pages_components());
 
         let mut lb = LeaderboardListing {
             pages,
@@ -94,39 +93,9 @@ impl LeaderboardListing {
     }
 
     fn clear_components(&mut self) {
-        self.msg.components = Some(Vec::new());
-    }
-
-    fn components() -> Vec<Component> {
-        let mut vec = Vec::with_capacity(2);
-
-        let button = Component::Button( Button {
-            custom_id: Some("B1".to_owned()),
-            disabled: false,
-            label: Some("Prev".to_owned()),
-            style: ButtonStyle::Primary,
-            url: None,
-            emoji: None,
-        }) ;
-        vec.push(button);
-
-        let button = Component::Button( Button {
-            custom_id: Some("B2".to_owned()),
-            disabled: false,
-            label: Some("Next".to_owned()),
-            style: ButtonStyle::Primary,
-            url: None,
-            emoji: None,
-        }) ;
-        vec.push(button);
-
-        let component = Component::ActionRow(
-            ActionRow {
-                components: vec
-            }
-        );
-
-        vec![component]
+        if let Some(components) = &mut self.msg.components {
+            components.clear()
+        }
     }
 
     fn next_page(&mut self) {
@@ -272,7 +241,7 @@ pub async fn country_leaderboard(
     let mut lb = LeaderboardListing::new(osu_user, clb.scores, b);
 
     builder = builder.embed(lb.embed.clone());
-    builder = builder.components(LeaderboardListing::components());
+    builder = builder.components(pages_components()); // TODO
 
     let msg = command.update(ctx, &builder).await?
         .model().await?;
