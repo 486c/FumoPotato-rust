@@ -202,11 +202,11 @@ impl OsuTracking {
         )?;
 
         match command {
-            OsuTracking::Add(command) => command.run(&ctx, cmd).await,
-            OsuTracking::Remove(command) => command.run(&ctx, cmd).await,
-            OsuTracking::AddBulk(command) => command.run(&ctx, cmd).await,
-            OsuTracking::RemoveAll(command) => command.run(&ctx, cmd).await,
-            OsuTracking::List(command) => command.run(&ctx, cmd).await,
+            OsuTracking::Add(command) => command.run(ctx, cmd).await,
+            OsuTracking::Remove(command) => command.run(ctx, cmd).await,
+            OsuTracking::AddBulk(command) => command.run(ctx, cmd).await,
+            OsuTracking::RemoveAll(command) => command.run(ctx, cmd).await,
+            OsuTracking::List(command) => command.run(ctx, cmd).await,
         }
     }
 }
@@ -312,7 +312,7 @@ impl OsuTrackingAdd {
                     Some(_) => {
                         msg = msg.content("User is already tracked");
                         cmd.response(ctx, &msg).await?;
-                        return Ok(());
+                        Ok(())
                     },
                     None => {
                         add_osu_tracking_user!(
@@ -321,13 +321,13 @@ impl OsuTrackingAdd {
                             channel_id
                         );
 
-                        osu_sync_checker_list(&ctx).await?;
+                        osu_sync_checker_list(ctx).await?;
 
                         msg = msg.content(
                             "Successfully added user to the tracking!"
                         );
                         cmd.response(ctx, &msg).await?;
-                        return Ok(());
+                        Ok(())
                     },
                 }
             },
@@ -512,7 +512,6 @@ impl OsuTrackingList {
         let mut body_text = String::with_capacity(100);
 
         for tracked_user in tracked_users.iter()
-            .skip(0 as usize)
             .take(elem_per_page as usize)
             {
                 let _ = writeln!(
