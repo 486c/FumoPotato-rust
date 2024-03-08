@@ -10,7 +10,7 @@ use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
 use twilight_model::{http::{
     interaction::{ InteractionResponse, InteractionResponseType },
     attachment::Attachment,
-}, guild::PartialMember, user::User, id::marker::UserMarker, channel::{Channel, message::MessageFlags}};
+}, guild::PartialMember, user::User, id::marker::UserMarker, channel::{Channel, message::{MessageFlags, component::{ButtonStyle, Button, ActionRow}}}};
 
 use twilight_model::channel::message::{ 
     component::Component, 
@@ -331,3 +331,35 @@ pub fn ms_to_ar(ms: f64) -> f64 {
     }
 }
 
+
+pub fn pages_components() -> Vec<Component> {
+    let mut vec = Vec::with_capacity(2);
+
+    let button = Component::Button( Button {
+        custom_id: Some("B1".to_owned()),
+        disabled: false,
+        label: Some("Prev".to_owned()),
+        style: ButtonStyle::Primary,
+        url: None,
+        emoji: None,
+    }) ;
+    vec.push(button);
+
+    let button = Component::Button( Button {
+        custom_id: Some("B2".to_owned()),
+        disabled: false,
+        label: Some("Next".to_owned()),
+        style: ButtonStyle::Primary,
+        url: None,
+        emoji: None,
+    }) ;
+    vec.push(button);
+
+        let component = Component::ActionRow(
+            ActionRow {
+                components: vec
+            }
+        );
+
+        vec![component]
+    }

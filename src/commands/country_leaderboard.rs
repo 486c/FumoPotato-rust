@@ -190,7 +190,7 @@ impl LeaderboardListing {
             );
             
             let _  = writeln!(st, "[{}x/{}x] [{}/{}/{}/{}]",
-                s.max_combo, self.beatmap.max_combo,
+                s.max_combo.unwrap_or(0), self.beatmap.max_combo,
                 s.stats.count300,
                 s.stats.count100,
                 s.stats.count50, 
@@ -280,39 +280,39 @@ pub async fn country_leaderboard(
     let stream = ctx.standby
         .wait_for_component_stream(msg.id, |_: &Interaction| {
             true
-    }) 
-    .map(|event| {
-        let Interaction {
-            channel,
-            data,
-            guild_id,
-            kind,
-            id,
-            token,
-            ..
-        } = event;
+        }) 
+        .map(|event| {
+            let Interaction {
+                channel,
+                data,
+                guild_id,
+                kind,
+                id,
+                token,
+                ..
+            } = event;
 
-        if let Some(InteractionData::MessageComponent(data)) = data {
-            InteractionComponent {
-                channel,
-                data: Some(data),
-                kind,
-                id,
-                token,
-                guild_id
-            } 
-        } else {
-            InteractionComponent {
-                channel,
-                data: None,
-                kind,
-                id,
-                token,
-                guild_id
-            } 
-        }
-    })
-    .timeout(Duration::from_secs(20));
+            if let Some(InteractionData::MessageComponent(data)) = data {
+                InteractionComponent {
+                    channel,
+                    data: Some(data),
+                    kind,
+                    id,
+                    token,
+                    guild_id
+                } 
+            } else {
+                InteractionComponent {
+                    channel,
+                    data: None,
+                    kind,
+                    id,
+                    token,
+                    guild_id
+                } 
+            }
+        })
+        .timeout(Duration::from_secs(20));
 
     tokio::pin!(stream);
 

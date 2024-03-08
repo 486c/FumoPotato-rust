@@ -1,10 +1,15 @@
 use std::{sync::Arc, time::Duration};
 
+use tokio_stream::StreamExt;
+
 use std::fmt::Write;
 
 use chrono::Utc;
 use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::application::interaction::{Interaction, InteractionData};
 use twilight_model::{channel::message::MessageFlags, id::Id};
+use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
+use crate::utils::{pages_components, InteractionComponent};
 use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::{UserId, GetUserScores, ScoresType, GetRanking, OsuGameMode, RankingKind, RankingFilter}};
 use eyre::Result;
 
@@ -19,7 +24,14 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
                     *osu_id,
                     ScoresType::Best,
                 ),
-            ).await.unwrap(); // TODO remove
+            ).await;
+
+            if let Err(e) = &user_scores {
+                println!("Error during osu_checker loop!");
+                println!("{}", e); // TODO move to report
+            }
+
+            let user_scores = user_scores.unwrap();
 
             let linked_channels = 
                 ctx.db.select_osu_tracked_linked_channels(
@@ -96,7 +108,11 @@ pub enum OsuTracking {
     #[command(name = "remove")]
     Remove(OsuTrackingRemove),
     #[command(name = "add-bulk")]
-    AddBulk(OsuTrackingAddBulk)
+    AddBulk(OsuTrackingAddBulk),
+    #[command(name = "remove-all")]
+    RemoveAll(OsuTrackingRemoveAll),
+    #[command(name = "list")]
+    List(OsuTrackingList),
 }
 
 impl OsuTracking {
@@ -112,6 +128,8 @@ impl OsuTracking {
             OsuTracking::Add(command) => command.run(&ctx, cmd).await,
             OsuTracking::Remove(command) => command.run(&ctx, cmd).await,
             OsuTracking::AddBulk(command) => command.run(&ctx, cmd).await,
+            OsuTracking::RemoveAll(command) => command.run(&ctx, cmd).await,
+            OsuTracking::List(command) => command.run(&ctx, cmd).await,
         }
     }
 }
@@ -188,7 +206,6 @@ pub struct OsuTrackingAdd {
     osu_user: String
 }
 
-
 impl OsuTrackingAdd {
     pub async fn run(
         &self,
@@ -223,7 +240,7 @@ impl OsuTrackingAdd {
                     None => {
                         add_osu_tracking_user!(
                             ctx, 
-                            osu_user.id, 
+                            &osu_user, 
                             channel_id
                         );
 
@@ -247,10 +264,11 @@ impl OsuTrackingAdd {
     }
 }
 
-/// Add multiple users to the tracking, either based on country
-/// or global leaderboards
 #[derive(CommandModel, CreateCommand, Debug)]
-#[command(name = "add-bulk")]
+#[command(name = "add-bulk", desc="
+    Add multiple users to the tracking, either based on country 
+    or global leaderboards
+")]
 pub struct OsuTrackingAddBulk {
     /// Amount of users to add
     #[command(min_value=1, max_value=50)]
@@ -260,6 +278,10 @@ pub struct OsuTrackingAddBulk {
     /// is going to be used
     #[command(min_length=2, max_length=2)]
     country: Option<String>,
+
+    /// Starting page (1 page = 50 players)
+    #[command(min_value=1, max_value=10)]
+    page: Option<i64>
 }
 
 impl OsuTrackingAddBulk {
@@ -286,11 +308,14 @@ impl OsuTrackingAddBulk {
             },
         };
 
+        let page = self.page.unwrap_or(0);
+
         let get_ranking = GetRanking {
             mode: OsuGameMode::Osu,
             kind: ranking_kind,
             filter: RankingFilter::All,
-            country: country_code
+            country: country_code,
+            page: Some(page as u32) 
         };
 
         // Fetch users that should be added
@@ -304,7 +329,7 @@ impl OsuTrackingAddBulk {
         let _ = writeln!(str, "```");
 
         for stats in rankings.ranking {
-            // TODO lmao wtf is this 
+            // TODO lmao wtf is this refactor ASAP
             if tracked_users.iter().any(|x| x.osu_id == stats.user.id) {
                 let _ = writeln!(
                     str, 
@@ -312,6 +337,11 @@ impl OsuTrackingAddBulk {
                     stats.user.username
                 );
             } else {
+                ctx.db.add_osu_player(
+                    stats.user.id,
+                    &stats.user.username
+                ).await?;
+
                 ctx.db.add_tracked_osu_user(
                     stats.user.id
                 ).await?;
@@ -341,3 +371,153 @@ impl OsuTrackingAddBulk {
     }
 }
 
+#[derive(CommandModel, CreateCommand, Debug)]
+#[command(name = "remove-all", desc="
+    Remove all tracked users from current channel
+")]
+pub struct OsuTrackingRemoveAll {}
+
+impl OsuTrackingRemoveAll {
+    pub async fn run(
+        &self,
+        ctx: &FumoContext,
+        cmd: InteractionCommand
+    ) -> Result<()> {
+        let channel_id: i64 = cmd.channel_id.get().try_into()?;
+
+        ctx.db.remove_all_osu_tracking(channel_id).await?;
+
+        let msg = MessageBuilder::new()
+            .flags(MessageFlags::EPHEMERAL)
+            .content("
+                Successfully removed all tracked users from current channel"
+            );
+
+        cmd.response(ctx, &msg).await?;
+
+        Ok(())
+    }
+}
+
+#[derive(CommandModel, CreateCommand, Debug)]
+#[command(name = "list", desc="
+    List all tracked users on current channel
+")]
+pub struct OsuTrackingList {}
+
+impl OsuTrackingList {
+    pub async fn run(
+        &self,
+        ctx: &FumoContext,
+        cmd: InteractionCommand
+    ) -> Result<()> {
+        cmd.defer(ctx).await?;
+
+        let channel_id: i64 = cmd.channel_id.get().try_into()?;
+
+        let tracked_users = ctx.db.select_osu_tracking_by_channel(
+            channel_id,
+        ).await?;
+
+        let elem_per_page = 10;
+
+        let pages: u32 = (
+            tracked_users.len() as f32 / elem_per_page as f32
+        ).ceil() as u32;
+
+        let mut current_page = 1;
+
+        let footer_text = format!(
+            "Tracked users: {} • Page: {}/{}", 
+            tracked_users.len(), current_page, pages
+        );
+
+        let mut body_text = String::with_capacity(100);
+
+        for tracked_user in tracked_users.iter()
+            .skip(0 as usize)
+            .take(elem_per_page as usize)
+            {
+                let _ = writeln!(
+                    body_text, 
+                    "{}", 
+                    &tracked_user.osu_username
+                    );
+            }
+
+        let embed = EmbedBuilder::new()
+            .color(111111)
+            .footer(
+                EmbedFooterBuilder::new(
+                    footer_text
+                )
+            )
+            .description(body_text)
+            .build();
+
+        let mut msg_builder = MessageBuilder::new();
+
+        msg_builder.embed = Some(embed);
+        msg_builder.components = Some(pages_components());
+
+        let msg = cmd.update(ctx, &msg_builder).await?
+            .model().await?;
+
+        let stream = component_stream!(ctx, msg);
+
+        tokio::pin!(stream);
+
+        while let Some(Ok(component)) = stream.next().await {
+            if let Some(data) = &component.data {
+                match data.custom_id.as_ref() {
+                    "B1" => current_page = (current_page - 1).max(1),
+                    "B2" => current_page = (current_page + 1).min(pages),
+                    _ => {},
+                }
+            } 
+
+            let start_at = (current_page-1)*elem_per_page;
+
+            let embed = &mut msg_builder.embed;
+            
+            component.defer(ctx).await?;
+
+            // Update body
+            if let Some(embed) = embed {
+                if let Some(description) = &mut embed.description {
+                    description.clear();
+                    for tracked_user in tracked_users.iter()
+                        .skip(start_at as usize)
+                        .take(elem_per_page as usize)
+                    {
+                        let _ = writeln!(
+                            description, 
+                            "{}", 
+                            &tracked_user.osu_username
+                        );
+                    }
+                }
+
+                if let Some(footer) = &mut embed.footer {
+                    footer.text.clear();
+
+                    let _ = write!(
+                        footer.text,
+                        "Tracked users: {} • Page: {}/{}", 
+                        tracked_users.len(), current_page, pages
+                    );
+                }
+            }
+
+            cmd.update(ctx, &msg_builder).await?;
+        }
+
+        if let Some(components) = &mut msg_builder.components {
+            components.clear();
+        }
+
+        cmd.update(ctx, &msg_builder).await?;
+
+        Ok(())
+    }
+}

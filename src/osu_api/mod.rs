@@ -282,7 +282,15 @@ impl OsuApi {
             (amount as f32 / 50.0).ceil() as usize
         ).max(1);
 
-        for page in 1..=pages {
+        let pages_offset = ranking.page.unwrap_or(0) as usize;
+
+        let pages_range = if pages_offset != 0 {
+            pages_offset..=pages_offset+pages
+        } else {
+            1..=pages
+        };
+
+        for page in pages_range {
             link.clear();
             let _ = write!(
                 link, 
@@ -609,6 +617,7 @@ mod tests {
             kind: RankingKind::Performance,
             filter: RankingFilter::All,
             country: Some("BY".to_owned()),
+            page: None
         };
 
         let res = api.get_rankings(
@@ -631,6 +640,7 @@ mod tests {
             kind: RankingKind::Performance,
             filter: RankingFilter::All,
             country: None,
+            page: None
         };
 
         let res = api.get_rankings(
@@ -722,6 +732,13 @@ mod tests {
             OsuMods::DOUBLETIME 
             | OsuMods::HIDDEN 
             | OsuMods::HARDROCK
+        );
+
+        let mods = OsuMods::from_str("DTMR").unwrap();
+        assert_eq!(
+            mods, 
+            OsuMods::DOUBLETIME 
+            | OsuMods::MIRROR
         );
     }
 }

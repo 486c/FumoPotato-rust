@@ -8,6 +8,7 @@ use eyre::Result;
 pub struct OsuLinkedTrackedUser {
     pub osu_id: i64,
     pub channel_id: i64,
+    pub osu_username: String,
 }
 
 #[derive(sqlx::FromRow, Debug)]
@@ -22,12 +23,6 @@ pub struct OsuDbUser {
     pub discord_id: i64,
 }
 
-#[derive(sqlx::FromRow, Debug)]
-pub struct OsuTrackedUserChannel {
-    pub osu_id: i64,
-    pub channel_id: i64,
-}
-
 impl Database {
     pub async fn get_osu_db_user(
         &self,
@@ -40,14 +35,29 @@ impl Database {
         ).fetch_optional(&self.pool).await?)
     }
 
+    pub async fn add_osu_player(
+        &self,
+        osu_id: i64,
+        username: &str,
+    ) -> Result<()> {
+        sqlx::query!(
+            "INSERT INTO osu_players VALUES($1, $2)",
+            osu_id, username
+        ).execute(&self.pool).await?;
+
+        Ok(())
+    }
+
     pub async fn select_osu_tracking_by_channel(
         &self,
         channel_id: i64,
     ) -> Result<Vec<OsuLinkedTrackedUser>> {
         Ok(sqlx::query_as!(
             OsuLinkedTrackedUser,
-            "SELECT * FROM osu_tracking 
-            WHERE channel_id = $1",
+            "select ot.osu_id, ot.channel_id, op.osu_username
+            from osu_tracking ot 
+            inner join osu_players op 
+            on ot.osu_id = op.osu_id where channel_id = $1",
             channel_id 
         ).fetch_all(&self.pool).await?)
     }
@@ -63,8 +73,12 @@ impl Database {
     ) -> Result<Option<OsuLinkedTrackedUser>> {
         Ok(sqlx::query_as!(
             OsuLinkedTrackedUser,
-            "SELECT * FROM osu_tracking 
-            WHERE channel_id = $1 AND osu_id = $2",
+            "select ot.osu_id, ot.channel_id, op.osu_username
+            from osu_tracking ot 
+            inner join osu_players op 
+            on ot.osu_id = op.osu_id 
+            where channel_id = $1
+            AND ot.osu_id = $2",
             channel_id, osu_user_id
         ).fetch_optional(&self.pool).await?)
     }
@@ -87,11 +101,13 @@ impl Database {
     pub async fn select_osu_tracked_linked_channels(
         &self,
         osu_id: i64
-    ) -> Result<Vec<OsuTrackedUserChannel>> {
+    ) -> Result<Vec<OsuLinkedTrackedUser>> {
         Ok(sqlx::query_as!(
-            OsuTrackedUserChannel,
-            "SELECT * FROM osu_tracking 
-            WHERE osu_id = $1",
+            OsuLinkedTrackedUser,
+            "select ot.osu_id, ot.channel_id, op.osu_username
+            from osu_tracking ot 
+            inner join osu_players op 
+            on ot.osu_id = op.osu_id where ot.osu_id = $1",
             osu_id
         ).fetch_all(&self.pool).await?)
     }
@@ -103,6 +119,17 @@ impl Database {
             OsuTrackedUser,
             "SELECT * FROM osu_tracked_users"
         ).fetch_all(&self.pool).await?)
+    }
+
+    pub async fn remove_all_osu_tracking(
+        &self,
+        channel_id: i64,
+    ) -> Result<()> {
+        sqlx::query!("
+            DELETE FROM osu_tracking WHERE channel_id = $1
+        ", channel_id).execute(&self.pool).await?;
+
+        Ok(())
     }
     
     /// Adds new user to the tracking

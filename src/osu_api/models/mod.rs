@@ -279,6 +279,7 @@ impl FromStr for OsuMods {
                 "SO" => flags | OsuMods::SPUNOUT,
                 "PF" => flags | OsuMods::PERFECT,
                 "FD" => flags | OsuMods::FADEIN,
+                "MR" => flags | OsuMods::MIRROR,
                 _ => flags,
             };
         };
@@ -327,6 +328,7 @@ impl<'de> Visitor<'de> for OsuModsVisitor {
             "SO" => OsuMods::SPUNOUT,
             "PF" => OsuMods::PERFECT,
             "FD" => OsuMods::FADEIN,
+            "MR" => OsuMods::MIRROR,
             _ => return Err(
                 Error::invalid_value(
                     Unexpected::Str(v),
@@ -464,7 +466,7 @@ pub struct OsuScore {
     pub passed: bool,
     pub pp: Option<f32>,
 
-    pub max_combo: i32,
+    pub max_combo: Option<i32>,
 
     pub rank: OsuRank,
 
@@ -503,10 +505,10 @@ pub struct OsuUserCompact {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct OsuUserStatistics {
-    pub count_300: u32,
-    pub count_100: u32,
-    pub count_50: u32,
-    pub count_miss: u32,
+    pub count_300: Option<u32>,
+    pub count_100: Option<u32>,
+    pub count_50: Option<u32>,
+    pub count_miss: Option<u32>,
 
     pub country_rank: Option<u32>,
 
@@ -676,6 +678,7 @@ pub struct GetRanking {
     pub kind: RankingKind,
     pub filter: RankingFilter,
     pub country: Option<String>,
+    pub page: Option<u32>
     // Cursor
     // Country
     // Variant
