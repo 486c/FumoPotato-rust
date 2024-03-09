@@ -499,8 +499,8 @@ pub struct OsuScore {
     pub mode_int: i16,
     pub replay: bool,
     pub user: OsuUserCompact,
-    pub beatmap: OsuBeatmapScore,
-    pub beatmapset: OsuBeatmapSetScore
+    pub beatmap: Option<OsuBeatmapScore>,
+    pub beatmapset: Option<OsuBeatmapSetScore>
 }
 
 #[derive(Deserialize, Debug)]

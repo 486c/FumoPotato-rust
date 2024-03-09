@@ -19,15 +19,17 @@ macro_rules! osu_track_embed {
         let mut description_text = String::with_capacity(
             100
         );
-
-        let _ = writeln!(
-            description_text,
-            "[**{} - {} [{}]**](https://osu.ppy.sh/b/{})",
-            $score.beatmapset.artist,
-            $score.beatmapset.title,
-            $score.beatmap.version,
-            $score.beatmap.id
-        );
+        
+        if let (Some(beatmapset), Some(beatmap)) = (&$score.beatmapset, &$score.beatmap) {
+            let _ = writeln!(
+                description_text,
+                "[**{} - {} [{}]**](https://osu.ppy.sh/b/{})",
+                beatmapset.artist,
+                beatmapset.title,
+                beatmap.version,
+                beatmap.id
+            );
+        };
 
         let _ = writeln!(
             description_text,
@@ -54,12 +56,23 @@ macro_rules! osu_track_embed {
             $score.max_combo.unwrap_or(0)
         );
 
-        let thumb_url = format!(
-            "https://b.ppy.sh/thumb/{}l.jpg",
-            $score.beatmap.beatmapset_id
-        );
+        let thumb_url = if let Some(beatmap) = &$score.beatmap {
+            format!(
+                "https://b.ppy.sh/thumb/{}l.jpg",
+                beatmap.beatmapset_id
+            )
+        } else {
+            format!(
+                "https://b.ppy.sh/thumb/{}l.jpg",
+                1
+            )
+        };
 
-        let mapper_name = &$score.beatmapset.creator;
+        let mapper_name = if let Some(beatmapset) = &$score.beatmapset {
+            beatmapset.creator.to_owned()
+        } else {
+            "Unknown".to_owned()
+        };
 
         let footer = EmbedFooterBuilder::new(
             format!("Mapper {}", mapper_name)
