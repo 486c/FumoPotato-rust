@@ -246,42 +246,8 @@ pub async fn country_leaderboard(
     let msg = command.update(ctx, &builder).await?
         .model().await?;
 
-    let stream = ctx.standby
-        .wait_for_component_stream(msg.id, |_: &Interaction| {
-            true
-        }) 
-        .map(|event| {
-            let Interaction {
-                channel,
-                data,
-                guild_id,
-                kind,
-                id,
-                token,
-                ..
-            } = event;
+    let stream = component_stream!(ctx, msg);
 
-            if let Some(InteractionData::MessageComponent(data)) = data {
-                InteractionComponent {
-                    channel,
-                    data: Some(data),
-                    kind,
-                    id,
-                    token,
-                    guild_id
-                } 
-            } else {
-                InteractionComponent {
-                    channel,
-                    data: None,
-                    kind,
-                    id,
-                    token,
-                    guild_id
-                } 
-            }
-        })
-        .timeout(Duration::from_secs(20));
 
     tokio::pin!(stream);
 
