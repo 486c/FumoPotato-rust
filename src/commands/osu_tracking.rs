@@ -1,4 +1,5 @@
 use std::{sync::Arc, time::Duration};
+use twilight_util::builder::embed::EmbedAuthorBuilder;
 
 use num_format::{Locale, ToFormattedString};
 use tokio_stream::StreamExt;
@@ -29,32 +30,35 @@ macro_rules! osu_track_embed {
                 beatmap.version,
                 beatmap.id
             );
+
+
+            let _ = writeln!(
+                description_text,
+                "**{} • +{} • {} • {:.2}%**",
+                $score.rank.to_emoji(),
+                &$score.mods.to_string(),
+                $score.score.to_formatted_string(&Locale::en),
+                $score.accuracy * 100.0
+            );
+
+
+            let _ = writeln!(
+                description_text,
+                "**{:.2}pp** • <t:{}:R>",
+                $score.pp.unwrap_or(0.0),
+                $score.created_at.timestamp()
+            );
+
+            let _ = writeln!(
+                description_text,
+                "[{}/{}/{}/{}] • x{}",
+                $score.stats.count300,
+                $score.stats.count100,
+                $score.stats.count50,
+                $score.stats.countmiss,
+                $score.max_combo.unwrap_or(0),
+            );
         };
-
-        let _ = writeln!(
-            description_text,
-            "**{} • +{} • {}**",
-            $score.rank.to_emoji(),
-            &$score.mods.to_string(),
-            $score.score.to_formatted_string(&Locale::en)
-        );
-
-        let _ = writeln!(
-            description_text,
-            "**{:.2}pp** • <t:{}:R>",
-            $score.pp.unwrap_or(0.0),
-            $score.created_at.timestamp()
-        );
-
-        let _ = writeln!(
-            description_text,
-            "[{}/{}/{}/{}] • x{}",
-            $score.stats.count300,
-            $score.stats.count100,
-            $score.stats.count50,
-            $score.stats.countmiss,
-            $score.max_combo.unwrap_or(0)
-        );
 
         let thumb_url = if let Some(beatmap) = &$score.beatmap {
             format!(
@@ -78,20 +82,22 @@ macro_rules! osu_track_embed {
             format!("Mapper {}", mapper_name)
         );
 
+        let author = EmbedAuthorBuilder::new(
+            format!(
+                "{}: {:.2}pp (#{})",
+                &$user.username,
+                $user.statistics.pp,
+                $user.statistics.global_rank,
+            )
+        ).url(format!("https://osu.ppy.sh/u/{}", $user.id));
+
         EmbedBuilder::new()
             .color(0xbd49ff)
             .description(description_text)
             .footer(footer)
+            .author(author)
             .thumbnail(
                 ImageSource::url(thumb_url).unwrap()
-                )
-            .title(
-                format!(
-                    "{} - {:.2} (#{})",
-                    &$user.username,
-                    $user.statistics.pp,
-                    $user.statistics.global_rank,
-                    )
                 )
             .url(format!(
                     "https://osu.ppy.sh/u/{}",
