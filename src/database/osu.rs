@@ -41,7 +41,8 @@ impl Database {
         username: &str,
     ) -> Result<()> {
         sqlx::query!(
-            "INSERT INTO osu_players VALUES($1, $2)",
+            "INSERT INTO osu_players VALUES($1, $2) 
+            ON CONFLICT DO NOTHING",
             osu_id, username
         ).execute(&self.pool).await?;
 
