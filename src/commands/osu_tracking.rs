@@ -444,6 +444,8 @@ impl OsuTrackingAddBulk {
 
         cmd.response(ctx, &msg).await?;
 
+        osu_sync_checker_list(ctx).await;
+
         Ok(())
     }
 }
