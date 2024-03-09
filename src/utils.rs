@@ -237,19 +237,6 @@ impl InteractionCommand {
     }
 
     #[inline]
-    pub fn get_option_number(
-        &self,
-        name: &str
-    ) -> Option<f64> {
-        if let Some(option) = self.get_option(name) {
-            if let CommandOptionValue::Number(v) = &option.value {
-                return Some(*v)
-            }
-        };
-        None
-    }
-    
-    #[inline]
     pub fn get_option_string(
         &self,
         name: &str

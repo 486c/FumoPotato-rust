@@ -298,18 +298,15 @@ impl OsuApi {
                 "{OSU_API_BASE}/rankings/{}/{}?filter={}&cursor[page]={}",
                 ranking.mode, ranking.kind, ranking.filter, page
             );
-            
-            match (&ranking.kind, &ranking.country) {
-                (RankingKind::Performance, Some(country)) => {
-                    let _ = write!(
-                        link, 
-                        "&country={}", 
-                        &country
-                    );
-                },
-                _ => ()
-            };
 
+            if let (RankingKind::Performance, Some(country)) = (&ranking.kind, &ranking.country) {
+                let _ = write!(
+                    link, 
+                    "&country={}", 
+                    &country
+                );
+            };
+            
             let res: Rankings = self.make_request(
                 &link,
                 Method::GET,

@@ -1,7 +1,6 @@
 use tokio_stream::StreamExt;
 use twilight_gateway::stream::ShardEventStream;
 use crate::commands::osu::OsuCommands;
-use crate::commands::osu_tracking::OsuTracking;
 use crate::fumo_context::FumoContext;
 
 use std::sync::Arc;
@@ -13,7 +12,6 @@ use twilight_model::application::interaction::{
 use twilight_model::application::command::Command;
 use twilight_util::builder::command::{ 
     CommandBuilder, StringBuilder, SubCommandBuilder,
-    NumberBuilder
 };
 use twilight_model::application::command::CommandType;
 

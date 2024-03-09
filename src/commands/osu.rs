@@ -1,10 +1,6 @@
-use eyre::{Result, bail};
-use twilight_interactions::command::{self, CommandModel, CreateCommand};
-use twilight_model::{application::interaction::
-    application_command::CommandOptionValue::{
-        self,
-        String as OptionString
-}, channel::message::MessageFlags};
+use eyre::Result;
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::channel::message::MessageFlags;
 
 use crate::{
     fumo_context::FumoContext, 
