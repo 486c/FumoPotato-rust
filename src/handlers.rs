@@ -1,5 +1,6 @@
 use tokio_stream::StreamExt;
 use twilight_gateway::stream::ShardEventStream;
+use crate::commands::osu::OsuCommands;
 use crate::commands::osu_tracking::OsuTracking;
 use crate::fumo_context::FumoContext;
 
@@ -19,8 +20,6 @@ use twilight_model::application::command::CommandType;
 use crate::commands::{
     country_leaderboard,
     twitch,
-    attributes,
-    osu
 };
 
 use crate::utils::InteractionCommand;
@@ -35,9 +34,7 @@ async fn handle_commands(
         "leaderboard" | "Leaderboard" => 
             country_leaderboard::run(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,
-        "ar" | "od" => attributes::run(&ctx, cmd).await,
-        "osu" => osu::run(&ctx, cmd).await,
-        "osu-tracking" => OsuTracking::handle(&ctx, cmd).await,
+        "osu" => OsuCommands::handle(&ctx, cmd).await,
         _ => return println!("Got unhandled interaction command"),
     };
     
@@ -109,45 +106,6 @@ pub fn global_commands() -> Vec<Command> {
     ).build();
     commands.push(cmd);
 
-    /* osu attributes */
-    let cmd = CommandBuilder::new(
-        "ar",
-        "Calculate AR values",
-        CommandType::ChatInput,
-    )
-    .option(
-        NumberBuilder::new("ar", "AR value")
-        .min_value(1.0)
-        .max_value(10.0)
-        .required(true)
-    )
-    .option(
-        StringBuilder::new("mods", "osu mods")
-        .max_length(16)
-        .min_length(1)
-        .required(false),
-    )
-    .build();
-    commands.push(cmd);
-
-    let cmd = CommandBuilder::new(
-        "od",
-        "Calculate OD values",
-        CommandType::ChatInput,
-    )
-    .option(
-        NumberBuilder::new("od", "OD value")
-        .min_value(1.0)
-        .max_value(10.0)
-        .required(true)
-    )
-    .option(
-        StringBuilder::new("mods", "osu mods")
-        .required(false),
-    )
-    .build();
-    commands.push(cmd);
-
     /* twitch */
     let cmd = CommandBuilder::new(
         "twitch",
@@ -170,28 +128,6 @@ pub fn global_commands() -> Vec<Command> {
     )
     .option(
         SubCommandBuilder::new("list", "list tracked twitch channels that being tracked on current channel")
-    )
-    .build();
-    commands.push(cmd);
-
-
-    let cmd = CommandBuilder::new(
-        "osu",
-        "osu related commands",
-        CommandType::ChatInput,
-    ).option(
-        SubCommandBuilder::new(
-            "link", 
-            "link osu account"
-        ).option(
-            StringBuilder::new("name", "osu! username")
-            .required(true)
-        )
-    ).option(
-        SubCommandBuilder::new(
-            "unlink", 
-            "unlink osu account"
-        )
     )
     .build();
     commands.push(cmd);

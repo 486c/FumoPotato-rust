@@ -178,7 +178,7 @@ pub async fn osu_sync_db(ctx: Arc<FumoContext>) -> Result<()> {
 
 /// Osu tracking commands
 #[derive(CommandModel, CreateCommand, Debug)]
-#[command(name = "osu-tracking")]
+#[command(name = "tracking")]
 pub enum OsuTracking {
     #[command(name = "add")]
     Add(OsuTrackingAdd),
@@ -190,25 +190,6 @@ pub enum OsuTracking {
     RemoveAll(OsuTrackingRemoveAll),
     #[command(name = "list")]
     List(OsuTrackingList),
-}
-
-impl OsuTracking {
-    pub async fn handle(
-        ctx: &FumoContext, 
-        cmd: InteractionCommand
-    ) -> Result<()> {
-        let command = Self::from_interaction(
-            cmd.data.clone().into()
-        )?;
-
-        match command {
-            OsuTracking::Add(command) => command.run(ctx, cmd).await,
-            OsuTracking::Remove(command) => command.run(ctx, cmd).await,
-            OsuTracking::AddBulk(command) => command.run(ctx, cmd).await,
-            OsuTracking::RemoveAll(command) => command.run(ctx, cmd).await,
-            OsuTracking::List(command) => command.run(ctx, cmd).await,
-        }
-    }
 }
 
 /// Remove osu user from tracking

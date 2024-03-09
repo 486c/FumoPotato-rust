@@ -248,7 +248,6 @@ pub async fn country_leaderboard(
 
     let stream = component_stream!(ctx, msg);
 
-
     tokio::pin!(stream);
 
     while let Some(Ok(component)) = stream.next().await {
