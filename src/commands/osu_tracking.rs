@@ -109,9 +109,9 @@ macro_rules! osu_track_embed {
 
 pub async fn osu_track_checker(ctx: &FumoContext) {
         let mut lock = ctx.osu_checker_list.lock().await;
+        let now = Utc::now().naive_utc();
 
         for (osu_id, last_checked) in lock.iter_mut() {
-            let now = Utc::now().naive_utc();
 
             let user_scores = ctx.osu_api.get_user_scores(
                 GetUserScores::new(
@@ -142,7 +142,6 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
                         ).await.unwrap().unwrap(); // TODO remove;
 
                         let embed = osu_track_embed!(score, osu_user);
-                        
 
                         let _ = ctx.http.create_message(
                             Id::new(c.channel_id as u64)
@@ -444,7 +443,7 @@ impl OsuTrackingAddBulk {
 
         cmd.response(ctx, &msg).await?;
 
-        osu_sync_checker_list(ctx).await;
+        osu_sync_checker_list(ctx).await?;
 
         Ok(())
     }
