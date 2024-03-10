@@ -476,6 +476,7 @@ mod tests {
     };
 
     use std::env;
+    use chrono::{NaiveDate, NaiveDateTime};
     use dotenv::dotenv;
     use async_once_cell::OnceCell;
 
@@ -537,6 +538,44 @@ mod tests {
         .include_fails(true);
 
         api.get_user_scores(req).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_api_timezone() {
+        let api = get_api().await;
+
+        let req = GetUserScores::new(
+            15555817, 
+            ScoresType::Best
+        )
+        .limit(100);
+
+        let scores = api.get_user_scores(req).await.unwrap();
+
+        let score = scores.iter().find(|x| {
+            if let Some(beatmap) = &x.beatmap {
+                return beatmap.id == 1402392;
+            };
+
+            false
+        });
+
+        assert_eq!(score.is_some(), true);
+
+        let score = score.unwrap();
+
+        let dt: NaiveDateTime = NaiveDate::from_ymd_opt(2024, 3, 9)
+            .unwrap()
+            .and_hms_opt(20, 12, 0).unwrap();
+
+        let score_dt = score.created_at.naive_utc();
+
+        dbg!(dt);
+        dbg!(score_dt);
+
+        assert!(score_dt > dt);
+
+        dbg!(score.created_at);
     }
 
     #[tokio::test]

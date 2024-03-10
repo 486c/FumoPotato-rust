@@ -117,7 +117,7 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
                 GetUserScores::new(
                     *osu_id,
                     ScoresType::Best,
-                ),
+                ).limit(100),
             ).await;
 
             if let Err(e) = &user_scores {
@@ -135,17 +135,20 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
             for score in user_scores {
                 if score.created_at.naive_utc() > *last_checked {
                     for c in &linked_channels {
-
                         let osu_user = ctx.osu_api.get_user(
                             UserId::Id(score.user_id),
                             None
-                        ).await.unwrap().unwrap(); // TODO remove;
+                        ).await; // TODO remove;
 
-                        let embed = osu_track_embed!(score, osu_user);
+                        if let Ok(Some(osu_user)) = osu_user {
+                            let embed = osu_track_embed!(score, osu_user);
 
-                        let _ = ctx.http.create_message(
-                            Id::new(c.channel_id as u64)
-                        ).embeds(&[embed]).unwrap().await;
+                            let _ = ctx.http.create_message(
+                                Id::new(c.channel_id as u64)
+                            ).embeds(&[embed]).unwrap().await;
+                        } else {
+                            println!("Unknown user: {}", score.user_id);
+                        }
                     }
                 }
             }
