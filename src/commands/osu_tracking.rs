@@ -123,6 +123,7 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
             if let Err(e) = &user_scores {
                 println!("Error during osu_checker loop!");
                 println!("{}", e); // TODO move to report
+                continue;
             }
 
             let user_scores = user_scores.unwrap();
