@@ -74,20 +74,6 @@ async fn main() -> Result<()> {
         .await?
         .id.cast();
 
-    // Deletings all global commands
-    println!("Deleting global commands...");
-    let cmds = ctx.http.interaction(application_id).global_commands()
-        .await?
-        .model()
-        .await?;
-    
-    for cmd in cmds {
-        if let Some(id) = cmd.id {
-            ctx.http.interaction(application_id)
-                .delete_global_command(id).await?;
-        }
-    }
-    
     println!("Setting global commands...");
     // Mixing manually created commands 
     // and twilight-interactions created commands :)
