@@ -1,0 +1,10 @@
+services:
+  local-postgres-service:
+    container_name: local-postgresql
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123321
+      POSTGRES_DB: fumo_potato
+    ports:
+      - "5432:5432"
