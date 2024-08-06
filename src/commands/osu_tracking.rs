@@ -121,8 +121,7 @@ pub async fn osu_track_checker(ctx: &FumoContext) {
             ).await;
 
             if let Err(e) = &user_scores {
-                println!("Error during osu_checker loop!");
-                println!("{}", e); // TODO move to report
+                println!("Error during osu_checker loop!: {}", e);
                 continue;
             }
 
