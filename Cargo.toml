@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 bitflags = "2.4.0"
 bytes = "1.5.0"
-chrono = "0.4.34"
+chrono = "0.4.38"
 dotenv = "0.15.0"
 eyre = "0.6.8"
 http-body-util = "0.1.0"
@@ -31,6 +31,7 @@ twilight-interactions = "0.15.2"
 twilight-model = "0.15.2"
 twilight-standby = "0.15.2"
 twilight-util = { version = "0.15.2", features = ["builder"] }
+time = "0.3.36"
 
 [dev-dependencies]
 async-once-cell = "0.5.0"
