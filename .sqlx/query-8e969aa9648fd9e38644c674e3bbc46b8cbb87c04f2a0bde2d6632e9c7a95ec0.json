@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM twitch_streamers WHERE twitch_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "twitch_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "online",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8e969aa9648fd9e38644c674e3bbc46b8cbb87c04f2a0bde2d6632e9c7a95ec0"
+}

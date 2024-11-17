@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE twitch_streamers SET online = NOT online \n            WHERE twitch_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cc5116efa55f62194edca2f697b0909448e46ab126463fc4b86a672686ab624a"
+}

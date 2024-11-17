@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM osu_tracking WHERE\n            osu_id = $1 and channel_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "30143161f258e808a59ff3c07e3357a4fc4844f4e33c453e2747f45615b3b457"
+}
