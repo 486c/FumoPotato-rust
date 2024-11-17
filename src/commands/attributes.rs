@@ -5,8 +5,9 @@ use crate::{
         ar_to_ms,
         MessageBuilder,
     },
-    osu_api::models::OsuMods,
 };
+
+use osu_api::models::OsuMods;
 
 use std::str::FromStr;
 use std::fmt::Write;

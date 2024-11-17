@@ -1,4 +1,3 @@
-pub mod osu_api;
 pub mod twitch_api;
 pub mod fumo_context;
 mod handlers;

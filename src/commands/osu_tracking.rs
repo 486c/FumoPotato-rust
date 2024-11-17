@@ -12,7 +12,8 @@ use twilight_model::application::interaction::{Interaction, InteractionData};
 use twilight_model::{channel::message::MessageFlags, id::Id};
 use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder, ImageSource};
 use crate::utils::{pages_components, InteractionComponent};
-use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::{UserId, GetUserScores, ScoresType, GetRanking, OsuGameMode, RankingKind, RankingFilter}};
+use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}};
+use osu_api::models::{UserId, GetUserScores, ScoresType, GetRanking, OsuGameMode, RankingKind, RankingFilter};
 use eyre::Result;
 
 const OSU_TRACKING_INTERVAL: Duration = Duration::from_secs(360);

@@ -4,8 +4,10 @@ use twilight_model::channel::message::MessageFlags;
 
 use crate::{
     fumo_context::FumoContext, 
-    utils::{InteractionCommand, MessageBuilder}, osu_api::models::UserId
+    utils::{InteractionCommand, MessageBuilder}, 
 };
+
+use osu_api::models::UserId;
 
 use super::{attributes::OsuAttributes, osu_tracking::OsuTracking};
 

@@ -1,4 +1,4 @@
-use crate::osu_api::OsuApi;
+use osu_api::OsuApi;
 use crate::twitch_api::TwitchApi;
 use crate::database::Database;
 use crate::stats::BotStats;

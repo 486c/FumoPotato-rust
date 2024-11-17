@@ -1,5 +1,5 @@
 use crate::database::osu::OsuDbUser;
-use crate::osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
+use osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder, pages_components };
 use crate::utils::{ OSU_MAP_ID_NEW, OSU_MAP_ID_OLD };
@@ -133,41 +133,48 @@ impl LeaderboardListing {
         let mut st = String::with_capacity(1500);
 
         let start_at = (self.curr_page-1)*10;
-        for (index, s) in self.scores.iter()
+        for (index, score) in self.scores.iter()
             .skip(start_at as usize)
             .take(10)
             .enumerate()
         {
+            let user_score = match &score.user {
+                Some(user) => user,
+                None => {
+                    println!("Error: Got score without user info!");
+                    return;
+                },
+            };
+
             let _ = writeln!(
                 st, 
                 "{}. [{}](https://osu.ppy.sh/u/{}) +**{}**",
                 index as i32 + 1  + start_at, 
-                s.user.username, 
-                s.user.id, 
-                s.mods.to_string() 
-                //s.mods.to_string()
+                user_score.username, 
+                user_score.id, 
+                score.mods.to_string() 
             );
 
-            let pp = match self.beatmap.ranked {
+            let pp = match self.beatmap.status {
                 RankStatus::Loved => "\\❤️".to_owned(),
-                _ => format!("{:.2}pp", s.pp.unwrap_or(0.0)),
+                _ => format!("{:.2}pp", score.pp.unwrap_or(0.0)),
             };
 
             let _ = writeln!(st, "{} • {:.2}% • {} • {}",
-                s.rank.to_emoji(), s.accuracy * 100.0, pp,
-                s.score.to_formatted_string(&Locale::en)
+                score.rank.to_emoji(), score.accuracy * 100.0, pp,
+                score.score.to_formatted_string(&Locale::en)
             );
             
             let _  = writeln!(st, "[{}x/{}x] [{}/{}/{}/{}]",
-                s.max_combo.unwrap_or(0), self.beatmap.max_combo,
-                s.stats.count300,
-                s.stats.count100,
-                s.stats.count50, 
-                s.stats.countmiss,
+                score.max_combo.unwrap_or(0), self.beatmap.max_combo.unwrap_or(0),
+                score.stats.count300,
+                score.stats.count100,
+                score.stats.count50, 
+                score.stats.countmiss,
             );
         
             let _  = writeln!(st, "<t:{}:R>",
-                s.created_at.timestamp()
+                score.created_at.timestamp()
             );
         }
 
