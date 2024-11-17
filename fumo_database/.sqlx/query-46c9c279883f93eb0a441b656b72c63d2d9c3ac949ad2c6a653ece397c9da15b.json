@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO twitch_streamers(online, twitch_id) VALUES(false, $1) \n            RETURNING twitch_id, online",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "twitch_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "online",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "46c9c279883f93eb0a441b656b72c63d2d9c3ac949ad2c6a653ece397c9da15b"
+}

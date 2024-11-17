@@ -2,6 +2,8 @@
 create table osu_matches (
 	id int8 not null,
 	name text NOT null,
+	start_time timestamp not null,
+	end_time timestamp not null,
 	constraint osu_match_id primary key (id)
 );
 

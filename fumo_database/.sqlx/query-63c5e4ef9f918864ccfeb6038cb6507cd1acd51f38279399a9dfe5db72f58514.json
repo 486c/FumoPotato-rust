@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE osu_tracked_users\n            SET last_checked = $1\n            WHERE osu_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamp",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "63c5e4ef9f918864ccfeb6038cb6507cd1acd51f38279399a9dfe5db72f58514"
+}

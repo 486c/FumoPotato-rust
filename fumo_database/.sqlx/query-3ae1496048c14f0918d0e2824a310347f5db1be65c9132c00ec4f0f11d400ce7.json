@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select ot.osu_id, ot.channel_id, op.osu_username\n            from osu_tracking ot \n            inner join osu_players op \n            on ot.osu_id = op.osu_id where channel_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "osu_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "channel_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "osu_username",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3ae1496048c14f0918d0e2824a310347f5db1be65c9132c00ec4f0f11d400ce7"
+}
