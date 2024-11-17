@@ -1,8 +1,8 @@
 use crate::Database;
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use eyre::Result;
-
+use osu_api::models::osu_matches::OsuMatchGame;
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct OsuLinkedTrackedUser {
@@ -196,9 +196,81 @@ impl Database {
         sqlx::query!(
             "DELETE FROM osu_users WHERE discord_id = $1",
             discord_id
-            ).execute(&self.pool).await?;
+        ).execute(&self.pool).await?;
 
         Ok(())
     }
 
+    pub async fn osu_match_id_count(
+        &self,
+        match_id: i64
+    ) -> Result<Option<i64>> {
+        Ok(sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM osu_matches WHERE id = $1",
+            match_id
+        ).fetch_one(&self.pool).await?)
+    }
+
+    pub async fn osu_match_id_exists(
+        &self,
+        match_id: i64,
+    ) -> Result<bool> {
+        let amount = self.osu_match_id_count(match_id).await?;
+
+        if let Some(amount) = amount {
+            if amount > 0 {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub async fn insert_osu_match(
+        &self,
+        match_id: i64,
+        name: &str,
+        start_time: DateTime<Utc>,
+        end_time: DateTime<Utc>,
+    ) -> Result<()> {
+        sqlx::query!(
+            "INSERT INTO osu_matches 
+            (id, name, start_time, end_time)
+            VALUES($1, $2, $3, $4)
+            ",
+            match_id,
+            name,
+            start_time.naive_utc(),
+            end_time.naive_utc()
+        ).execute(&self.pool).await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_osu_match_game_from_game(
+        &self,
+        match_id: i64,
+        game: &OsuMatchGame
+    ) -> Result<()> {
+        sqlx::query!(
+            "INSERT INTO osu_match_games
+            (id, match_id, beatmap_id, mods, mode, scoring_kind, team_kind, start_time, end_time)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            game.id,
+            match_id,
+            game.beatmap_id,
+            game.mods.bits() as i64,
+            game.mode.as_str(),
+            game.scoring_kind.as_u8() as i16,
+            game.team_kind.as_u8() as i16,
+            game.start_time.naive_utc(),
+            game.end_time.unwrap_or(
+                DateTime::from_timestamp(0, 0).unwrap()
+            ).naive_utc()
+        ).execute(&self.pool).await?;
+
+        Ok(())
+    }
 }

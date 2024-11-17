@@ -9,6 +9,7 @@ name = "fumo_database"
 path = "src/lib.rs"
 
 [dependencies]
+osu_api = { workspace = true }
 chrono = "0.4.38"
 eyre = "0.6.12"
 sqlx = { version = "0.8.2", features = [ "runtime-tokio-native-tls" , "postgres", "chrono" ] }
