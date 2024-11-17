@@ -15,6 +15,8 @@ use crate::utils::{pages_components, InteractionComponent};
 use crate::{fumo_context::FumoContext, utils::{InteractionCommand, MessageBuilder}, osu_api::models::{UserId, GetUserScores, ScoresType, GetRanking, OsuGameMode, RankingKind, RankingFilter}};
 use eyre::Result;
 
+const OSU_TRACKING_INTERVAL: Duration = Duration::from_secs(360);
+
 macro_rules! osu_track_embed {
     ($score:expr, $user:expr) => {{
         let mut description_text = String::with_capacity(
@@ -109,9 +111,9 @@ macro_rules! osu_track_embed {
 
 pub async fn osu_track_checker(ctx: &FumoContext) {
         let mut lock = ctx.osu_checker_list.lock().await;
-        let now = Utc::now().naive_utc();
 
         for (osu_id, last_checked) in lock.iter_mut() {
+            let now = Utc::now().naive_utc();
 
             let user_scores = ctx.osu_api.get_user_scores(
                 GetUserScores::new(
@@ -166,7 +168,7 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
     println!("Starting osu tracking loop!");
     loop {
         osu_track_checker(&ctx).await;
-        tokio::time::sleep(Duration::from_secs(360)).await;
+        tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
     }
 }
 
