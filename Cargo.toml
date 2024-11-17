@@ -12,7 +12,6 @@ members = [
 
 [dependencies]
 osu_api = { path = "./osu_api" }
-bitflags = "2.4.0"
 bytes = "1.5.0"
 chrono = "0.4.38"
 dotenv = "0.15.0"
@@ -38,9 +37,6 @@ twilight-model = "0.15.2"
 twilight-standby = "0.15.2"
 twilight-util = { version = "0.15.2", features = ["builder"] }
 time = "0.3.36"
-
-[dev-dependencies]
-async-once-cell = "0.5.0"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

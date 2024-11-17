@@ -530,8 +530,6 @@ dependencies = [
 name = "fumo_potato"
 version = "0.1.0"
 dependencies = [
- "async-once-cell",
- "bitflags 2.6.0",
  "bytes",
  "chrono",
  "dotenv",
