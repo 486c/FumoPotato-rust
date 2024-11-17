@@ -1,4 +1,4 @@
-use crate::database::osu::OsuDbUser;
+use fumo_database::osu::OsuDbUser;
 use osu_api::models::{ OsuBeatmap, OsuScore, RankStatus };
 use crate::fumo_context::FumoContext;
 use crate::utils::{ InteractionComponent, InteractionCommand, MessageBuilder, pages_components };

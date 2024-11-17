@@ -1,4 +1,4 @@
-use crate::database::Database;
+use crate::Database;
 
 use chrono::NaiveDateTime;
 use eyre::Result;

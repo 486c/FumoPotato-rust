@@ -1,6 +1,6 @@
 use eyre::Result;
 
-use crate::database::Database;
+use crate::Database;
 
 use sqlx;
 

@@ -1,6 +1,6 @@
 use osu_api::OsuApi;
 use crate::twitch_api::TwitchApi;
-use crate::database::Database;
+use fumo_database::Database;
 use crate::stats::BotStats;
 
 use chrono::NaiveDateTime;

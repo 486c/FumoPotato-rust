@@ -7,11 +7,13 @@ edition = "2021"
 
 [workspace]
 members = [
-	"osu_api"
+	"osu_api",
+	"fumo_database"
 ]
 
 [dependencies]
 osu_api = { path = "./osu_api" }
+fumo_database = { path = "./fumo_database" }
 bytes = "1.5.0"
 chrono = "0.4.38"
 dotenv = "0.15.0"
@@ -27,7 +29,6 @@ regex = "1.7.0"
 reqwest = { version = "0.11.24", features = ["json", "multipart", "native-tls"] }
 serde = { version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.85"
-sqlx = { version = "0.7.3", features = [ "runtime-tokio-native-tls" , "postgres", "chrono" ] }
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-stream = "0.1.11"
 twilight-gateway = "0.15.2"
@@ -45,3 +46,6 @@ opt-level = 3
 opt-level = 3
 lto = "thin"
 strip = "debuginfo"
+
+[dev-dependencies]
+async-once-cell = "0.5.4"
