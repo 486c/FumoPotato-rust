@@ -1,8 +1,8 @@
 use crate::Database;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
-use eyre::Result;
-use osu_api::models::osu_matches::OsuMatchGame;
+use eyre::{Error, Result, eyre};
+use osu_api::models::{osu_matches::OsuMatchGame, OsuScore};
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct OsuLinkedTrackedUser {
@@ -201,7 +201,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn osu_match_id_count(
+    async fn osu_match_id_count(
         &self,
         match_id: i64
     ) -> Result<Option<i64>> {
@@ -211,7 +211,34 @@ impl Database {
         ).fetch_one(&self.pool).await?)
     }
 
-    pub async fn osu_match_id_exists(
+    async fn osu_match_id_not_found_count(
+        &self,
+        match_id: i64
+    ) -> Result<Option<i64>> {
+        Ok(sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM osu_match_not_found WHERE id = $1",
+            match_id
+        ).fetch_one(&self.pool).await?)
+    }
+
+    pub async fn is_osu_match_not_found(
+        &self,
+        match_id: i64
+    ) -> Result<bool> {
+        let amount = self.osu_match_id_not_found_count(match_id).await?;
+
+        if let Some(amount) = amount {
+            if amount > 0 {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub async fn is_osu_match_exists(
         &self,
         match_id: i64,
     ) -> Result<bool> {
@@ -226,6 +253,18 @@ impl Database {
         } else {
             Ok(false)
         }
+    }
+
+    pub async fn insert_osu_match_not_found (
+        &self,
+        match_id: i64
+    ) -> Result<()> {
+        sqlx::query!(
+            "INSERT INTO osu_match_not_found VALUES ($1)",
+            match_id,
+        ).execute(&self.pool).await?;
+
+        Ok(())
     }
 
     pub async fn insert_osu_match(
@@ -249,7 +288,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn insert_osu_match_game_from_game(
+    pub async fn insert_osu_match_game_from_request(
         &self,
         match_id: i64,
         game: &OsuMatchGame
@@ -269,6 +308,52 @@ impl Database {
             game.end_time.unwrap_or(
                 DateTime::from_timestamp(0, 0).unwrap()
             ).naive_utc()
+        ).execute(&self.pool).await?;
+
+        Ok(())
+    }
+
+    pub async fn insert_osu_match_game_score_from_request(
+        &self,
+        match_id: i64,
+        game_id: i64,
+        beatmap_id: i64,
+        score: &OsuScore
+    ) -> Result<()> {
+        if score.osu_match.is_none() {
+            return Err(eyre!("Provided osu score doesn't contain match info")); // TODO: This should be here
+        };
+
+        let osu_match = &score.osu_match;
+        let detail = osu_match.as_ref().unwrap();
+
+        sqlx::query!(
+            "INSERT INTO osu_match_game_scores
+            (
+                game_id, match_id, beatmap_id, user_id, accuracy, mods, score, 
+                count50, count100, count300, countgeki, countkatu, countmiss, max_combo,
+                slot, team, pass, pp
+            )
+            VALUES(
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NULL
+            )",
+            game_id,
+            match_id,
+            beatmap_id,
+            score.user_id,
+            score.accuracy as f64,
+            score.mods.bits() as i16,
+            score.score,
+            score.stats.count50,
+            score.stats.count100,
+            score.stats.count300,
+            score.stats.countgeki.unwrap_or(0),
+            score.stats.countkatu.unwrap_or(0),
+            score.stats.countmiss,
+            score.max_combo.unwrap_or(0),
+            detail.slot as i16,
+            &detail.team,
+            detail.pass,
         ).execute(&self.pool).await?;
 
         Ok(())

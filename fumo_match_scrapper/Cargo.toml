@@ -1,0 +1,12 @@
+[package]
+name = "fumo_potato_scrapper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.41.1", features = ["full"] }
+osu_api = { workspace = true }
+fumo_database = { workspace = true }
+clap = { version = "4.5.21", features = ["derive"] }
+dotenv = "0.15.0"
+tokio-util = "0.7.12"

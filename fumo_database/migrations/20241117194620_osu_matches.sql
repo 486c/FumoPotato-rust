@@ -40,3 +40,7 @@ create table osu_match_game_scores (
 	pass bool not null,
 	pp float
 );
+
+create table osu_match_not_found (
+	id int8 NOT NULL
+);
