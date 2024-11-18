@@ -572,6 +572,8 @@ pub struct OsuScore {
     
     pub mods: OsuMods,
     pub score: i64,
+    pub legacy_total_score: Option<i64>,
+    pub classic_total_score: Option<i64>,
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
     pub perfect: bool,
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
@@ -824,4 +826,10 @@ pub struct GetRanking {
 #[derive(Deserialize, Debug)]
 pub struct Rankings {
     pub ranking: Vec<OsuUserStatistics>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct BeatmapUserScore {
+    pub position: u32,
+    pub score: OsuScore,
 }

@@ -5,6 +5,7 @@ pub mod models;
 pub mod error;
 
 use models::osu_matches::OsuMatchGet;
+use models::BeatmapUserScore;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT};
 use reqwest::{ Client, StatusCode, Method, Response };
 
@@ -251,6 +252,26 @@ impl OsuApi {
                 }
             },
         }
+    }
+
+    pub async fn get_user_beatmap_scores(
+        &self,
+        beatmap_id: i64,
+        user_id: UserId,
+    ) -> ApiResult<BeatmapUserScore> {
+        let link = format!(
+            "{OSU_API_BASE}/beatmaps/{}/scores/users/{}",
+            beatmap_id,
+            user_id
+        );
+
+        let r = self.make_request(
+            &link,
+            Method::GET,
+            ApiKind::General
+        ).await?;
+
+        Ok(r)
     }
     
     pub async fn get_beatmap(
@@ -569,7 +590,7 @@ mod tests {
 
         assert!(leaderboard.scores.len() > 2);
     }
-    
+
     #[tokio::test]
     async fn test_get_scores() {
         let api = get_api().await;

@@ -1,7 +1,7 @@
 use crate::Database;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
-use eyre::{Error, Result, eyre};
+use eyre::{Result, eyre};
 use osu_api::models::{osu_matches::OsuMatchGame, OsuScore};
 
 #[derive(sqlx::FromRow, Debug)]
