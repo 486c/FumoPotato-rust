@@ -55,10 +55,10 @@ macro_rules! osu_track_embed {
             let _ = writeln!(
                 description_text,
                 "[{}/{}/{}/{}] • x{}",
-                $score.stats.count300,
-                $score.stats.count100,
-                $score.stats.count50,
-                $score.stats.countmiss,
+                $score.stats.count300.unwrap_or(0),
+                $score.stats.count100.unwrap_or(0),
+                $score.stats.count50.unwrap_or(0),
+                $score.stats.countmiss.unwrap_or(0),
                 $score.max_combo.unwrap_or(0),
             );
         };
