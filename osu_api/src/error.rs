@@ -16,7 +16,7 @@ pub enum OsuApiError {
     #[error("not found: `{url}`")]
     NotFound { url: String },
     #[error("serde parsing: `{source}` body: `{body}`")]
-    Parsing { source: serde_json::Error, body: String },
+    Parsing { source: serde_json::Error, body: String, url: String },
     #[error("too many requests")]
     TooManyRequests,
     #[error("unprocessable entity: `{body}`")]

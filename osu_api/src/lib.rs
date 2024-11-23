@@ -131,6 +131,8 @@ impl OsuApi {
         &self, 
         r: Response
     ) -> ApiResult<T> {
+        let response_url = r.url().as_str().to_owned();
+
         match r.status() {
             StatusCode::OK => {
                 //TODO move this nesting mess outta here
@@ -142,6 +144,7 @@ impl OsuApi {
                         OsuApiError::Parsing {
                             source: s,
                             body: std::str::from_utf8(&bytes).unwrap().to_owned(),
+                            url: response_url.clone()
                         }
                     });
             }
@@ -177,6 +180,7 @@ impl OsuApi {
                 return Err(OsuApiError::Parsing {
                     source: e,
                     body: std::str::from_utf8(&bytes).unwrap().to_owned(),
+                    url: response_url.clone()
                 })
             }
         };
