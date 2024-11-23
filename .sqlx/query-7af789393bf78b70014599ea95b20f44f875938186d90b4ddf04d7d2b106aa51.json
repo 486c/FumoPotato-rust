@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO osu_match_game_scores\n            (\n                game_id, match_id, beatmap_id, user_id, accuracy, mods, score, \n                count50, count100, count300, countgeki, countkatu, countmiss, max_combo,\n                slot, team, pass, pp\n            )\n            VALUES(\n                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NULL\n            )",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Float8",
+        "Int8",
+        "Int8",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int2",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7af789393bf78b70014599ea95b20f44f875938186d90b4ddf04d7d2b106aa51"
+}

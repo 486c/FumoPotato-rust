@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO osu_matches \n            (id, name, start_time, end_time)\n            VALUES($1, $2, $3, $4)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Timestamp",
+        "Timestamp"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf34e6279d73b60769d4ab7de9f5916b0da64a42d41ac98edf3d92bc6d4f0fb5"
+}

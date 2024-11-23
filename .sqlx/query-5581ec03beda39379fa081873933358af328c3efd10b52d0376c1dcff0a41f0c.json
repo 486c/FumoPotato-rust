@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO osu_match_games\n            (id, match_id, beatmap_id, mods, mode, scoring_kind, team_kind, start_time, end_time)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text",
+        "Int2",
+        "Int2",
+        "Timestamp",
+        "Timestamp"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5581ec03beda39379fa081873933358af328c3efd10b52d0376c1dcff0a41f0c"
+}
