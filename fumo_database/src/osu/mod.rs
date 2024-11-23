@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use sqlx::Row;
+
 use crate::Database;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
@@ -219,6 +222,48 @@ impl Database {
             r#"SELECT EXISTS(SELECT 1 FROM osu_matches WHERE id = $1) as "exists!""#,
             match_id
         ).fetch_one(&self.pool).await?)
+    }
+
+    pub async fn is_match_exists_and_not_found_batch(
+        &self,
+        match_ids: &[i64],
+    ) -> Result<HashMap<i64, (bool, bool)>> {
+        const QUERY: &str = r#"
+        WITH ids AS (
+            SELECT unnest($1::int8[]) AS id
+        )
+        SELECT 
+            ids.id,
+            CASE 
+                WHEN m.id IS NOT NULL THEN TRUE 
+                ELSE FALSE 
+            END AS match_exists,
+            CASE 
+                WHEN n.id IS NOT NULL THEN TRUE 
+                ELSE FALSE 
+            END AS match_not_found 
+        FROM 
+            ids
+        LEFT JOIN osu_matches m ON ids.id = m.id
+        LEFT JOIN osu_match_not_found n ON ids.id = n.id;
+        "#;
+
+        let rows = sqlx::query(QUERY)
+            .bind(match_ids)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut result: HashMap<i64, (bool, bool)> = HashMap::with_capacity(match_ids.len());
+
+        for row in rows {
+            let id: i64 = row.get("id");
+            let match_exists: bool = row.get("match_exists");
+            let match_not_found: bool = row.get("match_not_found");
+
+            result.insert(id, (match_exists, match_not_found));
+        }
+
+        Ok(result)
     }
 
     pub async fn insert_osu_match_not_found (
