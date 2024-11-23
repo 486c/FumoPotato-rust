@@ -201,58 +201,24 @@ impl Database {
         Ok(())
     }
 
-    async fn osu_match_id_count(
-        &self,
-        match_id: i64
-    ) -> Result<Option<i64>> {
-        Ok(sqlx::query_scalar!(
-            "SELECT COUNT(*) FROM osu_matches WHERE id = $1",
-            match_id
-        ).fetch_one(&self.pool).await?)
-    }
-
-    async fn osu_match_id_not_found_count(
-        &self,
-        match_id: i64
-    ) -> Result<Option<i64>> {
-        Ok(sqlx::query_scalar!(
-            "SELECT COUNT(*) FROM osu_match_not_found WHERE id = $1",
-            match_id
-        ).fetch_one(&self.pool).await?)
-    }
-
     pub async fn is_osu_match_not_found(
         &self,
         match_id: i64
     ) -> Result<bool> {
-        let amount = self.osu_match_id_not_found_count(match_id).await?;
-
-        if let Some(amount) = amount {
-            if amount > 0 {
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        } else {
-            Ok(false)
-        }
+        Ok(sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM osu_match_not_found WHERE id = $1) as "exists!""#,
+            match_id
+        ).fetch_one(&self.pool).await?)
     }
 
     pub async fn is_osu_match_exists(
         &self,
         match_id: i64,
     ) -> Result<bool> {
-        let amount = self.osu_match_id_count(match_id).await?;
-
-        if let Some(amount) = amount {
-            if amount > 0 {
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        } else {
-            Ok(false)
-        }
+        Ok(sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM osu_matches WHERE id = $1) as "exists!""#,
+            match_id
+        ).fetch_one(&self.pool).await?)
     }
 
     pub async fn insert_osu_match_not_found (
