@@ -1,3 +1,4 @@
+use reqwest::StatusCode;
 use thiserror::Error;
 
 use super::models::ApiError;
@@ -23,8 +24,8 @@ pub enum OsuApiError {
     UnprocessableEntity { body: String },
     #[error("service unavailable")]
     ServiceUnavailable,
-    #[error("empty body")]
-    EmptyBody,
+    #[error("empty body: code: `{code}`")]
+    EmptyBody{ code: StatusCode },
     #[error("exceeded max retries")]
     ExceededMaxRetries,
     #[error("forbidden")]

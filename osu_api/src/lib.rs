@@ -132,6 +132,7 @@ impl OsuApi {
         r: Response
     ) -> ApiResult<T> {
         let response_url = r.url().as_str().to_owned();
+        let response_code = r.status();
 
         match r.status() {
             StatusCode::OK => {
@@ -176,7 +177,7 @@ impl OsuApi {
             Ok(v) => v,
             Err(e) => { 
                 if bytes.len() <= 1 {
-                    return Err(OsuApiError::EmptyBody)
+                    return Err(OsuApiError::EmptyBody { code: response_code })
                 }
 
                 return Err(OsuApiError::Parsing {
