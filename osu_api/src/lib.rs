@@ -542,7 +542,7 @@ impl OsuApi {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{str::FromStr, sync::atomic::{Ordering::SeqCst, AtomicBool}};
     use crate::{
         *,
         models::*
@@ -551,30 +551,53 @@ mod tests {
     use std::env;
     use chrono::{NaiveDate, NaiveDateTime};
     use dotenv::dotenv;
-    use async_once_cell::OnceCell;
+    use once_cell::sync::OnceCell;
     use osu_matches::OsuMatchEventKind;
+    use tokio::sync::{Mutex, MutexGuard};
 
-    static API_INSTANCE: OnceCell<OsuApi> = OnceCell::new();
-
-    async fn get_api() -> &'static OsuApi {
-        dotenv().unwrap();
-
-        API_INSTANCE.get_or_init(async {
-            OsuApi::new(
-                env::var("CLIENT_ID").unwrap().parse().unwrap(),
-                env::var("CLIENT_SECRET").unwrap().as_str(),
-                env::var("OSU_SESSION").unwrap().as_str(),
-                env::var("FALLBACK_API").unwrap().as_str(),
-                false
-            )
-            .await
-            .unwrap()
-        }).await
+    pub struct OsuApiCell {
+        initialized: AtomicBool,
+        inner: OnceCell<Mutex<OsuApi>>,
     }
+
+    impl OsuApiCell {
+        const fn new() -> Self {
+            Self {
+                initialized: AtomicBool::new(false),
+                inner: OnceCell::new(),
+            }
+        }
+
+        async fn get(&self) -> Result<MutexGuard<'_, OsuApi>, OsuApiError> {
+            let cmp_res = self.initialized.compare_exchange(false, true, SeqCst, SeqCst);
+
+            dbg!(&cmp_res);
+
+            if cmp_res.is_ok() {
+                dotenv().unwrap();
+
+                let api = OsuApi::new(
+                    env::var("CLIENT_ID").unwrap().parse().unwrap(),
+                    env::var("CLIENT_SECRET").unwrap().as_str(),
+                    env::var("OSU_SESSION").unwrap().as_str(),
+                    env::var("FALLBACK_API").unwrap().as_str(),
+                    false
+                ).await.unwrap();
+
+                dbg!("Initializing again");
+
+                self.inner.set(Mutex::new(api)).ok();
+            }
+
+            Ok(self.inner.wait().lock().await)
+        }
+    }
+
+    static API_INSTANCE: OsuApiCell = OsuApiCell::new();
 
     #[tokio::test]
     async fn test_get_leaderboard_hidden() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let leaderboard = api.get_leaderboard_hidden(
             1804553, 
@@ -593,7 +616,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_scores() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let req = GetUserScores::new(
             6892711, 
@@ -616,7 +639,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_timezone() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let req = GetUserScores::new(
             15555817, 
@@ -654,7 +677,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let user = api.get_user(
             UserId::Id(6892711),
@@ -684,7 +707,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_beatmap() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let mut op = api.get_beatmap(3153603).await;
 
@@ -709,7 +732,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_match() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let res = api.get_match(111451190, None, None, None).await.unwrap();
 
@@ -720,7 +743,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_match_all_events() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let res = api.get_match_all_events(111555364).await.unwrap();
 
@@ -733,7 +756,7 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_notfound_error() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let link = "https://osu.ppy.sh/apii/v2/beaaps/";
         let _: OsuBeatmap = api.make_request(
@@ -745,7 +768,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_rankings_country() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let req = GetRanking {
             mode: OsuGameMode::Osu,
@@ -768,7 +791,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_rankings() {
-        let api = get_api().await;
+        let api = API_INSTANCE.get().await.unwrap();
 
         let req = GetRanking {
             mode: OsuGameMode::Osu,

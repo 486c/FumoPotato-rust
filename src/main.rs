@@ -73,6 +73,7 @@ async fn main() -> Result<()> {
         .id.cast();
 
     println!("Setting global commands...");
+
     // Mixing manually created commands 
     // and twilight-interactions created commands :)
     let mut commands = global_commands();
