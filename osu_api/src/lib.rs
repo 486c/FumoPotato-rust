@@ -452,7 +452,7 @@ impl OsuApi {
             match resp {
                 Ok(r) => return Ok(r),
                 Err(e) => {
-                    if let OsuApiError::EmptyBody = e {
+                    if let OsuApiError::EmptyBody{ .. } = e {
                         retries += 1;
                         continue
                     } else {
