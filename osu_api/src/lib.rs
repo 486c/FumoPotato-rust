@@ -645,12 +645,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_scores() {
+    async fn test_get_scores_deser() {
         let api = API_INSTANCE.get().await.unwrap();
 
         let req = GetUserScores::new(
-            7562902, 
-            ScoresType::Recent
+            11692602, 
+            ScoresType::Best
         )
         .limit(100)
         .include_fails(true);

@@ -167,10 +167,10 @@ impl LeaderboardListing {
             
             let _  = writeln!(st, "[{}x/{}x] [{}/{}/{}/{}]",
                 score.max_combo.unwrap_or(0), self.beatmap.max_combo.unwrap_or(0),
-                score.stats.count300,
-                score.stats.count100,
-                score.stats.count50, 
-                score.stats.countmiss,
+                score.stats.count300.unwrap_or(0),
+                score.stats.count100.unwrap_or(0),
+                score.stats.count50.unwrap_or(0), 
+                score.stats.countmiss.unwrap_or(0),
             );
         
             let _  = writeln!(st, "<t:{}:R>",

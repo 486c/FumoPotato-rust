@@ -1,4 +1,4 @@
-use clap::{command, Parser, Subcommand, ValueEnum};
+use clap::{command, Parser, Subcommand};
 use fumo_database::Database;
 use osu_api::{models::osu_matches::OsuMatchGet, OsuApi};
 use tokio::{signal, sync::mpsc::{self, UnboundedReceiver, UnboundedSender}};

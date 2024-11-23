@@ -490,17 +490,17 @@ pub struct OauthResponse {
 #[derive(Deserialize, Clone, Debug)]
 pub struct OsuScoreStatistics {
     #[serde(rename = "count_50")]
-    pub count50: i32,
+    pub count50: Option<i32>,
     #[serde(rename = "count_100")]
-    pub count100: i32,
+    pub count100: Option<i32>,
     #[serde(rename = "count_300")]
-    pub count300: i32,
+    pub count300: Option<i32>,
     #[serde(rename = "count_geki")]
     pub countgeki: Option<i32>,
     #[serde(rename = "count_katu")]
     pub countkatu: Option<i32>,
     #[serde(rename = "count_miss")]
-    pub countmiss: i32,
+    pub countmiss: Option<i32>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
