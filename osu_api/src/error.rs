@@ -1,75 +1,32 @@
-use super::models::ApiError;
-use std::{error::Error as StdError, fmt};
+use thiserror::Error;
 
-#[derive(Debug)]
+use super::models::ApiError;
+
+#[derive(Error, Debug)]
 pub enum OsuApiError {
+    
+    #[error("failed to parse to str")]
     FromStrError,
-    ReqwestError { err: reqwest::Error },
+    #[error("reqwest error: `{0}`")]
+    ReqwestError(#[from] reqwest::Error ),
+    #[error("unhandled status code: `{code}` at `{url}`")]
     UnhandledStatusCode { code: u16, url: String },
-    ApiError { source: ApiError },
+    #[error("osu! api error: `{0}`")]
+    ApiError( #[from] ApiError ),
+    #[error("not found: `{url}`")]
     NotFound { url: String },
+    #[error("serde parsing: `{source}` body: `{body}`")]
     Parsing { source: serde_json::Error, body: String },
+    #[error("too many requests")]
     TooManyRequests,
+    #[error("unprocessable entity: `{body}`")]
     UnprocessableEntity { body: String },
+    #[error("service unavailable")]
     ServiceUnavailable,
+    #[error("empty body")]
     EmptyBody,
+    #[error("exceeded max retries")]
     ExceededMaxRetries,
+    #[error("forbidden")]
     Forbidden,
 }
-
-impl From<reqwest::Error> for OsuApiError {
-    fn from(value: reqwest::Error) -> Self {
-        OsuApiError::ReqwestError {
-            err: value
-        }
-    }
-}
-
-impl StdError for OsuApiError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            OsuApiError::FromStrError => None,
-            OsuApiError::ReqwestError { err } => Some(err),
-            OsuApiError::UnhandledStatusCode { .. } => None,
-            OsuApiError::ApiError { source } => Some(source),
-            OsuApiError::NotFound { .. } => None,
-            OsuApiError::Parsing { .. } => None,
-            OsuApiError::TooManyRequests => None,
-            OsuApiError::UnprocessableEntity { .. } => None,
-            OsuApiError::ServiceUnavailable => None,
-            OsuApiError::EmptyBody => None,
-            OsuApiError::ExceededMaxRetries => None,
-            OsuApiError::Forbidden => None,
-        }
-    }
-}
-
-impl fmt::Display for OsuApiError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OsuApiError::FromStrError => 
-                f.write_str("converting to string error"),
-            OsuApiError::ReqwestError { .. } => 
-                f.write_str("Got reqwest error!"),
-            OsuApiError::UnhandledStatusCode { .. } => 
-                f.write_str("Got unknown status code"),
-            OsuApiError::ApiError { .. } => 
-                f.write_str("Got internal osu!api error"),
-            OsuApiError::NotFound { url } => 
-                f.write_str(&format!("Url doesn't found: {url}")),
-            OsuApiError::Parsing { .. } => 
-                f.write_str("Got error during json parsing"),
-            OsuApiError::TooManyRequests => f.write_str("Got 429!"),
-            OsuApiError::UnprocessableEntity{ .. } => 
-                f.write_str("Got unprocessable entity"),
-            OsuApiError::ServiceUnavailable => 
-                f.write_str("Service is unavailable"),
-            OsuApiError::EmptyBody => 
-                f.write_str("Got empty response"),
-            OsuApiError::ExceededMaxRetries => 
-                f.write_str("Exceeded max retries for api call"),
-            OsuApiError::Forbidden => f.write_str("Access forbidden"),
-        }
-    }
-}
-

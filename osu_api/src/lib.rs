@@ -181,9 +181,9 @@ impl OsuApi {
             }
         };
 
-        Err(OsuApiError::ApiError {
-            source: parsed,
-        })
+        Err(OsuApiError::ApiError (
+            parsed,
+        ))
     }
 
     pub async fn get_user_scores(
