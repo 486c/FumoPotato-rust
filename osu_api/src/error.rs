@@ -29,4 +29,6 @@ pub enum OsuApiError {
     ExceededMaxRetries,
     #[error("forbidden")]
     Forbidden,
+    #[error("unthorized")]
+    Unauthorized,
 }

@@ -155,6 +155,8 @@ impl OsuApi {
             ),
             StatusCode::TOO_MANY_REQUESTS => 
                 return Err(OsuApiError::TooManyRequests),
+            StatusCode::UNAUTHORIZED => 
+                return Err(OsuApiError::Unauthorized),
             StatusCode::FORBIDDEN => 
                 return Err(OsuApiError::Forbidden),
             StatusCode::UNPROCESSABLE_ENTITY => {
@@ -636,6 +638,20 @@ mod tests {
             ScoresType::Recent
         )
         .limit(50)
+        .include_fails(true);
+
+        api.get_user_scores(req).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_scores() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let req = GetUserScores::new(
+            7562902, 
+            ScoresType::Recent
+        )
+        .limit(100)
         .include_fails(true);
 
         api.get_user_scores(req).await.unwrap();
