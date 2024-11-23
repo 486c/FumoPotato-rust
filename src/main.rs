@@ -83,6 +83,12 @@ async fn main() -> Result<()> {
             .into()
     );
 
+    commands.push(
+        commands::multiplayer::MultiplayerCommands::create_command()
+            .into()
+    );
+
+
     // Set global commands
     ctx.http.interaction(application_id)
         .set_global_commands(&commands)

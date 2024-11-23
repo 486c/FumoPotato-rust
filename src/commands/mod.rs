@@ -92,3 +92,4 @@ pub mod twitch;
 pub mod attributes;
 pub mod osu;
 pub mod osu_tracking;
+pub mod multiplayer;

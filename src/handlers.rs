@@ -1,5 +1,6 @@
 use tokio_stream::StreamExt;
 use twilight_gateway::stream::ShardEventStream;
+use crate::commands::multiplayer::MultiplayerCommands;
 use crate::commands::osu::OsuCommands;
 use crate::fumo_context::FumoContext;
 
@@ -33,6 +34,7 @@ async fn handle_commands(
             country_leaderboard::run(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,
         "osu" => OsuCommands::handle(&ctx, cmd).await,
+        "multiplayer" => MultiplayerCommands::handle(&ctx, cmd).await,
         _ => return println!("Got unhandled interaction command"),
     };
     

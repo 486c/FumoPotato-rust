@@ -26,7 +26,49 @@ pub struct OsuDbUser {
     pub discord_id: i64,
 }
 
+#[derive(sqlx::FromRow, Debug)]
+pub struct OsuDbMatch {
+    pub id: i64,
+    pub name: String,
+    pub start_time: NaiveDateTime,
+    pub end_time: NaiveDateTime
+}
+
 impl Database {
+    pub async fn get_user_matches_all(
+        &self,
+        user_id: i64,
+    ) -> Result<Vec<OsuDbMatch>> {
+        Ok(sqlx::query_as!(
+            OsuDbMatch,
+            "select 
+                id, name, start_time, end_time
+            from osu_match_game_scores 
+            JOIN osu_matches ON osu_match_game_scores.match_id = osu_matches.id 
+            WHERE user_id = $1 
+            group by osu_matches.id",
+            user_id
+        ).fetch_all(&self.pool).await?)
+    }
+
+    pub async fn get_user_matches_tourney(
+        &self,
+        user_id: i64,
+    ) -> Result<Vec<OsuDbMatch>> {
+        // TODO move regex to const?
+        Ok(sqlx::query_as!(
+            OsuDbMatch,
+            r#"select 
+                id, name, start_time, end_time
+            from osu_match_game_scores 
+            JOIN osu_matches ON osu_match_game_scores.match_id = osu_matches.id 
+            WHERE user_id = $1 
+			AND osu_matches.name ~ '(.+):\s*(\(*.+\)*)\s*vs\s*(\(*.+\)*)'
+            group by osu_matches.id"#,
+            user_id
+        ).fetch_all(&self.pool).await?)
+    }
+
     pub async fn get_osu_db_user(
         &self,
         discord_id: i64
