@@ -3,7 +3,7 @@ use fumo_database::Database;
 use osu_api::{models::osu_matches::OsuMatchGet, OsuApi};
 use tokio::{signal, sync::mpsc::{self, UnboundedReceiver, UnboundedSender}};
 use tokio_util::sync::CancellationToken;
-use std::{env, ops::Range, sync::Arc, time::Duration};
+use std::{env, fs::File, io::{BufRead, BufReader}, ops::Range, path::PathBuf, sync::Arc, time::Duration};
 
 
 #[derive(Subcommand, Debug)]
@@ -21,6 +21,11 @@ pub enum ScrapperKind {
         /// A match_id of the starting point (scrapper will go in new to old manner)
         #[arg(short, long)]
         start: i64,
+    },
+    File {
+        /// A file with match_id separated by new-line
+        #[arg(short, long)]
+        file: PathBuf
     }
 }
 
@@ -40,14 +45,13 @@ pub struct Args {
 }
 
 async fn master(
-    range: Range<i64>, 
+    range: Vec<i64>, 
     token: CancellationToken, 
     db: Arc<Database>,
     osu_api: Arc<OsuApi>,
     sender: UnboundedSender<Box<OsuMatchGet>>,
     batch_size: usize
 ) {
-    let range: Vec<i64> = range.rev().collect();
     let mut to_process: Vec<i64> = Vec::new();
 
     for chunk in range.chunks(batch_size) { 
@@ -199,7 +203,7 @@ async fn main() {
 
     let cancel_token = CancellationToken::new();
 
-    let chunks = match args.command {
+    match args.command {
         ScrapperKind::Range { start, end } => {
             
             let mut chunks = Vec::new();
@@ -212,7 +216,10 @@ async fn main() {
                 current_start += chunk_size;
             }
 
-            chunks
+            println!("Range: Starting workers on chunks: {:?}", chunks);
+            for chunk in chunks {
+                tokio::spawn(master(chunk.collect(), cancel_token.clone(), db.clone(), osu_api.clone(), match_tx.clone(), args.batch_size));
+            };
         },
         ScrapperKind::Linear { start } => {
             let chunk_size = start / args.workers as i64;
@@ -225,15 +232,35 @@ async fn main() {
                 current_start = end;
             };
 
-            chunks
+            println!("Linear: Starting workers on chunks: {:?}", chunks);
+            for chunk in chunks {
+                tokio::spawn(master(chunk.collect(), cancel_token.clone(), db.clone(), osu_api.clone(), match_tx.clone(), args.batch_size));
+            };
         },
+        ScrapperKind::File { file } => {
+            let file = BufReader::new(File::open(file).unwrap());
+
+            let mut chunk: Vec<i64> = Vec::new();
+
+            for line in file.lines() {
+                let line = line.unwrap();
+
+                if line.is_empty() 
+                || &line == "\n" {
+                    continue
+                }
+
+                if let Ok(match_id) = line.parse() {
+                    chunk.push(match_id);
+                } else {
+                    println!("Failed to parse match id from file")
+                }
+            }
+
+            tokio::spawn(master(chunk, cancel_token.clone(), db.clone(), osu_api.clone(), match_tx.clone(), args.batch_size));
+        }
     };
 
-    println!("Starting workers on chunks: {:?}", chunks);
-
-    for chunk in chunks {
-        tokio::spawn(master(chunk, cancel_token.clone(), db.clone(), osu_api.clone(), match_tx.clone(), args.batch_size));
-    }
 
     tokio::spawn(db_worker(db.clone(), cancel_token.clone(), match_rx));
 
