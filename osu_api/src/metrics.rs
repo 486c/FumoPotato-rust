@@ -19,7 +19,6 @@ impl Metrics {
 
             counters,
         }
-
     }
 }
 

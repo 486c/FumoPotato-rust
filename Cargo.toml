@@ -9,17 +9,23 @@ edition = "2021"
 members = [
 	"osu_api",
 	"fumo_database",
-	"fumo_match_scrapper"
+	"fumo_match_scrapper",
+ 	"fumo_twilight", 
+	"fumo_macro"
 ]
 
 
 [workspace.dependencies]
 osu_api = { path = "./osu_api" }
 fumo_database = { path = "./fumo_database" }
+fumo_twilight = { path = "./fumo_twilight" }
+fumo_macro = { path = "./fumo_macro" }
 
 [dependencies]
 osu_api = { workspace = true }
 fumo_database = { workspace = true }
+fumo_twilight = { workspace = true }
+fumo_macro = { workspace = true }
 bytes = "1.5.0"
 chrono = "0.4.38"
 dotenv = "0.15.0"

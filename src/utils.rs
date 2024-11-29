@@ -1,91 +1,36 @@
-use std::{
-    slice,
-    future::IntoFuture
-};
+use std::{future::IntoFuture, slice};
 
+use fumo_twilight::message::MessageBuilder;
 use once_cell::sync::OnceCell;
 
-use twilight_http::response::{ marker::EmptyBody, ResponseFuture };
+use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 
-use twilight_model::{http::{
-    interaction::{ InteractionResponse, InteractionResponseType },
-    attachment::Attachment,
-}, guild::PartialMember, user::User, id::marker::UserMarker, channel::{Channel, message::{MessageFlags, component::{ButtonStyle, Button, ActionRow}}}};
-
-use twilight_model::channel::message::{ 
-    component::Component, 
-    Message,
-    embed::Embed
+use twilight_model::{
+    channel::{
+        message::component::{ActionRow, Button, ButtonStyle},
+        Channel,
+    },
+    guild::PartialMember,
+    http::interaction::{InteractionResponse, InteractionResponseType},
+    id::marker::UserMarker,
+    user::User,
 };
+
+use twilight_model::channel::message::{component::Component, Message};
 
 use twilight_model::id::{
-    Id, 
-    marker::{ ChannelMarker, GuildMarker, InteractionMarker }
+    marker::{ChannelMarker, GuildMarker, InteractionMarker},
+    Id,
 };
 
-use twilight_model::application::interaction::{ 
-    InteractionType,
-    application_command::CommandData,
+use twilight_model::application::interaction::{
+    application_command::{CommandData, CommandDataOption, CommandOptionValue},
     message_component::MessageComponentInteractionData,
-};
-use twilight_model::application::interaction::application_command::{ 
-    CommandOptionValue, CommandDataOption 
+    InteractionType,
 };
 use twilight_util::builder::InteractionResponseDataBuilder;
 
 use crate::fumo_context::FumoContext;
-
-#[derive(Debug, Default)]
-pub struct MessageBuilder {
-    pub content: Option<String>,
-    pub embed: Option<Embed>,
-    pub components: Option<Vec<Component>>,
-    pub attachments: Option<Vec<Attachment>>,
-    pub flags: Option<MessageFlags>
-}
-
-impl MessageBuilder {
-    pub fn new() -> Self {
-        MessageBuilder {
-            ..Default::default()
-        }
-    }
-
-    pub fn flags(
-        mut self,
-        flags: impl Into<MessageFlags>
-    ) -> Self {
-        self.flags = Some(flags.into());
-        self
-    }
-    
-    /*
-    TODO uncomment if ever gonna be used
-    pub fn attachments(
-        mut self, 
-        attachments: impl Into<Vec<Attachment>>
-    ) -> Self {
-        self.attachments = Some(attachments.into());
-        self
-    }
-    */
-
-    pub fn content(mut self, s: impl Into<String>) -> Self {
-        self.content = Some(s.into());
-        self
-    }
-
-    pub fn embed(mut self, e: impl Into<Embed>) -> Self {
-        self.embed = Some(e.into());
-        self
-    }
-
-    pub fn components(mut self, components: Vec<Component>) -> Self {
-        self.components = Some(components);
-        self
-    }
-
-}
 
 #[derive(Debug)]
 pub struct InteractionComponent {
@@ -130,16 +75,12 @@ impl InteractionCommand {
         };
 
         ctx.interaction()
-            .create_response(
-                self.id,
-                &self.token,
-                &response
-            )
+            .create_response(self.id, &self.token, &response)
             .into_future()
     }
 
     pub fn update<'a>(
-        &self, 
+        &self,
         ctx: &'a FumoContext,
         builder: &'a MessageBuilder,
     ) -> ResponseFuture<Message> {
@@ -147,32 +88,36 @@ impl InteractionCommand {
         let mut req = client.update_response(&self.token);
 
         if let Some(ref content) = builder.content {
-            req = req.content(Some(content.as_ref()))
-                    .expect("invalid content!");
+            req = req
+                .content(Some(content.as_ref()))
+                .expect("invalid content!");
         }
 
         if let Some(ref embed) = builder.embed {
-            req = req.embeds(Some(slice::from_ref(embed)))
-                    .expect("invalid embed!");
+            req = req
+                .embeds(Some(slice::from_ref(embed)))
+                .expect("invalid embed!");
         }
 
         if let Some(ref components) = builder.components {
-            req = req.components(Some(components.as_slice()))
-                    .expect("invalid components!");
+            req = req
+                .components(Some(components.as_slice()))
+                .expect("invalid components!");
         }
 
         if let Some(ref attachments) = builder.attachments {
-            req = req.attachments(attachments.as_slice())
-                    .expect("invalid embed!");
+            req = req
+                .attachments(attachments.as_slice())
+                .expect("invalid embed!");
         }
 
         req.into_future()
     }
 
     pub fn response<'a>(
-        &self, 
+        &self,
         ctx: &'a FumoContext,
-        builder: &'a MessageBuilder
+        builder: &'a MessageBuilder,
     ) -> ResponseFuture<EmptyBody> {
         let mut data = InteractionResponseDataBuilder::new();
 
@@ -200,50 +145,38 @@ impl InteractionCommand {
 
         let response = InteractionResponse {
             kind: InteractionResponseType::ChannelMessageWithSource,
-            data: Some(data.build())
+            data: Some(data.build()),
         };
 
         ctx.interaction()
-            .create_response(
-                self.id,
-                &self.token,
-                &response
-            )
+            .create_response(self.id, &self.token, &response)
             .into_future()
     }
 
-    pub fn user_id(
-        &self
-    ) -> Option<Id<UserMarker>> {
+    pub fn user_id(&self) -> Option<Id<UserMarker>> {
         if let Some(member) = &self.member {
             if let Some(user) = &member.user {
-                return Some(user.id)
+                return Some(user.id);
             }
         }
 
         if let Some(user) = &self.user {
-            return Some(user.id)
+            return Some(user.id);
         }
 
         None
     }
 
     #[inline]
-    pub fn get_option(
-        &self, 
-        name: &str
-    ) -> Option<&CommandDataOption> {
+    pub fn get_option(&self, name: &str) -> Option<&CommandDataOption> {
         self.data.options.iter().find(|x| x.name == name)
     }
 
     #[inline]
-    pub fn get_option_string(
-        &self,
-        name: &str
-    ) -> Option<&str> {
+    pub fn get_option_string(&self, name: &str) -> Option<&str> {
         if let Some(option) = self.get_option(name) {
             if let CommandOptionValue::String(v) = &option.value {
-                return Some(v.as_str())
+                return Some(v.as_str());
             }
         };
         None
@@ -284,16 +217,12 @@ define_regex! {
 macro_rules! random_string {
     ($count:expr) => {
         Alphanumeric.sample_string(&mut rand::thread_rng(), $count)
-    }
+    };
 }
 
 #[inline]
 pub fn hit_windows_circle_std(od: f64) -> (f64, f64, f64) {
-    (
-        80.0 - 6.0 * od,
-        140.0 - 8.0 * od,
-        200.0 - 10.0 * od
-    )
+    (80.0 - 6.0 * od, 140.0 - 8.0 * od, 200.0 - 10.0 * od)
 }
 
 #[inline]
@@ -310,43 +239,38 @@ pub fn ar_to_ms(ar: f64) -> f64 {
 #[inline]
 pub fn ms_to_ar(ms: f64) -> f64 {
     if ms < 1200.0 {
-        ((ms*5.0 - 1200.0*5.0) / (450.0 - 1200.0)) + 5.0
+        ((ms * 5.0 - 1200.0 * 5.0) / (450.0 - 1200.0)) + 5.0
     } else if ms > 1200.0 {
-        5.0 - ((1200.0*5.0 - ms*5.0) / (1200.0 - 1800.0))
+        5.0 - ((1200.0 * 5.0 - ms * 5.0) / (1200.0 - 1800.0))
     } else {
         1200.0
     }
 }
 
-
 pub fn pages_components() -> Vec<Component> {
     let mut vec = Vec::with_capacity(2);
 
-    let button = Component::Button( Button {
+    let button = Component::Button(Button {
         custom_id: Some("B1".to_owned()),
         disabled: false,
         label: Some("Prev".to_owned()),
         style: ButtonStyle::Primary,
         url: None,
         emoji: None,
-    }) ;
+    });
     vec.push(button);
 
-    let button = Component::Button( Button {
+    let button = Component::Button(Button {
         custom_id: Some("B2".to_owned()),
         disabled: false,
         label: Some("Next".to_owned()),
         style: ButtonStyle::Primary,
         url: None,
         emoji: None,
-    }) ;
+    });
     vec.push(button);
 
-        let component = Component::ActionRow(
-            ActionRow {
-                components: vec
-            }
-        );
+    let component = Component::ActionRow(ActionRow { components: vec });
 
-        vec![component]
-    }
+    vec![component]
+}

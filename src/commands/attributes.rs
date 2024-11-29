@@ -1,16 +1,12 @@
 use crate::{
     fumo_context::FumoContext,
-    utils::{ 
-        InteractionCommand, ms_to_ar,  hit_windows_circle_std,
-        ar_to_ms,
-        MessageBuilder,
-    },
+    utils::{ar_to_ms, hit_windows_circle_std, ms_to_ar, InteractionCommand},
 };
 
+use fumo_twilight::message::MessageBuilder;
 use osu_api::models::OsuMods;
 
-use std::str::FromStr;
-use std::fmt::Write;
+use std::{fmt::Write, str::FromStr};
 
 use eyre::Result;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -31,9 +27,9 @@ pub enum OsuAttributes {
 pub struct OsuAr {
     /// AR of the beatmap
 
-    #[command(min_value=1.0, max_value=10.0)]
+    #[command(min_value = 1.0, max_value = 10.0)]
     ar: f64,
-    
+
     /// osu! valid mods
     mods: Option<String>,
 }
@@ -42,7 +38,7 @@ impl OsuAr {
     pub async fn run(
         &self,
         ctx: &FumoContext,
-        cmd: InteractionCommand
+        cmd: InteractionCommand,
     ) -> Result<()> {
         // Unwrap cuz ar option is required and there's no way this could fail
         let mut ar = self.ar;
@@ -52,10 +48,9 @@ impl OsuAr {
             OsuMods::NOMOD
         };
 
-
         let old_ar = ar;
 
-        // Apply EZ 
+        // Apply EZ
         if mods.contains(OsuMods::EASY) {
             ar /= 2.0;
         }
@@ -81,17 +76,17 @@ impl OsuAr {
         cmd.defer(ctx).await?;
 
         let mut msg = MessageBuilder::new();
-        msg = msg.content(
-            format!(
-                "{} -> {:.2} ({:.0}ms) ({})",
-                old_ar, ar, ms, mods.to_string()
-                )
-            );
+        msg = msg.content(format!(
+            "{} -> {:.2} ({:.0}ms) ({})",
+            old_ar,
+            ar,
+            ms,
+            mods.to_string()
+        ));
 
         cmd.update(ctx, &msg).await?;
 
         Ok(())
-
     }
 }
 
@@ -100,9 +95,9 @@ impl OsuAr {
 #[command(name = "od")]
 pub struct OsuOd {
     /// OD of the beatmap
-    #[command(min_value=1.0, max_value=10.0)]
+    #[command(min_value = 1.0, max_value = 10.0)]
     od: f64,
-    
+
     /// osu! valid mods
     mods: Option<String>,
 }
@@ -111,7 +106,7 @@ impl OsuOd {
     pub async fn run(
         &self,
         ctx: &FumoContext,
-        cmd: InteractionCommand
+        cmd: InteractionCommand,
     ) -> Result<()> {
         let mut st = String::new();
         // Unwrap cuz `od` option is required and there's no way this could fail
@@ -146,18 +141,17 @@ impl OsuOd {
 
         cmd.defer(ctx).await?;
 
-        let new_od = (c300 - 80.0) / - 6.0;
+        let new_od = (c300 - 80.0) / -6.0;
 
         let _ = writeln!(st, "```{od} -> {:.2} ({})", new_od, mods.to_string());
-        let _  = writeln!(st, "300: ±{c300:.2}ms");
-        let _  = writeln!(st, "100: ±{c100:.2}ms");
-        let _  = writeln!(st, "50: ±{c50:.2}ms```");
+        let _ = writeln!(st, "300: ±{c300:.2}ms");
+        let _ = writeln!(st, "100: ±{c100:.2}ms");
+        let _ = writeln!(st, "50: ±{c50:.2}ms```");
 
         let mut msg = MessageBuilder::new();
         msg = msg.content(st);
         cmd.update(ctx, &msg).await?;
 
         Ok(())
-
     }
 }

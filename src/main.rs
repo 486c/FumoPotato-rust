@@ -1,31 +1,31 @@
-pub mod twitch_api;
+mod commands;
+mod components;
 pub mod fumo_context;
 mod handlers;
-mod commands;
-mod utils;
-mod stats;
 mod server;
+mod stats;
+pub mod twitch_api;
+mod utils;
 
 use dotenv::dotenv;
 
 use eyre::Result;
 use twilight_gateway::CloseFrame;
 
-use std::env;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{env, sync::Arc, time::Duration};
 
-use crate::fumo_context::FumoContext;
-use crate::handlers::{ event_loop, global_commands };
-use crate::server::run_server;
+use crate::{
+    fumo_context::FumoContext,
+    handlers::{event_loop, global_commands},
+    server::run_server,
+};
 use twilight_interactions::command::CreateCommand;
 
-use tokio::signal;
-use tokio::sync::oneshot::channel;
+use tokio::{signal, sync::oneshot::channel};
 
 async fn spawn_twitch_worker(
     twitch_ctx: Arc<FumoContext>,
-    rx: tokio::sync::oneshot::Receiver<()>
+    rx: tokio::sync::oneshot::Receiver<()>,
 ) {
     tokio::spawn(async move {
         tokio::select! {
@@ -42,7 +42,7 @@ async fn spawn_twitch_worker(
 
 async fn spawn_osu_worker(
     ctx: Arc<FumoContext>,
-    rx: tokio::sync::oneshot::Receiver<()>
+    rx: tokio::sync::oneshot::Receiver<()>,
 ) {
     tokio::spawn(async move {
         tokio::select! {
@@ -66,31 +66,24 @@ async fn main() -> Result<()> {
     let (ctx, mut shards) = FumoContext::new(&token).await?;
     let ctx = Arc::new(ctx);
 
-    let application_id = ctx.http.current_user()
-        .await?
-        .model()
-        .await?
-        .id.cast();
+    let application_id =
+        ctx.http.current_user().await?.model().await?.id.cast();
 
     println!("Setting global commands...");
 
-    // Mixing manually created commands 
+    // Mixing manually created commands
     // and twilight-interactions created commands :)
     let mut commands = global_commands();
 
-    commands.push(
-        commands::osu::OsuCommands::create_command()
-            .into()
-    );
+    commands.push(commands::osu::OsuCommands::create_command().into());
 
     commands.push(
-        commands::multiplayer::MultiplayerCommands::create_command()
-            .into()
+        commands::multiplayer::MultiplayerCommands::create_command().into(),
     );
-
 
     // Set global commands
-    ctx.http.interaction(application_id)
+    ctx.http
+        .interaction(application_id)
         .set_global_commands(&commands)
         .await?;
 
@@ -123,7 +116,7 @@ async fn main() -> Result<()> {
             Err(_) => println!("Can't get Cntrl+C signal for some reason"),
         }
     }
-    
+
     // Close everything
     for shard in shards.iter_mut() {
         let reason = CloseFrame::new(1000, "Closing connection");
@@ -132,7 +125,7 @@ async fn main() -> Result<()> {
         match res {
             Ok(_) => println!("Closed shard"),
             // TODO use eyre report here i guess
-            Err(e) => println!("Failed to close shard: \n{:?}", e), 
+            Err(e) => println!("Failed to close shard: \n{:?}", e),
         }
     }
 
@@ -151,14 +144,14 @@ async fn main() -> Result<()> {
     }
 
     // Doing it here to ensure that it executed
-    commands::osu_tracking::osu_sync_db(
-        ctx.clone()
-    ).await.expect("Failed to sync osu checker with db");
+    commands::osu_tracking::osu_sync_db(ctx.clone())
+        .await
+        .expect("Failed to sync osu checker with db");
 
-    commands::twitch::twitch_sync_db(
-        ctx.clone()
-    ).await.expect("Failed to sync checker list with db");
-    
+    commands::twitch::twitch_sync_db(ctx.clone())
+        .await
+        .expect("Failed to sync checker list with db");
+
     // Wait for all threads complete peacefully
     tokio::time::sleep(Duration::from_secs(5)).await;
 

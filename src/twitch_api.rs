@@ -1,16 +1,22 @@
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{ Client, Method, Response, multipart };
+use reqwest::{
+    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+    multipart, Client, Method, Response,
+};
 
 use eyre::Result;
 
 use serde::Deserialize;
 
-use serde::de::{ Visitor, Deserializer, Error, DeserializeOwned };
-use tokio::sync::RwLock;
-use tokio::sync::oneshot::{ channel, Receiver, Sender };
-use std::fmt::{ self, Write };
-use std::sync::Arc;
-use std::time::Duration;
+use serde::de::{DeserializeOwned, Deserializer, Error, Visitor};
+use std::{
+    fmt::{self, Write},
+    sync::Arc,
+    time::Duration,
+};
+use tokio::sync::{
+    oneshot::{channel, Receiver, Sender},
+    RwLock,
+};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StreamType {
@@ -26,7 +32,6 @@ impl<'de> Visitor<'de> for StreamTypeVisitor {
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("a valid stream type string")
     }
-
 
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
         match v {
@@ -55,7 +60,7 @@ pub struct TwitchUser {
     pub id: i64,
     pub login: String,
     pub display_name: String,
-    //type
+    // type
     pub broadcaster_type: String,
 }
 
@@ -76,7 +81,7 @@ pub struct TwitchStream {
     pub game_id: String, // TODO use i64
     pub title: String,
 
-    #[serde(rename = "type")] 
+    #[serde(rename = "type")]
     pub stream_type: StreamType,
 }
 
@@ -100,9 +105,9 @@ impl TwitchToken {
             .text("client_id", self.client_id.clone())
             .text("client_secret", self.client_secret.clone());
 
-        let r = self.client.post(
-            "https://id.twitch.tv/oauth2/token"
-            )
+        let r = self
+            .client
+            .post("https://id.twitch.tv/oauth2/token")
             .multipart(form)
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
@@ -130,10 +135,7 @@ impl Drop for TwitchApi {
 }
 
 impl TwitchApi {
-    pub async fn new(
-        client_id: &str, 
-        client_secret: &str
-    ) -> Result<Self> {
+    pub async fn new(client_id: &str, client_secret: &str) -> Result<Self> {
         let client = Client::builder()
             .https_only(true)
             .use_native_tls()
@@ -163,11 +165,7 @@ impl TwitchApi {
             inner: Arc::clone(&inner),
         };
 
-        TwitchApi::update_token(
-            Arc::clone(&inner),
-            token.expires_in,
-            rx
-        ).await;
+        TwitchApi::update_token(Arc::clone(&inner), token.expires_in, rx).await;
 
         Ok(api)
     }
@@ -175,13 +173,13 @@ impl TwitchApi {
     async fn update_token(
         inner: Arc<TwitchToken>,
         mut expire: u64,
-        mut rx: Receiver<()>
+        mut rx: Receiver<()>,
     ) {
         tokio::spawn(async move {
             loop {
                 expire /= 2;
                 println!("Twitch token update scheduled in {expire} seconds");
-                tokio::select!{
+                tokio::select! {
                     _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
                     _ = &mut rx => {
                         println!("twitch token loop is closed!");
@@ -190,23 +188,26 @@ impl TwitchApi {
                 }
 
                 let response = inner.request_oauth().await.unwrap();
-                
+
                 let mut token = inner.token.write().await;
                 *token = Some(response.access_token);
 
                 expire = response.expires_in;
                 println!("Successfully updated twitch api token");
             }
-
         });
     }
 
     pub async fn download_image(&self, link: &str) -> Result<Vec<u8>> {
-        let r = self.inner.client.get(link)
+        let r = self
+            .inner
+            .client
+            .get(link)
             .header(ACCEPT, "image/jpeg")
             .header("Cache-Control", "no-cache")
             .header("User-Agent", "fumo_potato")
-            .send().await?;
+            .send()
+            .await?;
 
         let bytes = r.bytes().await?;
 
@@ -214,16 +215,15 @@ impl TwitchApi {
     }
 
     async fn make_request(
-        &self, 
-        link: &str, 
-        method: Method
+        &self,
+        link: &str,
+        method: Method,
     ) -> Result<Response> {
-
         let lock = &self.inner.token.read().await;
 
-        let token = match lock.as_ref() { 
+        let token = match lock.as_ref() {
             Some(s) => s,
-            None => return Err(eyre::Report::msg("No token found!"))
+            None => return Err(eyre::Report::msg("No token found!")),
         };
 
         let r = &self.inner.client;
@@ -238,12 +238,11 @@ impl TwitchApi {
             .header(CONTENT_TYPE, "application/json")
             .header(AUTHORIZATION, format!("Bearer {token}"))
             .header("Client-Id", &self.inner.client_id);
-        
+
         // Check for errors?
         Ok(r.send().await?)
     }
 
-    
     async fn request_list<T: DeserializeOwned, U: std::fmt::Display>(
         &self,
         link: &str,
@@ -253,7 +252,7 @@ impl TwitchApi {
         let mut link = link.to_owned();
 
         if items.is_empty() {
-            return Ok(None)
+            return Ok(None);
         };
 
         let mut out_items: Vec<T> = Vec::with_capacity(items.len());
@@ -275,53 +274,47 @@ impl TwitchApi {
             if let Some(mut data) = data.data {
                 out_items.append(&mut data);
             } else {
-                return Ok(None)
+                return Ok(None);
             }
-        };
+        }
 
         Ok(Some(out_items))
     }
 
     pub async fn get_streams_by_name(
-        &self, names: &[&str]
+        &self,
+        names: &[&str],
     ) -> Result<Option<Vec<TwitchStream>>> {
         self.request_list(
             "https://api.twitch.tv/helix/streams",
             "user_login",
-            names
-        ).await
+            names,
+        )
+        .await
     }
 
     pub async fn get_streams_by_id(
-        &self, ids: &[i64]
+        &self,
+        ids: &[i64],
     ) -> Result<Option<Vec<TwitchStream>>> {
-        self.request_list(
-            "https://api.twitch.tv/helix/streams",
-            "user_id",
-            ids
-        ).await
+        self.request_list("https://api.twitch.tv/helix/streams", "user_id", ids)
+            .await
     }
 
     pub async fn get_users_by_name(
-        &self, 
-        names: &[&str]
+        &self,
+        names: &[&str],
     ) -> Result<Option<Vec<TwitchUser>>> {
-        self.request_list(
-            "https://api.twitch.tv/helix/users",
-            "login",
-            names
-        ).await
+        self.request_list("https://api.twitch.tv/helix/users", "login", names)
+            .await
     }
 
     pub async fn get_users_by_id(
-        &self, 
-        ids: &[i64]
+        &self,
+        ids: &[i64],
     ) -> Result<Option<Vec<TwitchUser>>> {
-        self.request_list(
-            "https://api.twitch.tv/helix/users",
-            "id",
-            ids
-        ).await
+        self.request_list("https://api.twitch.tv/helix/users", "id", ids)
+            .await
     }
 }
 
@@ -329,37 +322,40 @@ impl TwitchApi {
 mod tests {
     use crate::twitch_api::*;
 
-    use std::env;
     use dotenv::dotenv;
+    use std::env;
 
-    use eyre::Result;
     use async_once_cell::OnceCell;
+    use eyre::Result;
 
     static API_INSTANCE: OnceCell<TwitchApi> = OnceCell::new();
 
     async fn get_api() -> &'static TwitchApi {
         dotenv().unwrap();
-        
-        API_INSTANCE.get_or_init(async {
-            TwitchApi::new(
-                env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
-                env::var("TWITCH_SECRET").unwrap().as_str()
-            )
+
+        API_INSTANCE
+            .get_or_init(async {
+                TwitchApi::new(
+                    env::var("TWITCH_CLIENT_ID").unwrap().as_str(),
+                    env::var("TWITCH_SECRET").unwrap().as_str(),
+                )
+                .await
+                .expect("Failed to initialize twitch api")
+            })
             .await
-            .expect("Failed to initialize twitch api")
-        }).await
     }
 
     #[tokio::test]
     async fn test_get_users_non_existent_user() -> Result<()> {
         let twitch_api = get_api().await;
 
-        let list = twitch_api.get_users_by_name(
-            &["bebrikkakawka123"]
-        ).await?.unwrap();
+        let list = twitch_api
+            .get_users_by_name(&["bebrikkakawka123"])
+            .await?
+            .unwrap();
 
         assert_eq!(list.get(0), None);
-        
+
         Ok(())
     }
 
@@ -367,10 +363,11 @@ mod tests {
     async fn test_get_streams_by_id() -> Result<()> {
         let twitch_api = get_api().await;
 
-        let mut list = twitch_api.get_users_by_id(
-            &[145052794, 12826, 544067520]
-        ).await?.unwrap();
-        
+        let mut list = twitch_api
+            .get_users_by_id(&[145052794, 12826, 544067520])
+            .await?
+            .unwrap();
+
         list.sort_by_key(|s| s.id);
 
         let expected: Vec<TwitchUser> = vec![
@@ -402,9 +399,10 @@ mod tests {
     async fn test_get_streams_by_name() -> Result<()> {
         let twitch_api = get_api().await;
 
-        let mut list = twitch_api.get_users_by_name(
-            &["lopijb", "twitch"]
-        ).await?.unwrap();
+        let mut list = twitch_api
+            .get_users_by_name(&["lopijb", "twitch"])
+            .await?
+            .unwrap();
 
         list.sort_by_key(|s| s.id);
 
@@ -432,11 +430,11 @@ mod tests {
         let twitch_api = get_api().await;
 
         let image_bytes = twitch_api
-            .download_image("https://static-cdn.jtvnw.net/ttv-boxart/21465_IGDB-188x250.jpg").await?;
+            .download_image("https://static-cdn.jtvnw.net/ttv-boxart/21465_IGDB-188x250.jpg")
+            .await?;
 
         dbg!(image_bytes.len());
 
         Ok(())
     }
 }
-

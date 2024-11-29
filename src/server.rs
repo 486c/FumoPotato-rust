@@ -1,20 +1,18 @@
 use crate::fumo_context::FumoContext;
 
-use std::{sync::Arc, net::SocketAddr};
+use std::{net::SocketAddr, sync::Arc};
 
-use tokio::{sync::oneshot::Receiver, net::TcpListener };
+use tokio::{net::TcpListener, sync::oneshot::Receiver};
 
-use hyper::{ Request, Response };
-use prometheus::{ Encoder, TextEncoder };
-use http_body_util::Full;
-use hyper::service::service_fn;
 use bytes::Bytes;
+use http_body_util::Full;
+use hyper::{server::conn::http1, service::service_fn, Request, Response};
 use hyper_util::rt::tokio::TokioIo;
-use hyper::server::conn::http1;
+use prometheus::{Encoder, TextEncoder};
 
 async fn metrics_handler(
     ctx: Arc<FumoContext>,
-    _req: Request<hyper::body::Incoming>
+    _req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let mut buf = Vec::new();
     let encoder = TextEncoder::new();
@@ -26,11 +24,11 @@ async fn metrics_handler(
 
 async fn service(
     ctx: Arc<FumoContext>,
-    req: Request<hyper::body::Incoming>
+    req: Request<hyper::body::Incoming>,
 ) -> Result<Response<Full<Bytes>>, hyper::Error> {
     match req.uri().path() {
         "/metrics" => metrics_handler(ctx, req).await,
-        _ => Ok(Response::default())
+        _ => Ok(Response::default()),
     }
 }
 
@@ -46,16 +44,17 @@ pub async fn server_loop(ctx: Arc<FumoContext>) {
         let context = ctx.clone();
         tokio::task::spawn(async move {
             let _ = http1::Builder::new()
-                .serve_connection(io, service_fn(|req|
-                    service(context.clone(), req)
-                ))
+                .serve_connection(
+                    io,
+                    service_fn(|req| service(context.clone(), req)),
+                )
                 .await;
         });
     }
 }
 
 pub async fn run_server(ctx: Arc<FumoContext>, shutdown_rx: Receiver<()>) {
-    tokio::select!{
+    tokio::select! {
         _ = server_loop(ctx.clone()) => println!("wtf"),
         _ = shutdown_rx => println!("Bye http server"),
     };

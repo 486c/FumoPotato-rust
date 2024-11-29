@@ -1,6 +1,6 @@
-pub mod osu_mods;
 pub mod osu_leaderboard;
 pub mod osu_matches;
+pub mod osu_mods;
 
 use crate::datetime;
 
@@ -8,19 +8,19 @@ use crate::error::OsuApiError;
 
 use chrono::prelude::*;
 
-use serde::Deserialize;
-use serde::de::{ Unexpected, Visitor, Deserializer, Error, SeqAccess };
+use serde::{
+    de::{Deserializer, Error, SeqAccess, Unexpected, Visitor},
+    Deserialize,
+};
 use thiserror::Error;
 
-use std::string::ToString;
-use std::str::FromStr;
-use std::fmt;
+use std::{fmt, str::FromStr, string::ToString};
 
 use bitflags::bitflags;
 
 #[derive(Error, Debug, Deserialize)]
 pub struct ApiError {
-    pub error: Option<String>
+    pub error: Option<String>,
 }
 
 impl fmt::Display for ApiError {
@@ -61,11 +61,12 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             2 => Ok(RankStatus::Approved),
             3 => Ok(RankStatus::Qualified),
             4 => Ok(RankStatus::Loved),
-            _ => return Err(
-                Error::invalid_value(
+            _ => {
+                return Err(Error::invalid_value(
                     Unexpected::Unsigned(v),
-                    &r#"0, 1, 2, 3 or 4"#)
-                ),
+                    &r#"0, 1, 2, 3 or 4"#,
+                ))
+            }
         }
     }
 
@@ -78,11 +79,12 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             2 => Ok(RankStatus::Approved),
             3 => Ok(RankStatus::Qualified),
             4 => Ok(RankStatus::Loved),
-            _ => return Err(
-                Error::invalid_value(
+            _ => {
+                return Err(Error::invalid_value(
                     Unexpected::Signed(v),
-                    &r#"-2, -1, 0, 1, 2, 3 or 4"#)
-                ),
+                    &r#"-2, -1, 0, 1, 2, 3 or 4"#,
+                ))
+            }
         }
     }
 
@@ -95,9 +97,13 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             "approved" => Ok(RankStatus::Approved),
             "qualified" => Ok(RankStatus::Qualified),
             "loved" => Ok(RankStatus::Loved),
-            _ => return Err(Error::invalid_value(Unexpected::Str(&v), &r#"ranked, graveyard, wip and other"#))
+            _ => {
+                return Err(Error::invalid_value(
+                    Unexpected::Str(&v),
+                    &r#"ranked, graveyard, wip and other"#,
+                ))
+            }
         }
-
     }
 }
 
@@ -175,11 +181,12 @@ impl<'de> Visitor<'de> for OsuRankVisitor {
             "C" => OsuGrade::GradeC,
             "D" => OsuGrade::GradeD,
             "F" => OsuGrade::GradeF,
-            _ => return Err(
-                Error::invalid_value(
+            _ => {
+                return Err(Error::invalid_value(
                     Unexpected::Str(v),
-                    &r#""XH", "SH", "X", "S", "A", "B", "C", "D" or "F""#)
-                ),
+                    &r#""XH", "SH", "X", "S", "A", "B", "C", "D" or "F""#,
+                ))
+            }
         };
 
         Ok(rank)
@@ -273,7 +280,7 @@ impl ToString for OsuMods {
 
         if self.is_empty() {
             res.push_str("NM");
-            return res
+            return res;
         }
 
         if self.contains(OsuMods::NOFAIL) {
@@ -364,10 +371,10 @@ impl FromStr for OsuMods {
         let mut flags = OsuMods::empty();
 
         for abbrev in utils::cut(&s, 2) {
-            let mods = Self::from_acronym_str(abbrev); 
+            let mods = Self::from_acronym_str(abbrev);
             match mods {
                 Some(m) => flags = flags | m,
-                None => {},
+                None => {}
             }
         }
 
@@ -386,8 +393,8 @@ impl<'de> Visitor<'de> for OsuModsVisitor {
     }
 
     fn visit_seq<A: SeqAccess<'de>>(
-        self, 
-        mut seq: A
+        self,
+        mut seq: A,
     ) -> Result<Self::Value, A::Error> {
         let mut mods = OsuMods::default();
 
@@ -401,11 +408,12 @@ impl<'de> Visitor<'de> for OsuModsVisitor {
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
         let mods = match OsuMods::from_acronym_str(v) {
             Some(m) => m,
-            None => return Err(
-                Error::invalid_value(
+            None => {
+                return Err(Error::invalid_value(
                     Unexpected::Str(v),
-                    &r#"valid mods acronym"#)
-                ),
+                    &r#"valid mods acronym"#,
+                ))
+            }
         };
 
         Ok(mods)
@@ -424,7 +432,7 @@ pub enum OsuGameMode {
     Fruits,
     Mania,
     Osu,
-    Taiko
+    Taiko,
 }
 
 impl fmt::Display for OsuGameMode {
@@ -467,8 +475,8 @@ impl<'de> Visitor<'de> for OsuGameModeVisitor {
             "mania" => Ok(OsuGameMode::Mania),
             _ => Err(Error::invalid_value(
                 Unexpected::Str(v),
-                &"osu, fruits, taiko or mania"
-            ))
+                &"osu, fruits, taiko or mania",
+            )),
         }
     }
 }
@@ -528,10 +536,8 @@ pub struct OsuBeatmap {
 impl OsuBeatmap {
     pub fn metadata(&self) -> String {
         format!(
-            "{} - {} [{}]", 
-            self.beatmapset.artist, 
-            self.beatmapset.title, 
-            self.version
+            "{} - {} [{}]",
+            self.beatmapset.artist, self.beatmapset.title, self.version
         )
     }
 }
@@ -569,7 +575,7 @@ pub struct OsuScore {
     pub best_id: Option<i64>,
     pub user_id: i64,
     pub accuracy: f32,
-    
+
     pub mods: OsuMods,
     pub score: i64,
     pub legacy_total_score: Option<i64>,
@@ -697,12 +703,9 @@ mod utils {
             if source.is_empty() {
                 None
             } else {
-                let end_idx = source
-                    .char_indices()
-                    .nth(n - 1)
-                    .map_or_else(
-                        || source.len(), 
-                        |(idx, c)| idx + c.len_utf8() 
+                let end_idx = source.char_indices().nth(n - 1).map_or_else(
+                    || source.len(),
+                    |(idx, c)| idx + c.len_utf8(),
                 );
 
                 let (split, rest) = source.split_at(end_idx);
@@ -717,7 +720,7 @@ mod utils {
 
 pub enum UserId {
     Username(String),
-    Id(i64)
+    Id(i64),
 }
 
 impl fmt::Display for UserId {
@@ -800,7 +803,7 @@ impl fmt::Display for RankingKind {
 
 pub enum RankingFilter {
     All,
-    Friends
+    Friends,
 }
 
 impl fmt::Display for RankingFilter {
@@ -817,10 +820,9 @@ pub struct GetRanking {
     pub kind: RankingKind,
     pub filter: RankingFilter,
     pub country: Option<String>,
-    pub page: Option<u32>
-    // Cursor
-    // Country
-    // Variant
+    pub page: Option<u32>, /* Cursor
+                            * Country
+                            * Variant */
 }
 
 #[derive(Deserialize, Debug)]

@@ -14,26 +14,26 @@ pub struct OsuMatch {
     #[serde(deserialize_with = "datetime::deserialize::deserialize")]
     pub start_time: DateTime<Utc>,
     #[serde(deserialize_with = "datetime::deserialize_option::deserialize")]
-    pub end_time: Option<DateTime<Utc>>
+    pub end_time: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[repr(u8)]
 pub enum OsuMatchEventKind {
-    #[serde(rename="host-changed")]
+    #[serde(rename = "host-changed")]
     HostChanged,
-    #[serde(rename="match-created")]
+    #[serde(rename = "match-created")]
     MatchCreated,
-    #[serde(rename="match-disbanded")]
+    #[serde(rename = "match-disbanded")]
     MatchDisbanded,
-    #[serde(rename="other")]
+    #[serde(rename = "other")]
     Other,
-    #[serde(rename="player-joined")]
+    #[serde(rename = "player-joined")]
     PlayerJoined,
-    #[serde(rename="player-kicked")]
+    #[serde(rename = "player-kicked")]
     PlayerKicked,
-    #[serde(rename="player-left")]
-    PlayerLeft
+    #[serde(rename = "player-left")]
+    PlayerLeft,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -63,7 +63,7 @@ pub struct OsuMatchGame {
     pub scoring_kind: ScoringKind,
     #[serde(rename = "team_type")]
     pub team_kind: TeamKind,
-    pub scores: Vec<OsuScore>
+    pub scores: Vec<OsuScore>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -81,8 +81,10 @@ impl OsuMatchGet {
             true
         } else {
             for i in (0..self.events.len()).rev() {
-                if self.events[i].detail.kind == OsuMatchEventKind::MatchDisbanded {
-                    return true
+                if self.events[i].detail.kind
+                    == OsuMatchEventKind::MatchDisbanded
+                {
+                    return true;
                 }
             }
 
@@ -111,10 +113,7 @@ struct ScoringKindVisitor;
 impl<'de> de::Visitor<'de> for ScoringKindVisitor {
     type Value = ScoringKind;
 
-    fn expecting(
-        &self, 
-        formatter: &mut fmt::Formatter
-    ) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "accuracy, combo, score or scorev2")
     }
 
@@ -127,11 +126,13 @@ impl<'de> de::Visitor<'de> for ScoringKindVisitor {
             "combo" => Ok(ScoringKind::Combo),
             "score" => Ok(ScoringKind::Score),
             "scorev2" => Ok(ScoringKind::ScoreV2),
-            _ => Err(serde::de::Error::custom(format!("Invalid variant: {}", value))),
+            _ => Err(serde::de::Error::custom(format!(
+                "Invalid variant: {}",
+                value
+            ))),
         }
     }
 }
-
 
 impl<'de> Deserialize<'de> for ScoringKind {
     fn deserialize<D>(d: D) -> Result<Self, D::Error>
@@ -171,10 +172,7 @@ impl<'de> Deserialize<'de> for TeamKind {
 impl<'de> de::Visitor<'de> for TeamKindVisitor {
     type Value = TeamKind;
 
-    fn expecting(
-        &self, 
-        formatter: &mut fmt::Formatter
-    ) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "head-to-head, tag-coop, tag-team-vs or team-vs")
     }
 
@@ -187,7 +185,10 @@ impl<'de> de::Visitor<'de> for TeamKindVisitor {
             "tag-coop" => Ok(TeamKind::TagCoop),
             "tag-team-vs" => Ok(TeamKind::TagTeamVs),
             "team-vs" => Ok(TeamKind::TeamVs),
-            _ => Err(serde::de::Error::custom(format!("Invalid variant: {}", value))),
+            _ => Err(serde::de::Error::custom(format!(
+                "Invalid variant: {}",
+                value
+            ))),
         }
     }
 }

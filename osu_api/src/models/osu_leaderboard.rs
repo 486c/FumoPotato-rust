@@ -28,7 +28,7 @@ pub struct OsuScoreLazer {
 
     pub statistics: StatisticsLazer,
 
-    #[serde(rename = "type")] 
+    #[serde(rename = "type")]
     pub kind: String, // TODO enum
 
     pub user_id: u64,
@@ -43,10 +43,10 @@ pub struct OsuScoreLazer {
     pub user: OsuUserCompact,
 
     #[serde(deserialize_with = "datetime::deserialize::deserialize")]
-    pub ended_at: DateTime<Utc>
+    pub ended_at: DateTime<Utc>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct OsuLeaderboardLazer {
-    pub scores: Vec<OsuScoreLazer>
+    pub scores: Vec<OsuScoreLazer>,
 }

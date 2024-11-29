@@ -7,10 +7,7 @@ struct LocalDateTimeVisitor;
 impl<'de> de::Visitor<'de> for LocalDateTimeVisitor {
     type Value = DateTime<Utc>;
 
-    fn expecting(
-        &self, 
-        formatter: &mut fmt::Formatter
-    ) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(formatter, "a datetime string")
     }
 
@@ -21,27 +18,19 @@ impl<'de> de::Visitor<'de> for LocalDateTimeVisitor {
         // Checking both datetime formats because osu!api loves
         // to change it randomly
 
-        let parse = NaiveDateTime::parse_from_str(
-            value,
-            "%Y-%m-%dT%H:%M:%SZ"
-        );
+        let parse = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%SZ");
 
         if let Ok(ndt) = parse {
             return Ok(DateTime::from_naive_utc_and_offset(ndt, Utc));
         }
 
-        let parse = NaiveDateTime::parse_from_str(
-            value, 
-            "%Y-%m-%dT%H:%M:%S%z"
-        );
+        let parse = NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%z");
 
         if let Ok(ndt) = parse {
             return Ok(DateTime::from_naive_utc_and_offset(ndt, Utc));
         }
 
-        Err(E::custom(
-                format!("Failed to parse datetime {value}")
-        ))
+        Err(E::custom(format!("Failed to parse datetime {value}")))
     }
 }
 
@@ -51,7 +40,9 @@ pub mod deserialize {
 
     use super::LocalDateTimeVisitor;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<DateTime<Utc>, D::Error> {
         d.deserialize_str(LocalDateTimeVisitor)
     }
 }
@@ -60,12 +51,14 @@ pub mod deserialize_option {
     use std::fmt;
 
     use chrono::{DateTime, Utc};
-    use serde::{de::{Error, Visitor}, Deserializer};
+    use serde::{
+        de::{Error, Visitor},
+        Deserializer,
+    };
 
     use super::LocalDateTimeVisitor;
 
     struct OptionLocalDateTimeVisitor;
-
 
     pub fn deserialize<'de, D: Deserializer<'de>>(
         d: D,
@@ -76,13 +69,15 @@ pub mod deserialize_option {
     impl<'de> Visitor<'de> for OptionLocalDateTimeVisitor {
         type Value = Option<DateTime<Utc>>;
 
-
         fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.write_str("an optional datetime string")
         }
 
         #[inline]
-        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
+        fn visit_some<D: Deserializer<'de>>(
+            self,
+            d: D,
+        ) -> Result<Self::Value, D::Error> {
             d.deserialize_str(LocalDateTimeVisitor).map(Some)
         }
 
@@ -96,7 +91,6 @@ pub mod deserialize_option {
             Ok(None)
         }
     }
-
 }
 
 pub mod deserialize_bool {
@@ -115,10 +109,7 @@ pub mod deserialize_bool {
     impl<'de> de::Visitor<'de> for OsuBoolVisitor {
         type Value = bool;
 
-        fn expecting(
-            &self, 
-            formatter: &mut fmt::Formatter
-        ) -> fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             write!(formatter, "a 1,0 or false, true string")
         }
 
@@ -129,7 +120,7 @@ pub mod deserialize_bool {
             match value {
                 "true" => Ok(true),
                 "false" => Ok(false),
-                _ => Err(E::custom(format!("expected: true, false")))
+                _ => Err(E::custom(format!("expected: true, false"))),
             }
         }
 
@@ -140,7 +131,7 @@ pub mod deserialize_bool {
             match value {
                 1 => Ok(true),
                 0 => Ok(false),
-                _ => Err(E::custom(format!("expected: 1, 0")))
+                _ => Err(E::custom(format!("expected: 1, 0"))),
             }
         }
 
@@ -158,7 +149,7 @@ pub mod deserialize_bool {
             match value {
                 1 => Ok(true),
                 0 => Ok(false),
-                _ => Err(E::custom(format!("expected: 1, 0")))
+                _ => Err(E::custom(format!("expected: 1, 0"))),
             }
         }
 
@@ -169,10 +160,8 @@ pub mod deserialize_bool {
             match value {
                 1 => Ok(true),
                 0 => Ok(false),
-                _ => Err(E::custom(format!("expected: 1, 0")))
+                _ => Err(E::custom(format!("expected: 1, 0"))),
             }
         }
-
     }
 }
-

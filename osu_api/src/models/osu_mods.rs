@@ -4,7 +4,6 @@ use serde::Deserialize;
 
 use crate::error::OsuApiError;
 
-
 /// Single mod
 #[derive(Deserialize, Debug)]
 pub struct OsuModLazer {
@@ -17,12 +16,11 @@ impl Display for OsuModLazer {
     }
 }
 
-
 /// Multiple mods
 #[derive(Deserialize, Debug)]
 #[serde(transparent)]
-pub struct OsuModsLazer{
-    mods: Vec<OsuModLazer>
+pub struct OsuModsLazer {
+    mods: Vec<OsuModLazer>,
 }
 
 impl FromStr for OsuModsLazer {
@@ -30,23 +28,18 @@ impl FromStr for OsuModsLazer {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut ch = s.chars().peekable();
-        
+
         // TODO Check size
         let mut mods = Vec::new();
 
         while ch.peek().is_some() {
             // TODO refactor
-            let chunk: String = ch.by_ref().take(2).collect(); 
+            let chunk: String = ch.by_ref().take(2).collect();
 
-            mods.push(
-                OsuModLazer {
-                    acronym: chunk
-                }
-            )
+            mods.push(OsuModLazer { acronym: chunk })
+        }
 
-        };
-
-        Ok(Self{ mods })
+        Ok(Self { mods })
     }
 }
 
@@ -54,7 +47,7 @@ impl Display for OsuModsLazer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for mod_lazer in &self.mods {
             write!(f, "{mod_lazer}")?
-        };
+        }
 
         Ok(())
     }

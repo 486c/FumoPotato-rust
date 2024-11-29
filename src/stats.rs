@@ -1,4 +1,4 @@
-use prometheus::{ IntCounterVec, Registry };
+use prometheus::{IntCounterVec, Registry};
 
 pub struct BotStats {
     pub registry: Registry,
@@ -7,7 +7,9 @@ pub struct BotStats {
 
 impl BotStats {
     pub fn new(osu_metrics: IntCounterVec) -> Self {
-        let registry = Registry::new_custom(Some(String::from("fumo_potato")), None).unwrap();
+        let registry =
+            Registry::new_custom(Some(String::from("fumo_potato")), None)
+                .unwrap();
 
         registry.register(Box::new(osu_metrics.clone())).unwrap();
 

@@ -1,11 +1,9 @@
 use eyre::Result;
+use fumo_twilight::message::MessageBuilder;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::message::MessageFlags;
 
-use crate::{
-    fumo_context::FumoContext, 
-    utils::{InteractionCommand, MessageBuilder}, 
-};
+use crate::{fumo_context::FumoContext, utils::InteractionCommand};
 
 use osu_api::models::UserId;
 
@@ -22,35 +20,29 @@ pub enum OsuCommands {
     #[command(name = "attributes")]
     Attributes(OsuAttributes),
     #[command(name = "tracking")]
-    Tracking(OsuTracking)
+    Tracking(OsuTracking),
 }
 
 impl OsuCommands {
     pub async fn handle(
         ctx: &FumoContext,
-        cmd: InteractionCommand
+        cmd: InteractionCommand,
     ) -> Result<()> {
-        let command = Self::from_interaction(
-            cmd.data.clone().into()
-        )?;
+        let command = Self::from_interaction(cmd.data.clone().into())?;
 
         match command {
             OsuCommands::Link(command) => command.run(ctx, cmd).await,
             OsuCommands::Unlink(command) => command.run(ctx, cmd).await,
-            OsuCommands::Attributes(attrs) => {
-                match attrs {
-                    OsuAttributes::Ar(command) => command.run(ctx, cmd).await,
-                    OsuAttributes::Od(command) => command.run(ctx, cmd).await,
-                }
+            OsuCommands::Attributes(attrs) => match attrs {
+                OsuAttributes::Ar(command) => command.run(ctx, cmd).await,
+                OsuAttributes::Od(command) => command.run(ctx, cmd).await,
             },
-            OsuCommands::Tracking(command) => {
-                match command {
-                    OsuTracking::Add(command) => command.run(ctx, cmd).await,
-                    OsuTracking::Remove(command) => command.run(ctx, cmd).await,
-                    OsuTracking::AddBulk(command) => command.run(ctx, cmd).await,
-                    OsuTracking::RemoveAll(command) => command.run(ctx, cmd).await,
-                    OsuTracking::List(command) => command.run(ctx, cmd).await,
-                }
+            OsuCommands::Tracking(command) => match command {
+                OsuTracking::Add(command) => command.run(ctx, cmd).await,
+                OsuTracking::Remove(command) => command.run(ctx, cmd).await,
+                OsuTracking::AddBulk(command) => command.run(ctx, cmd).await,
+                OsuTracking::RemoveAll(command) => command.run(ctx, cmd).await,
+                OsuTracking::List(command) => command.run(ctx, cmd).await,
             },
         }
     }
@@ -65,24 +57,20 @@ impl OsuUnlink {
     pub async fn run(
         &self,
         ctx: &FumoContext,
-        cmd: InteractionCommand
+        cmd: InteractionCommand,
     ) -> Result<()> {
         let osu_user = osu_user!(ctx, cmd);
-        let mut msg = MessageBuilder::new()
-            .flags(MessageFlags::EPHEMERAL);
+        let mut msg = MessageBuilder::new().flags(MessageFlags::EPHEMERAL);
 
         if osu_user.is_none() {
-            msg = msg
-                .content("No linked account found!");
+            msg = msg.content("No linked account found!");
             cmd.response(ctx, &msg).await?;
-            return Ok(())
+            return Ok(());
         }
 
-        ctx.db.unlink_osu(discord_id!(cmd).get() as i64)
-            .await?;
+        ctx.db.unlink_osu(discord_id!(cmd).get() as i64).await?;
 
-        msg = msg
-            .content("Successfully unlinked account!");
+        msg = msg.content("Successfully unlinked account!");
 
         cmd.response(ctx, &msg).await?;
 
@@ -95,56 +83,49 @@ impl OsuUnlink {
 #[command(name = "link")]
 pub struct OsuLink {
     /// osu! username
-    #[command(min_length=3, max_length=15)]
+    #[command(min_length = 3, max_length = 15)]
     username: String,
 }
-
 
 impl OsuLink {
     pub async fn run(
         &self,
         ctx: &FumoContext,
-        cmd: InteractionCommand
+        cmd: InteractionCommand,
     ) -> Result<()> {
         let osu_user = osu_user!(ctx, cmd);
-        let mut msg = MessageBuilder::new()
-            .flags(MessageFlags::EPHEMERAL);
+        let mut msg = MessageBuilder::new().flags(MessageFlags::EPHEMERAL);
 
         if osu_user.is_some() {
-            msg = msg.content(
-                r#"You already have linked account. Please use `/unlink` to unlink it."#
-            );
+            msg = msg
+                .content(r#"You already have linked account. Please use `/unlink` to unlink it."#);
 
             cmd.response(ctx, &msg).await?;
-            return Ok(())
+            return Ok(());
         }
 
-        let user = ctx.osu_api.get_user(
-            UserId::Username(self.username.to_owned()), 
-            None
-        ).await?;
+        let user = ctx
+            .osu_api
+            .get_user(UserId::Username(self.username.to_owned()), None)
+            .await?;
 
         match user {
             Some(user) => {
-                ctx.db.link_osu(
-                    discord_id!(cmd).get() as i64,
-                    user.id
-                ).await?;
-            },
+                ctx.db
+                    .link_osu(discord_id!(cmd).get() as i64, user.id)
+                    .await?;
+            }
             None => {
-                msg = msg
-                    .content("User not found!");
+                msg = msg.content("User not found!");
                 cmd.response(ctx, &msg).await?;
-                return Ok(())
-            },
+                return Ok(());
+            }
         };
 
-        msg = msg
-            .content("Successfully linked account!");
+        msg = msg.content("Successfully linked account!");
 
         cmd.response(ctx, &msg).await?;
 
         Ok(())
-
     }
 }

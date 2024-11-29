@@ -624,6 +624,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "fumo_macro"
+version = "0.1.0"
+dependencies = [
+ "fumo_twilight",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "twilight-model",
+]
+
+[[package]]
 name = "fumo_potato"
 version = "1.0.0"
 dependencies = [
@@ -633,6 +644,8 @@ dependencies = [
  "dotenv",
  "eyre",
  "fumo_database",
+ "fumo_macro",
+ "fumo_twilight",
  "http-body-util",
  "hyper 1.2.0",
  "hyper-util",
@@ -666,6 +679,13 @@ dependencies = [
  "osu_api",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "fumo_twilight"
+version = "0.1.0"
+dependencies = [
+ "twilight-model",
 ]
 
 [[package]]
@@ -1584,9 +1604,9 @@ checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.89"
+version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f139b0662de085916d1fb67d2b4169d1addddda1919e696f3252b740b629986e"
+checksum = "37d3544b3f2748c54e147655edb5025752e2303145b5aefb3c3ea2c78b973bb0"
 dependencies = [
  "unicode-ident",
 ]
@@ -2378,9 +2398,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "syn"
-version = "2.0.87"
+version = "2.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25aa4ce346d03a6dcd68dd8b4010bcb74e54e62c90c573f394c46eae99aba32d"
+checksum = "44d46482f1c1c87acd84dea20c1bf5ebff4c757009ed6bf19cfd36fb10e92c4e"
 dependencies = [
  "proc-macro2",
  "quote",

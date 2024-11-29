@@ -1,22 +1,17 @@
-use osu_api::OsuApi;
-use crate::twitch_api::TwitchApi;
+use crate::{stats::BotStats, twitch_api::TwitchApi};
 use fumo_database::Database;
-use crate::stats::BotStats;
+use osu_api::OsuApi;
 
 use chrono::NaiveDateTime;
 use tokio::sync::Mutex;
-use twilight_http::Client;
-use twilight_http::client::InteractionClient;
-use twilight_gateway::{ EventTypeFlags, Intents,  Config, stream, ShardId, ConfigBuilder, Shard };
-use twilight_model::id::{
-    Id, 
-    marker::ApplicationMarker
+use twilight_gateway::{
+    stream, Config, ConfigBuilder, EventTypeFlags, Intents, Shard, ShardId,
 };
+use twilight_http::{client::InteractionClient, Client};
+use twilight_model::id::{marker::ApplicationMarker, Id};
 use twilight_standby::Standby;
 
-use std::collections::HashMap;
-use std::env;
-use std::sync::Arc;
+use std::{collections::HashMap, env, sync::Arc};
 
 use eyre::Result;
 
@@ -53,8 +48,9 @@ impl FumoContext {
         // Init twitch api
         let twitch_api = TwitchApi::new(
             env::var("TWITCH_CLIENT_ID")?.as_str(),
-            env::var("TWITCH_SECRET")?.as_str()
-        ).await?;
+            env::var("TWITCH_SECRET")?.as_str(),
+        )
+        .await?;
 
         // Init osu api
         let osu_api = OsuApi::new(
@@ -62,12 +58,11 @@ impl FumoContext {
             env::var("CLIENT_SECRET")?.as_str(),
             env::var("OSU_SESSION")?.as_str(),
             env::var("FALLBACK_API")?.as_str(),
-            true
-        ).await?;
+            true,
+        )
+        .await?;
 
-        let db = Database::init(
-            env::var("DATABASE_URL")?.as_str(),
-        ).await?;
+        let db = Database::init(env::var("DATABASE_URL")?.as_str()).await?;
 
         let http = Client::builder()
             .token(token.to_owned())
@@ -79,31 +74,28 @@ impl FumoContext {
         let config = Config::builder(
             token.to_owned(),
             Intents::MESSAGE_CONTENT
-            | Intents::DIRECT_MESSAGES
-            | Intents::DIRECT_MESSAGE_REACTIONS
-            | Intents::MESSAGE_CONTENT
+                | Intents::DIRECT_MESSAGES
+                | Intents::DIRECT_MESSAGE_REACTIONS
+                | Intents::MESSAGE_CONTENT,
         )
         .event_types(
             EventTypeFlags::INTERACTION_CREATE
-            | EventTypeFlags::MESSAGE_CREATE
-            | EventTypeFlags::MESSAGE_DELETE
-            | EventTypeFlags::MESSAGE_UPDATE
+                | EventTypeFlags::MESSAGE_CREATE
+                | EventTypeFlags::MESSAGE_DELETE
+                | EventTypeFlags::MESSAGE_UPDATE,
         )
         .build();
 
         let shards = stream::create_recommended(
             &http,
             config,
-            |_shard_id: ShardId, builder: ConfigBuilder| builder.build()
+            |_shard_id: ShardId, builder: ConfigBuilder| builder.build(),
         )
         .await?
         .collect();
 
-        let application_id = http.current_user()
-            .await?
-            .model()
-            .await?
-            .id.cast();
+        let application_id =
+            http.current_user().await?.model().await?.id.cast();
 
         let standby = Standby::new();
 

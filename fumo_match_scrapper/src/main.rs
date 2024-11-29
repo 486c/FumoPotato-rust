@@ -1,10 +1,19 @@
 use clap::{command, Parser, Subcommand};
 use fumo_database::Database;
 use osu_api::{models::osu_matches::OsuMatchGet, OsuApi};
-use tokio::{signal, sync::mpsc::{self, UnboundedReceiver, UnboundedSender}};
+use std::{
+    env,
+    fs::File,
+    io::{BufRead, BufReader},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
+use tokio::{
+    signal,
+    sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
+};
 use tokio_util::sync::CancellationToken;
-use std::{env, fs::File, io::{BufRead, BufReader}, ops::Range, path::PathBuf, sync::Arc, time::Duration};
-
 
 #[derive(Subcommand, Debug)]
 pub enum ScrapperKind {
@@ -25,8 +34,8 @@ pub enum ScrapperKind {
     File {
         /// A file with match_id separated by new-line
         #[arg(short, long)]
-        file: PathBuf
-    }
+        file: PathBuf,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -45,48 +54,50 @@ pub struct Args {
 }
 
 async fn master(
-    range: Vec<i64>, 
-    token: CancellationToken, 
+    range: Vec<i64>,
+    token: CancellationToken,
     db: Arc<Database>,
     osu_api: Arc<OsuApi>,
     sender: UnboundedSender<Box<OsuMatchGet>>,
-    batch_size: usize
+    batch_size: usize,
 ) {
     let mut to_process: Vec<i64> = Vec::new();
 
-    for chunk in range.chunks(batch_size) { 
+    for chunk in range.chunks(batch_size) {
         if token.is_cancelled() {
             break;
         }
 
         // 1. Check in batch manner if match_ids in chunk are
         // exists or inside not found table
-        let matches_result = 
-            db.is_match_exists_and_not_found_batch(&chunk).await.unwrap();
+        let matches_result = db
+            .is_match_exists_and_not_found_batch(&chunk)
+            .await
+            .unwrap();
 
         // 2. Clear to_process vec
         to_process.clear();
-        
+
         // 3. Collect all neccessary match_ids
         for (k, v) in &matches_result {
             match v {
                 (true, true) => {
                     println!("[{}] Match is expired, but it's in db", k);
-                    continue
-                },
+                    continue;
+                }
                 (true, false) => {
                     println!("[{}] Match exists, skipping", k);
-                    continue
-                },
+                    continue;
+                }
                 (false, true) => {
                     println!("[{}] Match not found", k);
-                    continue
-                },
-                (false, false) => {},
+                    continue;
+                }
+                (false, false) => {}
             };
 
             to_process.push(*k);
-        };
+        }
 
         for match_id in &to_process {
             match osu_api.get_match_all_events(*match_id).await {
@@ -96,20 +107,22 @@ async fn master(
                         let boxed_data = Box::new(data);
                         let _ = sender.send(boxed_data);
                     }
-                },
-                Err(e) => {
-                    match e {
-                        osu_api::error::OsuApiError::NotFound { .. } => {
-                            while let Err(e) = db.insert_osu_match_not_found(*match_id).await {
-                                println!("Error inserting not found {e}");
-                            }
-
-                            println!("[{}] Inserted into not found", match_id);
-                        },
-                        osu_api::error::OsuApiError::TooManyRequests => panic!("TOO MANY REQUESTS"),
-                        _ => println!("[{}] Error during request: {e}", match_id)
-                    }
                 }
+                Err(e) => match e {
+                    osu_api::error::OsuApiError::NotFound { .. } => {
+                        while let Err(e) =
+                            db.insert_osu_match_not_found(*match_id).await
+                        {
+                            println!("Error inserting not found {e}");
+                        }
+
+                        println!("[{}] Inserted into not found", match_id);
+                    }
+                    osu_api::error::OsuApiError::TooManyRequests => {
+                        panic!("TOO MANY REQUESTS")
+                    }
+                    _ => println!("[{}] Error during request: {e}", match_id),
+                },
             }
         }
     }
@@ -120,7 +133,7 @@ async fn master(
 async fn db_worker(
     db: Arc<Database>,
     token: CancellationToken,
-    mut receiver: UnboundedReceiver<Box<OsuMatchGet>>
+    mut receiver: UnboundedReceiver<Box<OsuMatchGet>>,
 ) {
     loop {
         if token.is_cancelled() {
@@ -131,14 +144,17 @@ async fn db_worker(
         let event = receiver.recv().await;
         if let Some(osu_match) = event {
             if let Some(end_time) = osu_match.osu_match.end_time {
-                let _ = db.insert_osu_match(
-                    osu_match.osu_match.id,
-                    &osu_match.osu_match.name,
-                    osu_match.osu_match.start_time,
-                    end_time,
-                ).await.inspect_err(|e| {
-                    println!("Failed to insert match into db: {e}")
-                });
+                let _ = db
+                    .insert_osu_match(
+                        osu_match.osu_match.id,
+                        &osu_match.osu_match.name,
+                        osu_match.osu_match.start_time,
+                        end_time,
+                    )
+                    .await
+                    .inspect_err(|e| {
+                        println!("Failed to insert match into db: {e}")
+                    });
 
                 for event in osu_match.events {
                     if event.game.is_none() {
@@ -147,28 +163,35 @@ async fn db_worker(
 
                     let game = &event.game.unwrap();
 
-                    let _ = db.insert_osu_match_game_from_request(
-                        osu_match.osu_match.id,
-                        &game
-                    ).await.inspect_err(|e| {
-                        println!("Failed to insert game into db: {e}")
-                    });
+                    let _ = db
+                        .insert_osu_match_game_from_request(
+                            osu_match.osu_match.id,
+                            &game,
+                        )
+                        .await
+                        .inspect_err(|e| {
+                            println!("Failed to insert game into db: {e}")
+                        });
 
                     for score in &game.scores {
-                        let _ = db.insert_osu_match_game_score_from_request(
-                            osu_match.osu_match.id,
-                            game.id,
-                            game.beatmap_id,
-                            &score
-                        ).await.inspect_err(|e| {
-                            println!("Failed to insert game score into db: {e}")
-                        });
+                        let _ = db
+                            .insert_osu_match_game_score_from_request(
+                                osu_match.osu_match.id,
+                                game.id,
+                                game.beatmap_id,
+                                &score,
+                            )
+                            .await
+                            .inspect_err(|e| {
+                                println!(
+                                    "Failed to insert game score into db: {e}"
+                                )
+                            });
                     }
                 }
             } else {
                 println!("[DB_WORKER] Got match to insert without end_time!")
             }
-
 
             println!("Inserted into DB: current queue => {}", receiver.len());
         } else {
@@ -185,9 +208,9 @@ async fn main() {
 
     let (match_tx, match_rx) = mpsc::unbounded_channel();
 
-    let db = Database::init(
-        env::var("DATABASE_URL").unwrap().as_str()
-    ).await.expect("Failed to initialize database connection");
+    let db = Database::init(env::var("DATABASE_URL").unwrap().as_str())
+        .await
+        .expect("Failed to initialize database connection");
 
     let db = Arc::new(db);
 
@@ -196,8 +219,10 @@ async fn main() {
         env::var("CLIENT_SECRET").unwrap().as_str(),
         env::var("OSU_SESSION").unwrap().as_str(),
         env::var("FALLBACK_API").unwrap().as_str(),
-        true
-    ).await.expect("Failed to initialize osu_api structure");
+        true,
+    )
+    .await
+    .expect("Failed to initialize osu_api structure");
 
     let osu_api = Arc::new(osu_api);
 
@@ -205,22 +230,29 @@ async fn main() {
 
     match args.command {
         ScrapperKind::Range { start, end } => {
-            
             let mut chunks = Vec::new();
             let chunk_size = (end - start) / args.workers as i64;
             let mut current_start = start;
 
             while current_start < end {
-                let current_end = std::cmp::min(current_start + chunk_size, end);
+                let current_end =
+                    std::cmp::min(current_start + chunk_size, end);
                 chunks.push(current_start..current_end);
                 current_start += chunk_size;
             }
 
             println!("Range: Starting workers on chunks: {:?}", chunks);
             for chunk in chunks {
-                tokio::spawn(master(chunk.collect(), cancel_token.clone(), db.clone(), osu_api.clone(), match_tx.clone(), args.batch_size));
-            };
-        },
+                tokio::spawn(master(
+                    chunk.collect(),
+                    cancel_token.clone(),
+                    db.clone(),
+                    osu_api.clone(),
+                    match_tx.clone(),
+                    args.batch_size,
+                ));
+            }
+        }
         ScrapperKind::Linear { start } => {
             let chunk_size = start / args.workers as i64;
             let mut chunks = Vec::new();
@@ -230,13 +262,20 @@ async fn main() {
                 chunks.push(current_start..end);
 
                 current_start = end;
-            };
+            }
 
             println!("Linear: Starting workers on chunks: {:?}", chunks);
             for chunk in chunks {
-                tokio::spawn(master(chunk.collect(), cancel_token.clone(), db.clone(), osu_api.clone(), match_tx.clone(), args.batch_size));
-            };
-        },
+                tokio::spawn(master(
+                    chunk.collect(),
+                    cancel_token.clone(),
+                    db.clone(),
+                    osu_api.clone(),
+                    match_tx.clone(),
+                    args.batch_size,
+                ));
+            }
+        }
         ScrapperKind::File { file } => {
             let file = BufReader::new(File::open(file).unwrap());
 
@@ -245,9 +284,8 @@ async fn main() {
             for line in file.lines() {
                 let line = line.unwrap();
 
-                if line.is_empty() 
-                || &line == "\n" {
-                    continue
+                if line.is_empty() || &line == "\n" {
+                    continue;
                 }
 
                 if let Ok(match_id) = line.parse() {
@@ -257,10 +295,16 @@ async fn main() {
                 }
             }
 
-            tokio::spawn(master(chunk, cancel_token.clone(), db.clone(), osu_api.clone(), match_tx.clone(), args.batch_size));
+            tokio::spawn(master(
+                chunk,
+                cancel_token.clone(),
+                db.clone(),
+                osu_api.clone(),
+                match_tx.clone(),
+                args.batch_size,
+            ));
         }
     };
-
 
     tokio::spawn(db_worker(db.clone(), cancel_token.clone(), match_rx));
 
