@@ -663,6 +663,7 @@ pub struct OsuUserExtended {
     pub username: String,
     pub country_code: String,
     pub cover_url: String,
+    pub avatar_url: String,
     pub discord: Option<String>,
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
     pub has_supported: bool,
