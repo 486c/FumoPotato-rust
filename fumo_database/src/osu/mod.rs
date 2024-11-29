@@ -210,7 +210,7 @@ impl Database {
         osu_user_id: i64,
     ) -> Result<()> {
         sqlx::query!(
-            "INSERT INTO osu_tracking VALUES($1, $2)",
+            "INSERT INTO osu_tracking VALUES($1, $2) ON CONFLICT DO NOTHING", // TODO investigate
             osu_user_id,
             channel_id
         )
