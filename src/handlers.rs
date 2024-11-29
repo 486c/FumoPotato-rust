@@ -126,8 +126,8 @@ async fn handle_interactions(
     let Interaction {
         channel,
         data,
-        guild_id,
-        kind,
+        // guild_id,
+        // kind,
         id,
         token,
         member,
@@ -140,8 +140,8 @@ async fn handle_interactions(
             let cmd = InteractionCommand {
                 channel_id: channel.unwrap().id,
                 data: *data,
-                kind,
-                guild_id,
+                // kind,
+                // guild_id,
                 id,
                 token,
                 member,
@@ -164,9 +164,9 @@ async fn handle_event(
     event: Event,
 ) -> Result<()> {
     ctx.standby.process(&event);
-    match event {
-        Event::InteractionCreate(c) => handle_interactions(ctx, c.0).await?,
-        _ => {}
+
+    if let Event::InteractionCreate(c) = event {
+        handle_interactions(ctx, c.0).await?
     }
 
     Ok(())

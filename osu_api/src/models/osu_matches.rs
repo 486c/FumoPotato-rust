@@ -88,7 +88,7 @@ impl OsuMatchGet {
                 }
             }
 
-            return false;
+            false
         }
     }
 }

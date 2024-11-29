@@ -120,7 +120,7 @@ pub mod deserialize_bool {
             match value {
                 "true" => Ok(true),
                 "false" => Ok(false),
-                _ => Err(E::custom(format!("expected: true, false"))),
+                _ => Err(E::custom("expected: true, false".to_string())),
             }
         }
 
@@ -131,7 +131,7 @@ pub mod deserialize_bool {
             match value {
                 1 => Ok(true),
                 0 => Ok(false),
-                _ => Err(E::custom(format!("expected: 1, 0"))),
+                _ => Err(E::custom("expected: 1, 0".to_string())),
             }
         }
 
@@ -149,7 +149,7 @@ pub mod deserialize_bool {
             match value {
                 1 => Ok(true),
                 0 => Ok(false),
-                _ => Err(E::custom(format!("expected: 1, 0"))),
+                _ => Err(E::custom("expected: 1, 0".to_string())),
             }
         }
 
@@ -160,7 +160,7 @@ pub mod deserialize_bool {
             match value {
                 1 => Ok(true),
                 0 => Ok(false),
-                _ => Err(E::custom(format!("expected: 1, 0"))),
+                _ => Err(E::custom("expected: 1, 0".to_string())),
             }
         }
     }

@@ -78,10 +78,7 @@ impl OsuAr {
         let mut msg = MessageBuilder::new();
         msg = msg.content(format!(
             "{} -> {:.2} ({:.0}ms) ({})",
-            old_ar,
-            ar,
-            ms,
-            mods.to_string()
+            old_ar, ar, ms, mods
         ));
 
         cmd.update(ctx, &msg).await?;
@@ -143,7 +140,7 @@ impl OsuOd {
 
         let new_od = (c300 - 80.0) / -6.0;
 
-        let _ = writeln!(st, "```{od} -> {:.2} ({})", new_od, mods.to_string());
+        let _ = writeln!(st, "```{od} -> {:.2} ({})", new_od, mods);
         let _ = writeln!(st, "300: ±{c300:.2}ms");
         let _ = writeln!(st, "100: ±{c100:.2}ms");
         let _ = writeln!(st, "50: ±{c50:.2}ms```");

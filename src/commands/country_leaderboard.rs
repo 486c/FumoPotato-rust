@@ -159,7 +159,7 @@ impl LeaderboardListing {
                 index as i32 + 1 + start_at,
                 user_score.username,
                 user_score.id,
-                score.mods.to_string()
+                score.mods
             );
 
             let pp = match self.beatmap.status {

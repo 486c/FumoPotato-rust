@@ -43,10 +43,10 @@ macro_rules! component_stream {
             .wait_for_component_stream($msg.id, |_: &Interaction| true)
             .map(|event| {
                 let Interaction {
-                    channel,
+                    // channel,
                     data,
-                    guild_id,
-                    kind,
+                    // guild_id,
+                    // kind,
                     id,
                     token,
                     ..
@@ -54,21 +54,21 @@ macro_rules! component_stream {
 
                 if let Some(InteractionData::MessageComponent(data)) = data {
                     InteractionComponent {
-                        channel,
+                        // channel,
                         data: Some(data),
-                        kind,
+                        // kind,
                         id,
                         token,
-                        guild_id,
+                        // guild_id,
                     }
                 } else {
                     InteractionComponent {
-                        channel,
+                        // channel,
                         data: None,
-                        kind,
+                        // kind,
                         id,
                         token,
-                        guild_id,
+                        // guild_id,
                     }
                 }
             })

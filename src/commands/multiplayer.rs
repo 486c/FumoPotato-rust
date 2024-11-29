@@ -85,7 +85,7 @@ impl ListingTrait for MatchesListing {
         let matches_iter = self
             .osu_matches
             .iter()
-            .skip(start_at as usize)
+            .skip(start_at)
             .take(self.entries_per_page);
 
         let mut description_str = String::new();

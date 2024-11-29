@@ -6,10 +6,7 @@ use once_cell::sync::OnceCell;
 use twilight_http::response::{marker::EmptyBody, ResponseFuture};
 
 use twilight_model::{
-    channel::{
-        message::component::{ActionRow, Button, ButtonStyle},
-        Channel,
-    },
+    channel::message::component::{ActionRow, Button, ButtonStyle},
     guild::PartialMember,
     http::interaction::{InteractionResponse, InteractionResponseType},
     id::marker::UserMarker,
@@ -19,14 +16,13 @@ use twilight_model::{
 use twilight_model::channel::message::{component::Component, Message};
 
 use twilight_model::id::{
-    marker::{ChannelMarker, GuildMarker, InteractionMarker},
+    marker::{ChannelMarker, InteractionMarker},
     Id,
 };
 
 use twilight_model::application::interaction::{
     application_command::{CommandData, CommandDataOption, CommandOptionValue},
     message_component::MessageComponentInteractionData,
-    InteractionType,
 };
 use twilight_util::builder::InteractionResponseDataBuilder;
 
@@ -34,10 +30,10 @@ use crate::fumo_context::FumoContext;
 
 #[derive(Debug)]
 pub struct InteractionComponent {
-    pub channel: Option<Channel>,
+    // pub channel: Option<Channel>,
     pub data: Option<MessageComponentInteractionData>,
-    pub kind: InteractionType,
-    pub guild_id: Option<Id<GuildMarker>>,
+    // pub kind: InteractionType,
+    // pub guild_id: Option<Id<GuildMarker>>,
     pub id: Id<InteractionMarker>,
     pub token: String,
 }
@@ -59,8 +55,8 @@ impl InteractionComponent {
 pub struct InteractionCommand {
     pub channel_id: Id<ChannelMarker>,
     pub data: CommandData,
-    pub kind: InteractionType,
-    pub guild_id: Option<Id<GuildMarker>>,
+    // pub kind: InteractionType,
+    // pub guild_id: Option<Id<GuildMarker>>,
     pub id: Id<InteractionMarker>,
     pub token: String,
     pub member: Option<PartialMember>,

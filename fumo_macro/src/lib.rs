@@ -1,8 +1,9 @@
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
 use syn::{
     parse::{self, Parser},
-    parse_macro_input, Data, Error, Fields, ItemStruct,
+    parse_macro_input, Error, Fields, ItemStruct,
 };
 
 #[proc_macro_attribute]
@@ -51,9 +52,10 @@ pub fn listing(args: TokenStream, input: TokenStream) -> TokenStream {
 
         fields.named.push(
             syn::Field::parse_named
-                .parse2(
-                    quote! { pub embed: Option<twilight_model::channel::message::embed::Embed> },
-                )
+                .parse2(quote! {
+                    pub embed:
+                        Option<twilight_model::channel::message::embed::Embed>
+                })
                 .unwrap(),
         );
     }
@@ -61,7 +63,13 @@ pub fn listing(args: TokenStream, input: TokenStream) -> TokenStream {
     let fields = if let Fields::Named(fields) = &input.fields {
         fields.named.iter().collect::<Vec<_>>()
     } else {
-        panic!("Only named fields are supported"); // TODO REMOVE PANIC
+        // panic!("Only named fields are supported"); // TODO REMOVE PANIC
+        return Error::new(
+            Span::mixed_site(),
+            "Only named fields are supported",
+        )
+        .into_compile_error()
+        .into();
     };
 
     let field_names: Vec<_> = fields
@@ -125,9 +133,13 @@ pub fn listing(args: TokenStream, input: TokenStream) -> TokenStream {
 
             /// Calculates and sets [`max_pages`] from
             /// requested [`entries_per_page`]
-            pub fn calculate_pages(mut self, len: usize, entries_per_page: usize) -> Self {
+            pub fn calculate_pages(
+                mut self,
+                len: usize, entries_per_page: usize
+            ) -> Self {
                 self.entries_per_page = entries_per_page;
-                self.max_pages = (len as f32 / entries_per_page as f32).ceil() as usize;
+                self.max_pages =
+                    (len as f32 / entries_per_page as f32).ceil() as usize;
 
                 self
             }
@@ -148,9 +160,9 @@ pub fn listing(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     };
 
-    return quote! {
+    quote! {
         #input
         #methods
     }
-    .into();
+    .into()
 }

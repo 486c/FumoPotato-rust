@@ -14,7 +14,10 @@ use serde::{
 };
 use thiserror::Error;
 
-use std::{fmt, str::FromStr, string::ToString};
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 use bitflags::bitflags;
 
@@ -99,7 +102,7 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             "loved" => Ok(RankStatus::Loved),
             _ => {
                 return Err(Error::invalid_value(
-                    Unexpected::Str(&v),
+                    Unexpected::Str(v),
                     &r#"ranked, graveyard, wip and other"#,
                 ))
             }
@@ -274,93 +277,91 @@ impl OsuMods {
     }
 }
 
-impl ToString for OsuMods {
-    fn to_string(&self) -> String {
-        let mut res = String::new();
-
+impl Display for OsuMods {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_empty() {
-            res.push_str("NM");
-            return res;
+            write!(f, "NM")?;
+            return Ok(());
         }
 
         if self.contains(OsuMods::NOFAIL) {
-            res.push_str("NF")
+            write!(f, "NF")?;
         }
         if self.contains(OsuMods::EASY) {
-            res.push_str("EZ")
+            write!(f, "EZ")?;
         }
         if self.contains(OsuMods::TOUCHDEVICE) {
-            res.push_str("TD")
+            write!(f, "TD")?;
         }
         if self.contains(OsuMods::HIDDEN) {
-            res.push_str("HD")
+            write!(f, "HD")?;
         }
         if self.contains(OsuMods::DOUBLETIME) {
             if self.contains(OsuMods::NIGHTCORE) {
-                res.push_str("NC")
+                write!(f, "NC")?;
             } else {
-                res.push_str("DT")
+                write!(f, "DT")?;
             }
         }
         if self.contains(OsuMods::HALFTIME) {
-            res.push_str("HT")
+            write!(f, "HT")?;
         }
         if self.contains(OsuMods::FLASHLIGHT) {
-            res.push_str("FL")
+            write!(f, "FL")?;
         }
         if self.contains(OsuMods::HARDROCK) {
-            res.push_str("HR")
+            write!(f, "HR")?;
         }
         if self.contains(OsuMods::SUDDENDEATH) {
-            res.push_str("SD")
+            write!(f, "SD")?;
         }
         if self.contains(OsuMods::SPUNOUT) {
-            res.push_str("SO")
+            write!(f, "SO")?;
         }
         if self.contains(OsuMods::PERFECT) {
-            res.push_str("PF")
+            write!(f, "PF")?;
         }
         if self.contains(OsuMods::MIRROR) {
-            res.push_str("MR")
+            write!(f, "MR")?;
         }
         if self.contains(OsuMods::AUTOPILOT) {
-            res.push_str("AP")
+            write!(f, "AP")?;
         }
         if self.contains(OsuMods::KEY1) {
-            res.push_str("K1")
+            write!(f, "K1")?;
         }
         if self.contains(OsuMods::KEY2) {
-            res.push_str("K2")
+            write!(f, "K2")?;
         }
         if self.contains(OsuMods::KEY3) {
-            res.push_str("K3")
+            write!(f, "K3")?;
         }
         if self.contains(OsuMods::KEY4) {
-            res.push_str("K4")
+            write!(f, "K4")?;
         }
         if self.contains(OsuMods::KEY5) {
-            res.push_str("K5")
+            write!(f, "K5")?;
         }
         if self.contains(OsuMods::KEY6) {
-            res.push_str("K6")
+            write!(f, "K6")?;
         }
         if self.contains(OsuMods::KEY7) {
-            res.push_str("K7")
+            write!(f, "K7")?;
         }
         if self.contains(OsuMods::KEY8) {
-            res.push_str("K8")
+            write!(f, "K8")?;
         }
         if self.contains(OsuMods::KEY9) {
-            res.push_str("K9")
+            write!(f, "K9")?;
         }
         if self.contains(OsuMods::RANDOM) {
-            res.push_str("RD")
+            write!(f, "RD")?;
         }
         if self.contains(OsuMods::KEYCOOP) {
-            res.push_str("2P")
+            write!(f, "2P")?;
         }
 
-        res
+        Ok(())
     }
 }
 
@@ -372,9 +373,8 @@ impl FromStr for OsuMods {
 
         for abbrev in utils::cut(&s, 2) {
             let mods = Self::from_acronym_str(abbrev);
-            match mods {
-                Some(m) => flags = flags | m,
-                None => {}
+            if let Some(m) = mods {
+                flags |= m
             }
         }
 
