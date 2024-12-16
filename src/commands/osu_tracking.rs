@@ -9,7 +9,7 @@ use std::fmt::Write;
 
 use crate::{
     fumo_context::FumoContext,
-    utils::{pages_components, InteractionCommand, InteractionComponent},
+    utils::{static_components::pages_components, interaction::{InteractionCommand, InteractionComponent}},
 };
 use chrono::Utc;
 use eyre::Result;

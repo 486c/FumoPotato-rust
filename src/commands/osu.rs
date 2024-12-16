@@ -3,7 +3,7 @@ use fumo_twilight::message::MessageBuilder;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::message::MessageFlags;
 
-use crate::{fumo_context::FumoContext, utils::InteractionCommand};
+use crate::{fumo_context::FumoContext, utils::interaction::InteractionCommand};
 
 use osu_api::models::UserId;
 

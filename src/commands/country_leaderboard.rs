@@ -1,8 +1,7 @@
 use crate::{
     fumo_context::FumoContext,
     utils::{
-        pages_components, InteractionCommand, InteractionComponent,
-        OSU_MAP_ID_NEW, OSU_MAP_ID_OLD,
+        interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components, OSU_MAP_ID_NEW, OSU_MAP_ID_OLD
     },
 };
 use fumo_database::osu::OsuDbUser;

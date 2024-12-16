@@ -1,4 +1,4 @@
-use crate::{fumo_context::FumoContext, utils::InteractionComponent};
+use crate::{fumo_context::FumoContext, utils::interaction::InteractionComponent, };
 
 /// A trait for Listing (Pagination)
 ///

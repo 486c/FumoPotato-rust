@@ -1,4 +1,3 @@
-use crate::utils::InteractionComponent;
 use eyre::Result;
 use fumo_database::osu::OsuDbMatch;
 use fumo_macro::listing;
@@ -18,7 +17,7 @@ use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
 use crate::{
     components::listing::ListingTrait,
     fumo_context::FumoContext,
-    utils::{pages_components, InteractionCommand},
+    utils::{static_components::pages_components, interaction::{InteractionCommand, InteractionComponent }},
 };
 
 /// All osu! multiplayer related commands

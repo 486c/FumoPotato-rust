@@ -15,8 +15,7 @@ use rand::distributions::{Alphanumeric, DistString};
 
 use crate::{
     fumo_context::FumoContext,
-    twitch_api::{StreamType, TwitchStream},
-    utils::InteractionCommand,
+    twitch_api::{StreamType, TwitchStream}, utils::interaction::InteractionCommand,
 };
 
 use crate::random_string;

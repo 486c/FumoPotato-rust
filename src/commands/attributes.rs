@@ -1,6 +1,6 @@
 use crate::{
     fumo_context::FumoContext,
-    utils::{ar_to_ms, hit_windows_circle_std, ms_to_ar, InteractionCommand},
+    utils::{ar_to_ms, hit_windows_circle_std, ms_to_ar, interaction::InteractionCommand},
 };
 
 use fumo_twilight::message::MessageBuilder;

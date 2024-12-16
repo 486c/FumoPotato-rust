@@ -18,7 +18,7 @@ use twilight_util::builder::command::{
 
 use crate::commands::{country_leaderboard, twitch};
 
-use crate::utils::InteractionCommand;
+use crate::utils::interaction::InteractionCommand;
 
 use eyre::Result;
 
