@@ -114,6 +114,9 @@ impl ListingTrait for MatchesListing {
 pub struct MultiplayerList {
     /// List all matches or only tournament related
     kind: ListKind,
+
+    /// osu! user id or username
+    user: Option<String>
 }
 
 impl MultiplayerList {
@@ -122,49 +125,59 @@ impl MultiplayerList {
         ctx: &FumoContext,
         cmd: InteractionCommand,
     ) -> Result<()> {
-        let osu_user = osu_user!(ctx, cmd);
+        
+        let osu_user_id = match &self.user {
+            Some(value) => {
+                UserId::from(value.as_ref())
+            },
+            None => {
+                let osu_user = osu_user!(ctx, cmd);
 
-        if osu_user.is_none() {
-            let msg = MessageBuilder::new()
-                .flags(MessageFlags::EPHEMERAL)
-                .content("No linked account found!");
-            cmd.response(ctx, &msg).await?;
-            return Ok(());
-        }
+                if osu_user.is_none() {
+                    let msg = MessageBuilder::new()
+                        .flags(MessageFlags::EPHEMERAL)
+                        .content("No linked account found!");
+                    cmd.response(ctx, &msg).await?;
+                    return Ok(());
+                }
+
+
+                let osu_user_db = osu_user.unwrap();
+                UserId::Id(osu_user_db.osu_id)
+            },
+        };
 
         cmd.defer(ctx).await?;
 
-        let osu_user_db = osu_user.unwrap();
-
-        let osu_user = ctx
+        let osu_api_user = ctx
             .osu_api
             .get_user(
-                UserId::Id(osu_user_db.osu_id),
+                osu_user_id,
                 None, // TODO: support gamemodes
             )
             .await?;
 
-        if osu_user.is_none() {
+        if osu_api_user.is_none() {
             let msg = MessageBuilder::new()
                 .flags(MessageFlags::EPHEMERAL)
                 .content("Are you restricted? Can't find user id on osu!");
             cmd.response(ctx, &msg).await?;
         }
 
-        let osu_user = osu_user.unwrap();
+        let osu_api_user = osu_api_user.unwrap();
 
         let matches = match self.kind {
             ListKind::All => {
-                ctx.db.get_user_matches_all(osu_user_db.osu_id).await?
+                ctx.db.get_user_matches_all(osu_api_user.id).await?
             }
             ListKind::Tournament => {
-                ctx.db.get_user_matches_tourney(osu_user_db.osu_id).await?
+                ctx.db.get_user_matches_tourney(osu_api_user.id).await?
             }
         };
 
         let matches_len = matches.len();
 
-        let mut matches_list = MatchesListing::new(matches, osu_user)
+        let mut matches_list = MatchesListing::new(matches, osu_api_user)
             .calculate_pages(matches_len, 10);
 
         matches_list.update();

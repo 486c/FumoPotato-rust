@@ -219,7 +219,7 @@ pub enum OsuTracking {
 #[command(name = "remove")]
 pub struct OsuTrackingRemove {
     /// osu! username or user id
-    osu_user: String,
+    user: String,
 }
 
 impl OsuTrackingRemove {
@@ -233,7 +233,7 @@ impl OsuTrackingRemove {
         let osu_user = ctx
             .osu_api
             .get_user(
-                UserId::Username(self.osu_user.clone()), // TODO avoid stupid clones
+                UserId::Username(self.user.clone()), // TODO avoid stupid clones
                 None,
             )
             .await?;
@@ -277,7 +277,7 @@ impl OsuTrackingRemove {
 #[command(name = "add")]
 pub struct OsuTrackingAdd {
     /// osu! username or user id
-    osu_user: String,
+    user: String,
 }
 
 impl OsuTrackingAdd {
@@ -289,7 +289,7 @@ impl OsuTrackingAdd {
         let osu_user = ctx
             .osu_api
             .get_user(
-                UserId::Username(self.osu_user.clone()), // TODO avoid stupid clones
+                UserId::Username(self.user.clone()), // TODO avoid stupid clones
                 None,
             )
             .await?;

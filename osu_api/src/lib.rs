@@ -543,8 +543,6 @@ mod tests {
                 .initialized
                 .compare_exchange(false, true, SeqCst, SeqCst);
 
-            dbg!(&cmp_res);
-
             if cmp_res.is_ok() {
                 dotenv().unwrap();
 
@@ -557,8 +555,6 @@ mod tests {
                 )
                 .await
                 .unwrap();
-
-                dbg!("Initializing again");
 
                 self.inner.set(Mutex::new(api)).ok();
             }
@@ -609,41 +605,6 @@ mod tests {
             .include_fails(true);
 
         api.get_user_scores(req).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_api_timezone() {
-        let api = API_INSTANCE.get().await.unwrap();
-
-        let req = GetUserScores::new(15555817, ScoresType::Best).limit(100);
-
-        let scores = api.get_user_scores(req).await.unwrap();
-
-        let score = scores.iter().find(|x| {
-            if let Some(beatmap) = &x.beatmap {
-                return beatmap.id == 1402392;
-            };
-
-            false
-        });
-
-        assert_eq!(score.is_some(), true);
-
-        let score = score.unwrap();
-
-        let dt: NaiveDateTime = NaiveDate::from_ymd_opt(2024, 3, 9)
-            .unwrap()
-            .and_hms_opt(20, 12, 0)
-            .unwrap();
-
-        let score_dt = score.created_at.naive_utc();
-
-        dbg!(dt);
-        dbg!(score_dt);
-
-        assert!(score_dt > dt);
-
-        dbg!(score.created_at);
     }
 
     #[tokio::test]

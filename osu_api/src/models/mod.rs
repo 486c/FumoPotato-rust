@@ -719,9 +719,21 @@ mod utils {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum UserId {
     Username(String),
     Id(i64),
+}
+
+/// Attemps to parse i64 from string
+/// if failed defaults to username string
+impl From<&str> for UserId {
+    fn from(value: &str) -> Self {
+        match i64::from_str_radix(value, 10) {
+            Ok(v) => Self::Id(v),
+            Err(_) => Self::Username(value.to_owned()),
+        }
+    }
 }
 
 impl fmt::Display for UserId {
@@ -821,9 +833,10 @@ pub struct GetRanking {
     pub kind: RankingKind,
     pub filter: RankingFilter,
     pub country: Option<String>,
-    pub page: Option<u32>, /* Cursor
-                            * Country
-                            * Variant */
+    pub page: Option<u32>, 
+    /* Cursor
+     * Country
+     * Variant */
 }
 
 #[derive(Deserialize, Debug)]
@@ -835,4 +848,12 @@ pub struct Rankings {
 pub struct BeatmapUserScore {
     pub position: u32,
     pub score: OsuScore,
+}
+
+#[test]
+fn test_userid_conversion() {
+    assert_eq!(UserId::from("486c"), UserId::Username("486c".to_owned()));
+    assert_eq!(UserId::from("486"), UserId::Id(486));
+    assert_eq!(UserId::from("1234567"), UserId::Id(1234567));
+    assert_eq!(UserId::from("32178318LoPiJ"), UserId::Username("32178318LoPiJ".to_owned()));
 }
