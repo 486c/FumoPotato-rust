@@ -354,7 +354,7 @@ mod tests {
             .await?
             .unwrap();
 
-        assert_eq!(list.get(0), None);
+        assert_eq!(list.first(), None);
 
         Ok(())
     }
