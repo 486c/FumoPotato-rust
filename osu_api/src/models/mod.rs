@@ -729,7 +729,7 @@ pub enum UserId {
 /// if failed defaults to username string
 impl From<&str> for UserId {
     fn from(value: &str) -> Self {
-        match i64::from_str_radix(value, 10) {
+        match value.parse::<i64>() {
             Ok(v) => Self::Id(v),
             Err(_) => Self::Username(value.to_owned()),
         }

@@ -71,7 +71,7 @@ async fn master(
         // 1. Check in batch manner if match_ids in chunk are
         // exists or inside not found table
         let matches_result = db
-            .is_match_exists_and_not_found_batch(&chunk)
+            .is_match_exists_and_not_found_batch(chunk)
             .await
             .unwrap();
 
@@ -166,7 +166,7 @@ async fn db_worker(
                     let _ = db
                         .insert_osu_match_game_from_request(
                             osu_match.osu_match.id,
-                            &game,
+                            game,
                         )
                         .await
                         .inspect_err(|e| {
@@ -179,7 +179,7 @@ async fn db_worker(
                                 osu_match.osu_match.id,
                                 game.id,
                                 game.beatmap_id,
-                                &score,
+                                score,
                             )
                             .await
                             .inspect_err(|e| {

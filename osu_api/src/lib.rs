@@ -518,7 +518,6 @@ mod tests {
         sync::atomic::{AtomicBool, Ordering::SeqCst},
     };
 
-    use chrono::{NaiveDate, NaiveDateTime};
     use dotenv::dotenv;
     use once_cell::sync::OnceCell;
     use osu_matches::OsuMatchEventKind;
