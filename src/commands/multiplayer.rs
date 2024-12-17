@@ -162,6 +162,7 @@ impl MultiplayerList {
                 .flags(MessageFlags::EPHEMERAL)
                 .content("Are you restricted? Can't find user id on osu!");
             cmd.update(ctx, &msg).await?;
+            return Ok(());
         }
 
         let osu_api_user = osu_api_user.unwrap();
