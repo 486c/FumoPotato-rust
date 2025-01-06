@@ -354,7 +354,7 @@ pub struct OsuTrackingAddBulk {
     country: Option<String>,
 
     /// Starting page (1 page = 50 players)
-    #[command(min_value = 1, max_value = 10)]
+    #[command(min_value = 1, max_value = 200)]
     page: Option<i64>,
 }
 
