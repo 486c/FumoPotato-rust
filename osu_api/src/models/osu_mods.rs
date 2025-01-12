@@ -5,7 +5,7 @@ use serde::Deserialize;
 use crate::error::OsuApiError;
 
 /// Single mod
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct OsuModLazer {
     acronym: String,
 }
@@ -17,7 +17,7 @@ impl Display for OsuModLazer {
 }
 
 /// Multiple mods
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(transparent)]
 pub struct OsuModsLazer {
     mods: Vec<OsuModLazer>,

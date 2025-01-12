@@ -35,4 +35,6 @@ pub enum OsuApiError {
     Forbidden,
     #[error("unthorized")]
     Unauthorized,
+    #[error("error serialazing")]
+    Serializing(#[from] serde_json::Error),
 }

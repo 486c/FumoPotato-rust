@@ -405,6 +405,14 @@ impl<'de> Visitor<'de> for OsuModsVisitor {
         Ok(mods)
     }
 
+    fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
+        Ok(OsuMods::from_bits_truncate(v as u32))
+    }
+
+    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(OsuMods::from_bits_truncate(v as u32))
+    }
+
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
         let mods = match OsuMods::from_acronym_str(v) {
             Some(m) => m,

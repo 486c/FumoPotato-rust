@@ -3,7 +3,9 @@ mod metrics;
 
 pub mod error;
 pub mod models;
+pub mod fallback_models;
 
+use fallback_models::FallbackBeatmapScores;
 use models::{osu_matches::OsuMatchGet, BeatmapUserScore};
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT},
@@ -12,7 +14,7 @@ use reqwest::{
 
 use self::models::{
     osu_leaderboard::OsuLeaderboardLazer, ApiError, GetRanking, GetUserScores,
-    OauthResponse, OsuBeatmap, OsuGameMode, OsuLeaderboard, OsuScore,
+    OauthResponse, OsuBeatmap, OsuGameMode, OsuScore,
     OsuUserExtended, RankingKind, Rankings, UserId,
 };
 
@@ -28,7 +30,7 @@ use tokio::sync::{
 };
 
 use crate::{error::OsuApiError, models::OsuUserStatistics};
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 
 static OSU_BASE: &str = "https://osu.ppy.sh";
 static OSU_API_BASE: &str = "https://osu.ppy.sh/api/v2";
@@ -38,12 +40,14 @@ type ApiResult<T> = Result<T, OsuApiError>;
 pub enum ApiKind {
     General,
     Hidden,
+    Fallback,
 }
 
 #[derive(Debug)]
 pub struct OsuApi {
     inner: Arc<OsuToken>,
     fallback_url: String,
+    fallback_token: String,
     loop_drop_tx: Option<Sender<()>>,
     osu_session: String,
     pub stats: Metrics,
@@ -100,6 +104,7 @@ impl OsuApi {
         link: &str,
         method: Method,
         api_kind: ApiKind,
+        body: Option<String>
     ) -> ApiResult<T> {
         let token = self.inner.token.read().await;
 
@@ -110,7 +115,7 @@ impl OsuApi {
             _ => unimplemented!(),
         };
 
-        let req = match api_kind {
+        let mut req = match api_kind {
             ApiKind::General => r
                 .header(ACCEPT, "application/json")
                 .header(CONTENT_TYPE, "application/json")
@@ -118,7 +123,14 @@ impl OsuApi {
             ApiKind::Hidden => r
                 .header(USER_AGENT, "fumo_potato")
                 .header(COOKIE, format!("osu_session={}", self.osu_session)),
+            ApiKind::Fallback => r
+                .header(USER_AGENT, "fumo_potato")
+                .header("x-api-key", &self.fallback_token),
         };
+
+        if let Some(body) = body {
+            req = req.body(body)
+        }
 
         let resp = req.send().await?;
 
@@ -217,6 +229,7 @@ impl OsuApi {
                 &link[..link.len() - 1],
                 Method::GET,
                 ApiKind::General,
+                None
             )
             .await?;
 
@@ -238,7 +251,7 @@ impl OsuApi {
         }
 
         let r: ApiResult<OsuUserExtended> = self
-            .make_request(&link, Method::GET, ApiKind::General)
+            .make_request(&link, Method::GET, ApiKind::General, None)
             .await;
 
         match r {
@@ -261,7 +274,7 @@ impl OsuApi {
         );
 
         let r = self
-            .make_request(&link, Method::GET, ApiKind::General)
+            .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
 
         Ok(r)
@@ -271,7 +284,7 @@ impl OsuApi {
         let link = format!("{OSU_API_BASE}/beatmaps/{bid}");
 
         let r = self
-            .make_request(&link, Method::GET, ApiKind::General)
+            .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
 
         self.stats.beatmap.inc();
@@ -312,7 +325,7 @@ impl OsuApi {
             };
 
             let res: Rankings = self
-                .make_request(&link, Method::GET, ApiKind::General)
+                .make_request(&link, Method::GET, ApiKind::General, None)
                 .await?;
 
             let amount_to_append =
@@ -376,7 +389,7 @@ impl OsuApi {
             let _ = write!(link, "&limit={}", limit);
         }
 
-        self.make_request(&link, Method::GET, ApiKind::General)
+        self.make_request(&link, Method::GET, ApiKind::General, None)
             .await
     }
 
@@ -391,7 +404,7 @@ impl OsuApi {
             link.push_str("type=country")
         }
 
-        self.make_request(&link, Method::GET, ApiKind::Hidden).await
+        self.make_request(&link, Method::GET, ApiKind::Hidden, None).await
     }
 
     // This method works only if FALLBACK_API variable
@@ -399,9 +412,9 @@ impl OsuApi {
     pub async fn get_countryleaderboard_fallback(
         &self,
         bid: i32,
-    ) -> ApiResult<OsuLeaderboard> {
+    ) -> ApiResult<FallbackBeatmapScores> {
         let link = format!(
-            "{}/leaderboard/leaderboard?beatmap={}&type=country",
+            "{}/osu/beatmaps/v2/{}/scores",
             self.fallback_url, bid
         );
 
@@ -410,7 +423,15 @@ impl OsuApi {
         let mut retries = 0;
         while retries <= 5 {
             let resp = self
-                .make_request(&link, Method::GET, ApiKind::General)
+                .make_request(
+                    &link, 
+                    Method::GET, 
+                    ApiKind::Fallback, 
+                    Some(serde_json::json!({
+                        "country": "BY",
+                        "type": "country"
+                    }).to_string())
+                )
                 .await;
 
             self.stats.country_leaderboard.inc();
@@ -438,6 +459,7 @@ impl OsuApi {
         secret: &str,
         osu_session: &str,
         fallback_url: &str,
+        fallback_token: &str,
         run_loop: bool,
     ) -> ApiResult<OsuApi> {
         let inner = Arc::new(OsuToken {
@@ -472,6 +494,7 @@ impl OsuApi {
             fallback_url: fallback_url.to_owned(),
             osu_session: osu_session.to_owned(),
             stats,
+            fallback_token: fallback_token.to_string(),
         };
 
         Ok(api)
@@ -550,6 +573,7 @@ mod tests {
                     env::var("CLIENT_SECRET").unwrap().as_str(),
                     env::var("OSU_SESSION").unwrap().as_str(),
                     env::var("FALLBACK_API").unwrap().as_str(),
+                    env::var("FALLBACK_API_KEY").unwrap().as_str(),
                     false,
                 )
                 .await
@@ -660,6 +684,15 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_fallback_beatmap_leaderboard() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let res = api.get_countryleaderboard_fallback(1627148).await.unwrap();
+
+        assert_eq!(res.items.len(), 50);
+    }
+
+    #[tokio::test]
     async fn test_get_match() {
         let api = API_INSTANCE.get().await.unwrap();
 
@@ -698,7 +731,7 @@ mod tests {
 
         let link = "https://osu.ppy.sh/apii/v2/beaaps/";
         let _: OsuBeatmap = api
-            .make_request(link, Method::GET, ApiKind::General)
+            .make_request(link, Method::GET, ApiKind::General, None)
             .await
             .unwrap();
     }
