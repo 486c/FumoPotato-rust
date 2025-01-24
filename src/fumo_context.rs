@@ -58,6 +58,7 @@ impl FumoContext {
             env::var("CLIENT_SECRET")?.as_str(),
             env::var("OSU_SESSION")?.as_str(),
             env::var("FALLBACK_API")?.as_str(),
+            env::var("FALLBACK_API_KEY")?.as_str(),
             true,
         )
         .await?;

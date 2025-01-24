@@ -1,4 +1,5 @@
 mod datetime;
+mod datetime_timestamp;
 mod metrics;
 
 pub mod error;
@@ -30,7 +31,7 @@ use tokio::sync::{
 };
 
 use crate::{error::OsuApiError, models::OsuUserStatistics};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
 
 static OSU_BASE: &str = "https://osu.ppy.sh";
 static OSU_API_BASE: &str = "https://osu.ppy.sh/api/v2";
@@ -412,11 +413,16 @@ impl OsuApi {
     pub async fn get_countryleaderboard_fallback(
         &self,
         bid: i32,
+        mods: Option<String>
     ) -> ApiResult<FallbackBeatmapScores> {
-        let link = format!(
-            "{}/osu/beatmaps/v2/{}/scores",
+        let mut link = format!(
+            "{}/osu/beatmaps/v2/{}/scores?country=BY&type=country",
             self.fallback_url, bid
         );
+
+        if let Some(mods) = mods {
+            let _ = write!(link, "&mods={}", mods);
+        }
 
         // FIXME Temporary solution since seneaL's api is BS
         // at the moment
@@ -427,10 +433,7 @@ impl OsuApi {
                     &link, 
                     Method::GET, 
                     ApiKind::Fallback, 
-                    Some(serde_json::json!({
-                        "country": "BY",
-                        "type": "country"
-                    }).to_string())
+                    None
                 )
                 .await;
 
@@ -579,6 +582,8 @@ mod tests {
                 .await
                 .unwrap();
 
+                dbg!(&api);
+
                 self.inner.set(Mutex::new(api)).ok();
             }
 
@@ -687,7 +692,7 @@ mod tests {
     async fn test_get_fallback_beatmap_leaderboard() {
         let api = API_INSTANCE.get().await.unwrap();
 
-        let res = api.get_countryleaderboard_fallback(1627148).await.unwrap();
+        let res = api.get_countryleaderboard_fallback(1627148, None).await.unwrap();
 
         assert_eq!(res.items.len(), 50);
     }

@@ -1,12 +1,16 @@
+use chrono::{DateTime, Utc};
+use osu_fallback_mods::FallbackOsuMod;
 use serde::Deserialize;
 
-use crate::models::{OsuGameMode, OsuMods};
+use crate::{datetime_timestamp, models::{OsuGameMode, OsuGrade, OsuMods}};
 
+pub mod osu_fallback_mods;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallbackScoreStatsMods {
     pub number: OsuMods,
-    //pub array
+    pub array: Vec<String>,
+    pub difficulty: Vec<FallbackOsuMod>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -15,9 +19,8 @@ pub struct FallbackScoreStats {
     pub performance: f32,
     pub combo: u32,
     pub accuracy: f32,
-    pub rank: String,
+    pub rank: OsuGrade,
     pub mods: FallbackScoreStatsMods,
-
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -44,16 +47,30 @@ pub struct FallabackScoreCounts {
     pub xmiss: u32,
 }
 
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FallabackScoreBeatmap {
+    id: i64
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FallabackScorePlayer {
+    pub id: i64,
+    pub username: String
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallbackScore {
     pub position: u32,
     pub id: i64,
-    pub beatmap: i64,
-    pub player: i64,
-    //pub date
+
+    #[serde(deserialize_with = "datetime_timestamp::deserialize::deserialize")]
+    pub date: DateTime<Utc>,
 
     pub status: FallabackScoreStatus,
     pub counts: FallabackScoreCounts,
+    pub player: FallabackScorePlayer,
+    pub beatmap: FallabackScoreBeatmap,
     pub stats: FallbackScoreStats,
 }
 

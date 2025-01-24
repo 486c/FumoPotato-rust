@@ -1,5 +1,5 @@
 use crate::{
-    commands::{multiplayer::MultiplayerCommands, osu::OsuCommands},
+    commands::{country_leaderboard::LeaderboardCommand, multiplayer::MultiplayerCommands, osu::OsuCommands},
     fumo_context::FumoContext,
 };
 use tokio_stream::StreamExt;
@@ -24,9 +24,12 @@ use eyre::Result;
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     let res = match cmd.data.name.as_str() {
-        "leaderboard" | "Leaderboard" => {
+        "Leaderboard" => {
             country_leaderboard::run(&ctx, cmd).await
         }
+        "leaderboard" => {
+            LeaderboardCommand::handle(&ctx, cmd).await
+        },
         "twitch" => twitch::run(&ctx, cmd).await,
         "osu" => OsuCommands::handle(&ctx, cmd).await,
         "multiplayer" => MultiplayerCommands::handle(&ctx, cmd).await,
@@ -74,18 +77,6 @@ pub fn global_commands() -> Vec<Command> {
     // TODO Make this more readable i guess
     // mb use twilight-interactions?
     let mut commands: Vec<Command> = Vec::new();
-
-    // osu
-    let cmd = CommandBuilder::new(
-        "leaderboard",
-        "Show country leaderboard",
-        CommandType::ChatInput,
-    )
-    .option(
-        StringBuilder::new("link", "direct link to beatmap").required(false),
-    )
-    .build();
-    commands.push(cmd);
 
     let cmd =
         CommandBuilder::new("Leaderboard", "", CommandType::Message).build();

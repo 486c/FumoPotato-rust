@@ -219,6 +219,7 @@ async fn main() {
         env::var("CLIENT_SECRET").unwrap().as_str(),
         env::var("OSU_SESSION").unwrap().as_str(),
         env::var("FALLBACK_API").unwrap().as_str(),
+        env::var("FALLBACK_API_KEY").unwrap().as_str(),
         true,
     )
     .await

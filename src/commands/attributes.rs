@@ -26,7 +26,6 @@ pub enum OsuAttributes {
 #[command(name = "ar")]
 pub struct OsuAr {
     /// AR of the beatmap
-
     #[command(min_value = 1.0, max_value = 10.0)]
     ar: f64,
 

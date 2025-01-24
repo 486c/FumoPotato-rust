@@ -20,6 +20,7 @@ use crate::{
     utils::{static_components::pages_components, interaction::{InteractionCommand, InteractionComponent }},
 };
 
+
 /// All osu! multiplayer related commands
 #[derive(CommandModel, CreateCommand, Debug)]
 #[command(name = "multiplayer")]

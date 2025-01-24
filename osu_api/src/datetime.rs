@@ -30,7 +30,7 @@ impl<'de> de::Visitor<'de> for LocalDateTimeVisitor {
             return Ok(DateTime::from_naive_utc_and_offset(ndt, Utc));
         }
 
-        Err(E::custom(format!("Failed to parse datetime {value}")))
+        Err(E::custom(format!("Failed to parse utc datetime {value}")))
     }
 }
 
