@@ -1,4 +1,4 @@
-use crate::{stats::BotStats, twitch_api::TwitchApi};
+use crate::{stats::{BotMetrics, BotStats}, twitch_api::TwitchApi};
 use fumo_database::Database;
 use osu_api::OsuApi;
 
@@ -30,7 +30,7 @@ pub struct FumoContext {
     pub osu_checker_list: Mutex<HashMap<i64, NaiveDateTime>>,
 
     pub db: Database,
-    pub stats: BotStats,
+    pub stats: BotMetrics,
     pub http: Arc<Client>,
     pub standby: Standby,
 
@@ -100,7 +100,12 @@ impl FumoContext {
 
         let standby = Standby::new();
 
-        let stats = BotStats::new(osu_api.stats.counters.clone());
+        let bot_metrics = BotStats::new();
+
+        let stats = BotMetrics::new(
+            osu_api.stats.counters.clone(),
+            bot_metrics.command_counters.clone()
+        );
 
         let ctx = FumoContext {
             osu_api,

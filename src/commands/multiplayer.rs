@@ -37,7 +37,10 @@ impl MultiplayerCommands {
         let command = Self::from_interaction(cmd.data.clone().into())?;
 
         match command {
-            MultiplayerCommands::List(command) => command.run(ctx, cmd).await,
+            MultiplayerCommands::List(command) => {
+                ctx.stats.bot.with_label_values(&["multiplayer_list"]).inc();
+                command.run(ctx, cmd).await
+            },
         }
     }
 }

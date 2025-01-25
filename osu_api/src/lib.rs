@@ -234,6 +234,8 @@ impl OsuApi {
             )
             .await?;
 
+        self.stats.counters.with_label_values(&["get_user_scores"]).inc();
+
         Ok(r)
     }
 
@@ -254,6 +256,8 @@ impl OsuApi {
         let r: ApiResult<OsuUserExtended> = self
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await;
+
+        self.stats.counters.with_label_values(&["get_user"]).inc();
 
         match r {
             Ok(v) => Ok(Some(v)),
@@ -278,6 +282,8 @@ impl OsuApi {
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
 
+        self.stats.counters.with_label_values(&["get_user_beatmap_scores"]).inc();
+
         Ok(r)
     }
 
@@ -287,8 +293,8 @@ impl OsuApi {
         let r = self
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
-
-        self.stats.beatmap.inc();
+        
+        self.stats.counters.with_label_values(&["get_beatmap"]).inc();
 
         Ok(r)
     }
@@ -328,6 +334,8 @@ impl OsuApi {
             let res: Rankings = self
                 .make_request(&link, Method::GET, ApiKind::General, None)
                 .await?;
+
+            self.stats.counters.with_label_values(&["get_rankings"]).inc();
 
             let amount_to_append =
                 (amount - buffer.len()).min(res.ranking.len());
@@ -390,6 +398,9 @@ impl OsuApi {
             let _ = write!(link, "&limit={}", limit);
         }
 
+
+        self.stats.counters.with_label_values(&["get_match"]).inc();
+
         self.make_request(&link, Method::GET, ApiKind::General, None)
             .await
     }
@@ -405,6 +416,7 @@ impl OsuApi {
             link.push_str("type=country")
         }
 
+        self.stats.counters.with_label_values(&["get_leaderboard_hidden"]).inc();
         self.make_request(&link, Method::GET, ApiKind::Hidden, None).await
     }
 
@@ -437,7 +449,8 @@ impl OsuApi {
                 )
                 .await;
 
-            self.stats.country_leaderboard.inc();
+
+            self.stats.counters.with_label_values(&["get_countryleaderboard"]).inc();
 
             match resp {
                 Ok(r) => return Ok(r),
