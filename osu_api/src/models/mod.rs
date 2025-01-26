@@ -8,6 +8,7 @@ use crate::error::OsuApiError;
 
 use chrono::prelude::*;
 
+use osu_leaderboard::OsuScoreLazer;
 use serde::{
     de::{Deserializer, Error, SeqAccess, Unexpected, Visitor},
     Deserialize,
@@ -435,7 +436,8 @@ impl<'de> Deserialize<'de> for OsuMods {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[repr(u8)]
 pub enum OsuGameMode {
     Fruits,
     Mania,
@@ -463,6 +465,15 @@ impl OsuGameMode {
             OsuGameMode::Taiko => "taiko",
         }
     }
+
+    pub fn to_emoji(&self) -> &'static str {
+        match self {
+            OsuGameMode::Fruits => "<:mode_fruits:1332838034839699549>",
+            OsuGameMode::Mania => "<:mode_mania:1332838036676808848>",
+            OsuGameMode::Osu => "<:r_mode_osu:1332842409557491745>",
+            OsuGameMode::Taiko => "<:mode_taiko:1332838039428403230>",
+        }
+    }
 }
 
 struct OsuGameModeVisitor;
@@ -473,6 +484,16 @@ impl<'de> Visitor<'de> for OsuGameModeVisitor {
     #[inline]
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("valid string")
+    }
+
+    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        match v {
+            0 => Ok(OsuGameMode::Osu),
+            1 => Ok(OsuGameMode::Taiko),
+            2 => Ok(OsuGameMode::Fruits),
+            3 => Ok(OsuGameMode::Mania),
+            _ => Err(Error::invalid_value(Unexpected::Unsigned(v), &"0, 1, 2, 3")),
+        }
     }
 
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
@@ -522,9 +543,49 @@ pub struct OsuScoreStatistics {
 #[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
 pub struct OsuBeatmapsetCompact {
-    title: String,
-    artist: String,
-    creator: String,
+    pub title: String,
+    pub artist: String,
+    pub creator: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct OsuBeatmapAttributes {
+    pub attributes: OsuBeatmapAttributesKind,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum OsuBeatmapAttributesKind {
+    Osu {
+        max_combo: u32,
+        star_rating: f32,
+        aim_difficulty: f32,
+        approach_rate: f32,
+        flashlight_difficulty: f32,
+        overall_difficulty: f32,
+        slider_factor: f32,
+        speed_difficulty: f32,
+    },
+    Taiko {
+        max_combo: u32,
+        star_rating: f32,
+        stamina_difficulty: f32,
+        rhythm_difficulty: f32,
+        colour_difficulty: f32,
+        approach_rate: f32,
+        great_hit_window: f32,
+    },
+    Fruits {
+        max_combo: u32,
+        star_rating: f32,
+        approach_rate: f32,
+    },
+    Mania {
+        max_combo: u32,
+        star_rating: f32,
+        great_hit_window: f32,
+        score_multiplier: Option<f32>,
+    },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -532,6 +593,12 @@ pub struct OsuBeatmap {
     pub beatmapset_id: i32,
     pub id: i32,
     pub mode: String,
+    pub bpm: Option<f32>,
+    
+    pub ar: f32,
+    pub cs: f32,
+    pub drain: f32,
+    pub accuracy: f32,
 
     pub version: String,
 
@@ -660,8 +727,8 @@ pub struct OsuUserStatistics {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct OsuUserExtendedStatistics {
-    pub global_rank: u32,
-    pub country_rank: u32,
+    pub global_rank: Option<u32>,
+    pub country_rank: Option<u32>,
     pub pp: f32,
 }
 
@@ -856,6 +923,18 @@ pub struct Rankings {
 pub struct BeatmapUserScore {
     pub position: u32,
     pub score: OsuScore,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ScoresBatchCursor {
+    pub id: i64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ScoresBatch {
+    pub scores: Vec<OsuScoreLazer>,
+    pub cursor_string: String,
+    pub cursor: ScoresBatchCursor,
 }
 
 #[test]

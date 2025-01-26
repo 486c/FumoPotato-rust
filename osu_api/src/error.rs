@@ -15,7 +15,7 @@ pub enum OsuApiError {
     ApiError(#[from] ApiError),
     #[error("not found: `{url}`")]
     NotFound { url: String },
-    #[error("serde parsing: `{source}` url: {url} body: `{body}`")]
+    #[error("serde parsing: body: `{body}`; `{source}` url: {url}")]
     Parsing {
         source: serde_json::Error,
         body: String,

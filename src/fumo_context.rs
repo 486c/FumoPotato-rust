@@ -1,8 +1,10 @@
 use crate::{stats::{BotMetrics, BotStats}, twitch_api::TwitchApi};
+use std::io::Write;
 use fumo_database::Database;
 use osu_api::OsuApi;
 
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use twilight_gateway::{
     stream, Config, ConfigBuilder, EventTypeFlags, Intents, Shard, ShardId,
@@ -11,9 +13,28 @@ use twilight_http::{client::InteractionClient, Client};
 use twilight_model::id::{marker::ApplicationMarker, Id};
 use twilight_standby::Standby;
 
-use std::{collections::HashMap, env, sync::Arc};
+use std::{collections::HashMap, env, fs::File, io::read_to_string, path::PathBuf, sync::Arc};
 
 use eyre::Result;
+
+pub static STATE_FILE: &str = ".fumo_state";
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FumoContextState {
+    pub osu_checker_last_cursor: Option<String>,
+}
+
+impl Drop for FumoContextState {
+    fn drop(&mut self) {
+        let mut file = File::create(STATE_FILE)
+            .expect("failed to open state file");
+
+        let json_string = serde_json::to_string(&self)
+            .expect("failed to serialize state");
+
+        let _ = file.write_all(json_string.as_bytes());
+    }
+}
 
 pub struct FumoContext {
     pub osu_api: OsuApi,
@@ -35,6 +56,8 @@ pub struct FumoContext {
     pub standby: Standby,
 
     application_id: Id<ApplicationMarker>,
+
+    pub state: Mutex<FumoContextState>,
 }
 
 impl FumoContext {
@@ -104,8 +127,24 @@ impl FumoContext {
 
         let stats = BotMetrics::new(
             osu_api.stats.counters.clone(),
-            bot_metrics.command_counters.clone()
+            bot_metrics
         );
+
+        // Trying to load state from file
+        let state_path = PathBuf::from(STATE_FILE);
+
+        let state = if state_path.exists() {
+            let reader = File::open(state_path)?;
+            let state_string = read_to_string(reader)?;
+
+            let state: FumoContextState = serde_json::from_str(&state_string)?;
+
+            state
+        } else {
+            FumoContextState {
+                osu_checker_last_cursor: None,
+            }
+        };
 
         let ctx = FumoContext {
             osu_api,
@@ -117,6 +156,7 @@ impl FumoContext {
             stats,
             twitch_checker_list: Mutex::new(HashMap::new()),
             osu_checker_list: Mutex::new(HashMap::new()),
+            state: Mutex::new(state),
         };
 
         Ok((ctx, shards))

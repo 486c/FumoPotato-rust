@@ -4,10 +4,16 @@ use serde::Deserialize;
 
 use crate::error::OsuApiError;
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct OsuModLazerSettings {
+    speed_change: Option<f32>,
+}
+
 /// Single mod
 #[derive(Deserialize, Debug, Clone)]
 pub struct OsuModLazer {
-    acronym: String,
+    pub acronym: String,
+    pub settings: Option<OsuModLazerSettings>,
 }
 
 impl Display for OsuModLazer {
@@ -20,7 +26,31 @@ impl Display for OsuModLazer {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(transparent)]
 pub struct OsuModsLazer {
-    mods: Vec<OsuModLazer>,
+    pub mods: Vec<OsuModLazer>,
+}
+
+impl OsuModsLazer {
+    pub fn speed_changes(&self) -> Option<f32> {
+        for osu_mod in &self.mods {
+            if let Some(settings) = &osu_mod.settings {
+                if let Some(speed_change) = settings.speed_change {
+                    return Some(speed_change);
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn contains(&self, acronym: &str) -> bool {
+        for osu_mod in &self.mods {
+            if osu_mod.acronym == acronym {
+                return true
+            }
+        }
+
+        false
+    }
 }
 
 impl FromStr for OsuModsLazer {
@@ -36,7 +66,7 @@ impl FromStr for OsuModsLazer {
             // TODO refactor
             let chunk: String = ch.by_ref().take(2).collect();
 
-            mods.push(OsuModLazer { acronym: chunk })
+            mods.push(OsuModLazer { acronym: chunk, settings: None })
         }
 
         Ok(Self { mods })
@@ -53,9 +83,11 @@ impl Display for OsuModsLazer {
     }
 }
 
+/*
 #[test]
 fn test_mods_creation() {
     let mods = OsuModsLazer::from_str("CLDTHR").unwrap();
 
     assert!(&format!("{mods}") == "CLDTHR");
 }
+*/

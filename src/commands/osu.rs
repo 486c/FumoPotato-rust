@@ -32,42 +32,42 @@ impl OsuCommands {
 
         match command {
             OsuCommands::Link(command) => {
-                ctx.stats.bot.with_label_values(&["osu_link"]).inc();
+                ctx.stats.bot.cmd.with_label_values(&["osu_link"]).inc();
                 command.run(ctx, cmd).await
             },
             OsuCommands::Unlink(command) => {
-                ctx.stats.bot.with_label_values(&["osu_unlink"]).inc();
+                ctx.stats.bot.cmd.with_label_values(&["osu_unlink"]).inc();
                 command.run(ctx, cmd).await
             },
             OsuCommands::Attributes(attrs) => match attrs {
                 OsuAttributes::Ar(command) => {
-                    ctx.stats.bot.with_label_values(&["osu_attributes_ar"]).inc();
+                    ctx.stats.bot.cmd.with_label_values(&["osu_attributes_ar"]).inc();
                     command.run(ctx, cmd).await
                 },
                 OsuAttributes::Od(command) => {
-                    ctx.stats.bot.with_label_values(&["osu_attributes_od"]).inc();
+                    ctx.stats.bot.cmd.with_label_values(&["osu_attributes_od"]).inc();
                     command.run(ctx, cmd).await
                 },
             },
             OsuCommands::Tracking(command) => match command {
                 OsuTracking::Add(command) => {
-                    ctx.stats.bot.with_label_values(&["osu_tracking_ad"]).inc();
+                    ctx.stats.bot.cmd.with_label_values(&["osu_tracking_ad"]).inc();
                     command.run(ctx, cmd).await
                 },
                 OsuTracking::Remove(command) => {
-                    ctx.stats.bot.with_label_values(&["osu_tracking_remove"]).inc();
+                    ctx.stats.bot.cmd.with_label_values(&["osu_tracking_remove"]).inc();
                     command.run(ctx, cmd).await
                 },
                 OsuTracking::AddBulk(command) => {
-                    ctx.stats.bot.with_label_values(&["osu_tracking_addbulk"]).inc();
+                    ctx.stats.bot.cmd.with_label_values(&["osu_tracking_addbulk"]).inc();
                     command.run(ctx, cmd).await
                 },
                 OsuTracking::RemoveAll(command) => {
-                    ctx.stats.bot.with_label_values(&["osu_tracking_removeall"]).inc();
+                    ctx.stats.bot.cmd.with_label_values(&["osu_tracking_removeall"]).inc();
                     command.run(ctx, cmd).await
                 },
                 OsuTracking::List(command) => {
-                    ctx.stats.bot.with_label_values(&["osu_tracking_list"]).inc();
+                    ctx.stats.bot.cmd.with_label_values(&["osu_tracking_list"]).inc();
                     command.run(ctx, cmd).await
                 },
             },

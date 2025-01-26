@@ -58,7 +58,7 @@ impl LeaderboardCommand {
     ) -> Result<()> {
         let command = Self::from_interaction(cmd.data.clone().into())?;
 
-        ctx.stats.bot.with_label_values(&["leaderboard"]).inc();
+        ctx.stats.bot.cmd.with_label_values(&["leaderboard"]).inc();
 
         command.run(ctx, cmd).await
     }
@@ -390,7 +390,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
     let mut builder = MessageBuilder::new();
 
-    ctx.stats.bot.with_label_values(&["leaderboard_app_interaction"]).inc();
+    ctx.stats.bot.cmd.with_label_values(&["leaderboard_app_interaction"]).inc();
 
     // If we got app interaction
     if let Some(id) = command.data.target_id {

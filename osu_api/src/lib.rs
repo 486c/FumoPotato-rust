@@ -7,7 +7,7 @@ pub mod models;
 pub mod fallback_models;
 
 use fallback_models::FallbackBeatmapScores;
-use models::{osu_matches::OsuMatchGet, BeatmapUserScore};
+use models::{osu_matches::OsuMatchGet, osu_mods::OsuModsLazer, BeatmapUserScore, OsuBeatmapAttributes, ScoresBatch};
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT},
     Client, Method, Response, StatusCode,
@@ -225,6 +225,10 @@ impl OsuApi {
             link.push_str(&format!("include_fails={fails}&"))
         }
 
+        if let Some(mode) = user_scores.mode {
+            link.push_str(&format!("ruleset={}&", mode))
+        }
+
         let r = self
             .make_request(
                 &link[..link.len() - 1],
@@ -250,7 +254,7 @@ impl OsuApi {
         link.push_str(&format!("/users/{user_id}"));
 
         if let Some(mode) = mode {
-            link.push_str(&format!("/mode/{mode}"))
+            link.push_str(&format!("/{mode}"))
         }
 
         let r: ApiResult<OsuUserExtended> = self
@@ -295,6 +299,33 @@ impl OsuApi {
             .await?;
         
         self.stats.counters.with_label_values(&["get_beatmap"]).inc();
+
+        Ok(r)
+    }
+
+    pub async fn get_beatmap_attributes(
+        &self, 
+        bid: i32, 
+        mods: Option<&OsuModsLazer>
+    ) -> ApiResult<OsuBeatmapAttributes> {
+        let mut link = format!("{OSU_API_BASE}/beatmaps/{bid}/attributes");
+
+        if let Some(mods) = mods {
+            for (i, osu_mod) in mods.mods.iter().enumerate() {
+                if i == 0 {
+                    let _ = write!(link, "?mods[]={}", osu_mod.acronym);
+                    continue;
+                }
+
+                let _ = write!(link, "&mods[]={}", osu_mod.acronym);
+            }
+        }
+
+        let r = self
+            .make_request(&link, Method::POST, ApiKind::General, None)
+            .await?;
+
+        self.stats.counters.with_label_values(&["get_beatmap_attributes"]).inc();
 
         Ok(r)
     }
@@ -403,6 +434,26 @@ impl OsuApi {
 
         self.make_request(&link, Method::GET, ApiKind::General, None)
             .await
+    }
+
+    pub async fn get_scores_batch(
+        &self,
+        cursor_string: Option<String>,
+    ) -> ApiResult<ScoresBatch> {
+        let mut link = format!("{OSU_API_BASE}/scores");
+
+        if let Some(cursor) = cursor_string {
+            let _ = write!(link, "?cursor_string={}", cursor);
+        }
+
+        self.stats.counters.with_label_values(&["get_scores_batch"]).inc();
+
+        self.make_request(
+            &link,
+            Method::GET,
+            ApiKind::General,
+            None
+        ).await
     }
 
     pub async fn get_leaderboard_hidden(
@@ -755,6 +806,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_beatmap_attributes() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let res1 = api.get_beatmap_attributes(2025942, None).await.unwrap();
+
+        assert!(matches!(res1.attributes, OsuBeatmapAttributesKind::Osu{ .. }));
+
+        let mods_dt = OsuModsLazer::from_str("DTHD").unwrap();
+        let res2 = api.get_beatmap_attributes(2025942, Some(&mods_dt)).await.unwrap();
+
+        match (res1.attributes, res2.attributes) {
+            (OsuBeatmapAttributesKind::Osu { star_rating: nm_sr, .. }, 
+             OsuBeatmapAttributesKind::Osu { star_rating: dt_sr, .. }) => {
+                assert!(nm_sr != dt_sr);
+                assert!(dt_sr > nm_sr);
+            }
+            (_, _) => panic!("Got non Osu gamemode"),
+        }
+    }
+
+    #[tokio::test]
     async fn test_get_rankings_country() {
         let api = API_INSTANCE.get().await.unwrap();
 
@@ -772,6 +844,15 @@ mod tests {
         assert_eq!("BY", res.ranking[0].user.country_code);
         assert_eq!("BY", res.ranking[20].user.country_code);
         assert_eq!("BY", res.ranking[49].user.country_code);
+    }
+
+    #[tokio::test]
+    async fn get_scores_batch() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let res = api.get_scores_batch(None).await.unwrap();
+
+        assert!(res.scores.len() != 0)
     }
 
     #[tokio::test]
@@ -859,4 +940,5 @@ mod tests {
         let mods = OsuMods::from_str("DTMR").unwrap();
         assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::MIRROR);
     }
+
 }

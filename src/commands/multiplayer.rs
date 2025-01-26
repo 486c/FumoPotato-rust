@@ -38,7 +38,7 @@ impl MultiplayerCommands {
 
         match command {
             MultiplayerCommands::List(command) => {
-                ctx.stats.bot.with_label_values(&["multiplayer_list"]).inc();
+                ctx.stats.bot.cmd.with_label_values(&["multiplayer_list"]).inc();
                 command.run(ctx, cmd).await
             },
         }

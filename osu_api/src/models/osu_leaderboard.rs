@@ -3,9 +3,9 @@ use serde::Deserialize;
 
 use crate::datetime;
 
-use super::{osu_mods::OsuModsLazer, OsuGrade, OsuUserCompact};
+use super::{osu_mods::OsuModsLazer, OsuGameMode, OsuGrade, OsuUserCompact};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct StatisticsLazer {
     pub ok: Option<u32>,
     pub meh: Option<u32>,
@@ -13,7 +13,7 @@ pub struct StatisticsLazer {
     pub great: Option<u32>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct OsuScoreLazer {
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
     pub ranked: bool,
@@ -26,12 +26,13 @@ pub struct OsuScoreLazer {
     pub id: u32,
     pub rank: OsuGrade,
 
-    pub statistics: StatisticsLazer,
+    #[serde(rename = "statistics")]
+    pub stats: StatisticsLazer,
 
     #[serde(rename = "type")]
     pub kind: String, // TODO enum
 
-    pub user_id: u64,
+    pub user_id: i64,
     pub accuracy: f32,
 
     pub pp: Option<f32>,
@@ -39,8 +40,9 @@ pub struct OsuScoreLazer {
     pub total_score: u64,
     pub legacy_total_score: u64,
     pub max_combo: u32,
+    pub ruleset_id: OsuGameMode,
 
-    pub user: OsuUserCompact,
+    pub user: Option<OsuUserCompact>,
 
     #[serde(deserialize_with = "datetime::deserialize::deserialize")]
     pub ended_at: DateTime<Utc>,
