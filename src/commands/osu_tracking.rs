@@ -12,9 +12,9 @@ use crate::{
     utils::{calc_ar, calc_od, interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components},
 };
 use eyre::Result;
-use osu_api::{models::{
+use osu_api::models::{
     osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap, OsuBeatmapAttributesKind, OsuGameMode, OsuUserExtended, RankingFilter, RankingKind, ScoresType, UserId
-}, utils::encode_cursor_string_from_id};
+};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::{Interaction, InteractionData},
