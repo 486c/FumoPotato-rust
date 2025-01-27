@@ -21,7 +21,7 @@ pub static STATE_FILE: &str = ".fumo_state";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FumoContextState {
-    pub osu_checker_last_cursor: Option<String>,
+    pub osu_checker_last_cursor: Option<i64>,
 }
 
 impl Drop for FumoContextState {

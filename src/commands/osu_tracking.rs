@@ -12,9 +12,9 @@ use crate::{
     utils::{calc_ar, calc_od, interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components},
 };
 use eyre::Result;
-use osu_api::models::{
+use osu_api::{models::{
     osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap, OsuBeatmapAttributesKind, OsuGameMode, OsuUserExtended, RankingFilter, RankingKind, ScoresType, UserId
-};
+}, utils::encode_cursor_string_from_id};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::{Interaction, InteractionData},
@@ -185,7 +185,6 @@ fn create_tracking_embed(
     ))
     .url(format!("https://osu.ppy.sh/u/{}", user.id));
 
-
     EmbedBuilder::new()
         .color(0xbd49ff)
         .description(description_text)
@@ -198,16 +197,12 @@ fn create_tracking_embed(
 
 async fn osu_track_checker(
     ctx: &FumoContext, 
-    cursor_string: Option<String>,
+    scores: &[OsuScoreLazer],
     top_scores_hash: &mut HashMap<(i64, OsuGameMode), f32>,
-) -> Result<String> {
+) -> Result<()> {
     let lock = ctx.osu_checker_list.lock().await;
 
-    let batch_scores = ctx
-        .osu_api
-        .get_scores_batch(cursor_string).await?;
-
-    for score in batch_scores.scores {
+    for score in scores {
         if lock.contains_key(&score.user_id) {
             let min_top_score = if let Some(min_top_score) = top_scores_hash.get(&(score.user_id, score.ruleset_id)) {
                 ctx.stats.bot.cache.with_label_values(&["osu_tracking_top_scores_hash_hit"]).inc();
@@ -328,7 +323,10 @@ async fn osu_track_checker(
                     .create_message(Id::new(discord_channel.channel_id as u64))
                     .embeds(embeds)
                     .unwrap()
-                    .await;
+                    .await
+                    .inspect_err(|x| {
+                        println!("Error during creation of embed messages for tracking: {}", x)
+                    });
             }
 
         }
@@ -336,7 +334,7 @@ async fn osu_track_checker(
 
     drop(lock);
 
-    Ok(batch_scores.cursor_string)
+    Ok(())
 }
 
 pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
@@ -344,55 +342,50 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
     osu_sync_checker_list(&ctx).await.unwrap();
 
     let mut top_scores_hash: HashMap<(i64, OsuGameMode), f32> = HashMap::new(); // TODO
-    
-    let state_last_cursor = {
-        let lock = ctx.state.lock().await;
-        lock.osu_checker_last_cursor.clone()
+
+    let mut cursor = {
+        let state_lock = ctx.state.lock().await;
+        state_lock.osu_checker_last_cursor
     };
 
-    let mut prev_cursor_string = None;
-    let mut last_cursor_string = state_last_cursor;
-
-    println!("Starting osu tracking loop! with cursor_string = {:?}", last_cursor_string);
+    // top - old
+    // bottom - new
     loop {
-        if !prev_cursor_string.is_none() && !last_cursor_string.is_none()
-        && prev_cursor_string == last_cursor_string {
-            tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
-
-            match ctx.osu_api.get_scores_batch(last_cursor_string.clone()).await {
-                Ok(v) => {
-                    last_cursor_string = Some(v.cursor_string);
-                },
-                Err(e) => {
-                    println!("Failed to fetch cursor_string {:?}: {e}", &last_cursor_string);
-                    tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
-                    continue;
-                },
-            };
-
-            continue
+        let batch = match ctx.osu_api.get_scores_batch(&cursor).await {
+            Ok(v) => v,
+            Err(e) => {
+                println!(
+                    "Error happened during get_scores_batch inside tracking loop: {e}"
+                );
+                continue;
+            },
         };
 
-        let res = osu_track_checker(
-            &ctx, 
-            last_cursor_string.clone(),
-            &mut top_scores_hash,
-        ).await; // TODO remove cloning
-
-        match res {
-            Ok(v) => {
-                prev_cursor_string = last_cursor_string.clone();
-                last_cursor_string = Some(v);
-
-                let mut lock = ctx.state.lock().await;
-
-                lock.osu_checker_last_cursor = prev_cursor_string.clone();
-            },
-            Err(e) => {
-                println!("Error happened during osu checker loop: {e}. on cursor_string = {:?}", &last_cursor_string);
-                tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
-            },
+        if batch.scores.is_empty() {
+            tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
+            continue;
         }
+        
+        if batch.scores.len() < 850 {
+            tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
+            continue;
+        }
+
+        let current_newest_score_id = batch.scores.last().map(|x| x.id).unwrap_or(0);
+
+        let res = osu_track_checker(
+            &ctx, &batch.scores, &mut top_scores_hash
+        ).await;
+        
+        if let Err(e) = res {
+            println!("Failed to run osu_track_checker: {e}, on {:?}", cursor)
+        }
+
+        cursor = Some(current_newest_score_id);
+
+        let mut state_lock = ctx.state.lock().await;
+        state_lock.osu_checker_last_cursor = cursor.clone();
+        drop(state_lock);
     }
 }
 

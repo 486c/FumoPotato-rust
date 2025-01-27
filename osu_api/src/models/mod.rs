@@ -934,7 +934,7 @@ pub struct ScoresBatchCursor {
 pub struct ScoresBatch {
     pub scores: Vec<OsuScoreLazer>,
     pub cursor_string: String,
-    pub cursor: ScoresBatchCursor,
+    //pub cursor: ScoresBatchCursor,
 }
 
 #[test]

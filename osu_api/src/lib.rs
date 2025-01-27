@@ -438,12 +438,12 @@ impl OsuApi {
 
     pub async fn get_scores_batch(
         &self,
-        cursor_string: Option<String>,
+        cursor_string: &Option<i64>,
     ) -> ApiResult<ScoresBatch> {
         let mut link = format!("{OSU_API_BASE}/scores");
 
         if let Some(cursor) = cursor_string {
-            let _ = write!(link, "?cursor_string={}", cursor);
+            let _ = write!(link, "?cursor[id]={}", cursor);
         }
 
         self.stats.counters.with_label_values(&["get_scores_batch"]).inc();
@@ -850,7 +850,7 @@ mod tests {
     async fn get_scores_batch() {
         let api = API_INSTANCE.get().await.unwrap();
 
-        let res = api.get_scores_batch(None).await.unwrap();
+        let res = api.get_scores_batch(&None).await.unwrap();
 
         assert!(res.scores.len() != 0)
     }

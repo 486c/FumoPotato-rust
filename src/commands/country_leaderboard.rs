@@ -73,7 +73,13 @@ impl LeaderboardCommand {
         // If link already provided go straight to parsing
         if let Some(link) = &self.link {
             if let Some(beatmap_id) = parse_link(link) {
-                country_leaderboard(ctx, beatmap_id, self.mods.clone(), self.sorting, &cmd).await?; // TODO another cloning....................
+                return country_leaderboard(
+                    ctx, 
+                    beatmap_id, 
+                    self.mods.clone(), 
+                    self.sorting, 
+                    &cmd
+                ).await; // TODO another cloning....................
             } else {
                 let builder = MessageBuilder::new()
                     .content("Please provide valid link");

@@ -23,7 +23,7 @@ pub struct OsuScoreLazer {
 
     pub mods: OsuModsLazer,
     pub best_id: Option<u32>,
-    pub id: u32,
+    pub id: i64,
     pub rank: OsuGrade,
 
     #[serde(rename = "statistics")]
