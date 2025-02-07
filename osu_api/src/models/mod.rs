@@ -595,10 +595,10 @@ pub struct OsuBeatmap {
     pub mode: String,
     pub bpm: Option<f32>,
     
-    pub ar: f32,
-    pub cs: f32,
-    pub drain: f32,
-    pub accuracy: f32,
+    pub ar: Option<f32>,
+    pub cs: Option<f32>,
+    pub drain: Option<f32>,
+    pub accuracy: Option<f32>,
 
     pub version: String,
 

@@ -32,7 +32,7 @@ fn create_tracking_embed(
     user: &OsuUserExtended,
     beatmap: &OsuBeatmap,
     beatmap_attrs: &OsuBeatmapAttributesKind,
-) -> Embed {
+) -> eyre::Result<Embed> {
     let mut description_text = String::with_capacity(100);
 
     let _ = write!(
@@ -111,14 +111,30 @@ fn create_tracking_embed(
 
         x
     });
+
+    let beatmap_ar = beatmap.ar.ok_or(
+        eyre::eyre!("beatmap ar is empty")
+    )?;
+
+    let beatmap_od = beatmap.accuracy.ok_or(
+        eyre::eyre!("beatmap od is empty")
+    )?;
+
+    let beatmap_cs = beatmap.cs.ok_or(
+        eyre::eyre!("beatmap cs is empty")
+    )?;
+
+    let beatmap_hp = beatmap.drain.ok_or(
+        eyre::eyre!("beatmap hp is empty")
+    )?;
     
     // AR
-    let approach_rate = calc_ar(beatmap.ar, &score.mods);
+    let approach_rate = calc_ar(beatmap_ar, &score.mods);
 
     // OD
-    let overall_difficulty = calc_od(beatmap.accuracy, &score.mods, &score.ruleset_id);
+    let overall_difficulty = calc_od(beatmap_od, &score.mods, &score.ruleset_id);
 
-    let mut circle_size = beatmap.cs;
+    let mut circle_size = beatmap_cs;
 
     if score.mods.contains("HR") {
         circle_size = (circle_size * 1.3).min(10.0);
@@ -128,7 +144,7 @@ fn create_tracking_embed(
         circle_size /= 2.0;
     }
 
-    let mut hp_drain = beatmap.drain;
+    let mut hp_drain = beatmap_hp;
 
     if score.mods.contains("EZ") {
         hp_drain /= 2.0;
@@ -185,7 +201,7 @@ fn create_tracking_embed(
     ))
     .url(format!("https://osu.ppy.sh/u/{}", user.id));
 
-    EmbedBuilder::new()
+    Ok(EmbedBuilder::new()
         .color(0xbd49ff)
         .description(description_text)
         .footer(footer)
@@ -193,6 +209,7 @@ fn create_tracking_embed(
         .thumbnail(ImageSource::url(thumb_url).unwrap())
         .url(format!("https://osu.ppy.sh/u/{}", user.id))
         .build()
+    )
 }
 
 async fn osu_track_checker(
@@ -302,7 +319,7 @@ async fn osu_track_checker(
                 &osu_user,
                 &osu_beatmap,
                 &osu_beatmap_attributes.attributes
-            );
+            )?;
 
             let embeds = &[embed];
 
