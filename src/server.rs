@@ -19,7 +19,12 @@ async fn metrics_handler(
     let metric_families = ctx.stats.registry.gather();
     encoder.encode(&metric_families, &mut buf).unwrap();
 
-    Ok(Response::new(Bytes::from(buf).into()))
+    Ok(
+        Response::builder()
+            .header("Content-Type", "text/plain")
+            .body(Bytes::from(buf).into())
+            .expect("failed to build response for metrics endpoint")
+    )
 }
 
 async fn service(
@@ -33,7 +38,7 @@ async fn service(
 }
 
 pub async fn server_loop(ctx: Arc<FumoContext>) {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 5000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
 
     let listener = TcpListener::bind(&addr).await.unwrap();
 
