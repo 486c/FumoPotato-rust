@@ -5,7 +5,7 @@ use crate::Database;
 
 use chrono::{DateTime, NaiveDateTime, Utc};
 use eyre::{eyre, Result};
-use osu_api::models::{osu_matches::OsuMatchGame, OsuScore};
+use osu_api::models::{osu_matches::OsuMatchGame, OsuScore, OsuScoreMatchTeam};
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct OsuLinkedTrackedUser {
@@ -32,6 +32,29 @@ pub struct OsuDbMatch {
     pub name: String,
     pub start_time: NaiveDateTime,
     pub end_time: NaiveDateTime,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct OsuDbMatchScore {
+    pub game_id: Option<i64>,
+    pub match_id: Option<i64>,
+    pub beatmap_id: i64,
+    pub user_id: i64,
+    pub accuracy: f64,
+    pub mods: i64,
+    pub score: i64,
+    pub count50: i32,
+    pub count100: i32,
+    pub count300: i32,
+    pub countgeki: i32,
+    pub countkatu: i32,
+    pub countmiss: i32,
+    pub max_combo: i32,
+    pub slot: i16,
+    #[sqlx(try_from = "i16")]
+    pub team: OsuScoreMatchTeam,
+    pub pass: bool,
+    pub pp: Option<f64>
 }
 
 impl Database {
@@ -422,7 +445,7 @@ impl Database {
             beatmap_id,
             score.user_id,
             score.accuracy as f64,
-            score.mods.bits() as i16,
+            score.mods.bits() as i64,
             score.score,
             score.stats.count50,
             score.stats.count100,
@@ -432,12 +455,28 @@ impl Database {
             score.stats.countmiss,
             score.max_combo.unwrap_or(0),
             detail.slot as i16,
-            &detail.team,
+            (*(&detail.team) as u8) as i16,
             detail.pass,
         )
         .execute(&self.pool)
         .await?;
 
         Ok(())
+    }
+
+    pub async fn select_match_scores(
+        &self,
+        beatmap_id: i64,
+        user_id: i64
+    ) -> Result<Vec<OsuDbMatchScore>> {
+        let res = sqlx::query_as!(
+            OsuDbMatchScore,
+            "SELECT * FROM osu_match_game_scores WHERE user_id = $1 AND beatmap_id = $2",
+            user_id, beatmap_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(res)
     }
 }

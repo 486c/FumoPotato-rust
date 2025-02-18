@@ -10,7 +10,7 @@ use chrono::prelude::*;
 
 use osu_leaderboard::OsuScoreLazer;
 use serde::{
-    de::{Deserializer, Error, SeqAccess, Unexpected, Visitor},
+    de::{self, Deserializer, Error, SeqAccess, Unexpected, Visitor},
     Deserialize,
 };
 use thiserror::Error;
@@ -636,10 +636,58 @@ pub struct OsuBeatmapSetScore {
     pub creator: String,
 }
 
+#[derive(Deserialize, Clone, Copy, Debug)]
+#[repr(u8)]
+pub enum OsuScoreMatchTeam {
+    None = 0,
+    Red = 1,
+    Blue = 2,
+}
+
+impl From<i16> for OsuScoreMatchTeam {
+    fn from(value: i16) -> Self {
+        match value {
+            0 => Self::None,
+            1 => Self::Red,
+            2 => Self::Blue,
+            _ => unreachable!() // TODO not a really great way to handle this tbh, maybe think about Decode trait
+        }
+    }
+}
+
+struct OsuScoreMatchTeamVisitor;
+
+impl<'de> de::Visitor<'de> for OsuScoreMatchTeamVisitor {
+    type Value = OsuScoreMatchTeam;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "a none, blue, red string")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match value {
+            "none" => Ok(OsuScoreMatchTeam::None),
+            "red" => Ok(OsuScoreMatchTeam::Red),
+            "blue" => Ok(OsuScoreMatchTeam::Blue),
+            _ => Err(E::custom(format!("Failed to parse {} as match team", value)))
+        }
+    }
+}
+
+pub fn deserialize_match_team<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<OsuScoreMatchTeam, D::Error> {
+    d.deserialize_str(OsuScoreMatchTeamVisitor)
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct OsuScoreMatch {
-    pub slot: i32,
-    pub team: String,
+    pub slot: u8,
+    #[serde(deserialize_with = "deserialize_match_team")]
+    pub team: OsuScoreMatchTeam,
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
     pub pass: bool,
 }

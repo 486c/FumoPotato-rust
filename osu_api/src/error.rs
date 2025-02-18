@@ -37,4 +37,6 @@ pub enum OsuApiError {
     Unauthorized,
     #[error("error serialazing")]
     Serializing(#[from] serde_json::Error),
+    #[error("casting error")]
+    Casting,
 }

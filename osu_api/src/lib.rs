@@ -765,6 +765,10 @@ mod tests {
     async fn test_get_match() {
         let api = API_INSTANCE.get().await.unwrap();
 
+
+        // Multiple matches to make sure it's deserialize correctly
+        let _ = api.get_match(116432947, None, None, None).await.unwrap();
+        let _ = api.get_match(116366892, None, None, None).await.unwrap();
         let res = api.get_match(111451190, None, None, None).await.unwrap();
 
         assert_eq!(res.osu_match.name, "OWC2023: (Canada) VS (Germany)");

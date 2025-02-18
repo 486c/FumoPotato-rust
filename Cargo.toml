@@ -17,7 +17,6 @@ members = [
 	"fumo_macro"
 ]
 
-
 [workspace.dependencies]
 osu_api = { path = "./osu_api" }
 fumo_database = { path = "./fumo_database" }
