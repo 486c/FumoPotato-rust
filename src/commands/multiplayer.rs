@@ -93,7 +93,12 @@ impl ListingTrait for MatchesListing {
 
         let mut description_str = String::new();
         for m in matches_iter {
-            let _ = writeln!(description_str, "- **{}**", m.name);
+            let _ = writeln!(
+                description_str, 
+                "- **[{}](https://osu.ppy.sh/community/matches/{})**", 
+                m.name,
+                m.id
+            );
             let _ = writeln!(
                 description_str,
                 "<t:{}:R>",
