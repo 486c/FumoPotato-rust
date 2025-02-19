@@ -13,6 +13,7 @@ use serde::{
     de::{self, Deserializer, Error, SeqAccess, Unexpected, Visitor},
     Deserialize,
 };
+use sqlx::{postgres::PgTypeInfo, prelude::Type, Decode, Postgres};
 use thiserror::Error;
 
 use std::{
@@ -644,15 +645,34 @@ pub enum OsuScoreMatchTeam {
     Blue = 2,
 }
 
-impl From<i16> for OsuScoreMatchTeam {
-    fn from(value: i16) -> Self {
+impl<'r> Decode<'r, Postgres> for OsuScoreMatchTeam {
+    fn decode(value: <Postgres as sqlx::Database>::ValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let value = <i16 as Decode<'r, Postgres>>::decode(value)?;
+
+        Self::try_from(value)
+            .map_err(|_| format!("invalid value {value} for OsuScoreMatchTeam").into())
+    }
+}
+
+impl Type<Postgres> for OsuScoreMatchTeam {
+    #[inline]
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("INT2")
+    }
+}
+
+impl TryFrom<i16> for OsuScoreMatchTeam {
+    type Error = OsuApiError;
+
+    fn try_from(value: i16) -> Result<Self, OsuApiError> {
         match value {
-            0 => Self::None,
-            1 => Self::Red,
-            2 => Self::Blue,
-            _ => unreachable!() // TODO not a really great way to handle this tbh, maybe think about Decode trait
+            0 => Ok(Self::None),
+            1 => Ok(Self::Red),
+            2 => Ok(Self::Blue),
+            _ => Err(OsuApiError::Casting)
         }
     }
+
 }
 
 struct OsuScoreMatchTeamVisitor;

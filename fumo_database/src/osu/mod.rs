@@ -51,7 +51,6 @@ pub struct OsuDbMatchScore {
     pub countmiss: i32,
     pub max_combo: i32,
     pub slot: i16,
-    #[sqlx(try_from = "i16")]
     pub team: OsuScoreMatchTeam,
     pub pass: bool,
     pub pp: Option<f64>
@@ -464,16 +463,16 @@ impl Database {
         Ok(())
     }
 
-    pub async fn select_match_scores(
+    pub async fn select_beatmap_scores(
         &self,
         beatmap_id: i64,
         user_id: i64
     ) -> Result<Vec<OsuDbMatchScore>> {
-        let res = sqlx::query_as!(
-            OsuDbMatchScore,
+        let res = sqlx::query_as::<_, OsuDbMatchScore>(
             "SELECT * FROM osu_match_game_scores WHERE user_id = $1 AND beatmap_id = $2",
-            user_id, beatmap_id
         )
+        .bind(user_id)
+        .bind(beatmap_id)
         .fetch_all(&self.pool)
         .await?;
 

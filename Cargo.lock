@@ -1477,6 +1477,7 @@ dependencies = [
  "reqwest 0.12.9",
  "serde",
  "serde_json",
+ "sqlx",
  "thiserror 2.0.3",
  "tokio",
 ]
