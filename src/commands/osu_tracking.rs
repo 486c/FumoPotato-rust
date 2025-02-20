@@ -26,6 +26,7 @@ use twilight_util::builder::embed::{
 };
 
 const OSU_TRACKING_INTERVAL: Duration = Duration::from_secs(60);
+const OSU_TRACKING_BATCH_SIZE: usize = 850;
 
 fn create_tracking_embed(
     score: &OsuScoreLazer,
@@ -216,11 +217,21 @@ async fn osu_track_checker(
     ctx: &FumoContext, 
     scores: &[OsuScoreLazer],
     top_scores_hash: &mut HashMap<(i64, OsuGameMode), f32>,
+    buff: &mut [i64]
 ) -> Result<()> {
-    let lock = ctx.osu_checker_list.lock().await;
+    let mut len = 0;
+
+    scores.iter().for_each(|score| {
+        buff[len] = score.user_id;
+        len += 1;
+    });
+
+    let linked_channels = ctx.db.select_osu_tracking_users_channels(
+        &buff[0..len]
+    ).await?;
 
     for score in scores {
-        if lock.contains_key(&score.user_id) {
+        if let Some(channels_to_notify) = linked_channels.get(&score.user_id) {
             let min_top_score = if let Some(min_top_score) = top_scores_hash.get(&(score.user_id, score.ruleset_id)) {
                 ctx.stats.bot.cache.with_label_values(&["osu_tracking_top_scores_hash_hit"]).inc();
                 *min_top_score
@@ -323,40 +334,28 @@ async fn osu_track_checker(
 
             let embeds = &[embed];
 
-            let linked_channels = match ctx
-                .db
-                .select_osu_tracked_linked_channels(score.user_id)
-                .await {
-                    Ok(v) => v,
-                    Err(_) => {
-                        println!("Failed to search for linked channels for user {}", score.user_id);
-                        continue;
-                    },
-                };
-
-            for discord_channel in linked_channels {
-                let _ = ctx
-                    .http
-                    .create_message(Id::new(discord_channel.channel_id as u64))
-                    .embeds(embeds)
-                    .unwrap()
-                    .await
-                    .inspect_err(|x| {
-                        println!("Error during creation of embed messages for tracking: {}", x)
-                    });
+            if let Some(channels) = &channels_to_notify.1 {
+                for discord_channel in channels {
+                    let _ = ctx
+                        .http
+                        .create_message(Id::new(*discord_channel as u64))
+                        .embeds(embeds)
+                        .unwrap()
+                        .await
+                        .inspect_err(|x| {
+                            println!("Error during creation of embed messages for tracking: {}", x)
+                        });
+                }
             }
 
         }
     }
 
-    drop(lock);
-
     Ok(())
 }
 
 pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
-    println!("Syncing osu tracking list!");
-    osu_sync_checker_list(&ctx).await.unwrap();
+    println!("Starting osu tracking worker!");
 
     let mut top_scores_hash: HashMap<(i64, OsuGameMode), f32> = HashMap::new(); // TODO
 
@@ -364,6 +363,8 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
         let state_lock = ctx.state.lock().await;
         state_lock.osu_checker_last_cursor
     };
+
+    let mut user_id_buffer = [0i64; 1000];
 
     // top - old
     // bottom - new
@@ -383,7 +384,7 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
             continue;
         }
         
-        if batch.scores.len() < 850 {
+        if batch.scores.len() < OSU_TRACKING_BATCH_SIZE {
             tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
             continue;
         }
@@ -391,7 +392,7 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
         let current_newest_score_id = batch.scores.last().map(|x| x.id).unwrap_or(0);
 
         let res = osu_track_checker(
-            &ctx, &batch.scores, &mut top_scores_hash
+            &ctx, &batch.scores, &mut top_scores_hash, &mut user_id_buffer
         ).await;
         
         if let Err(e) = res {

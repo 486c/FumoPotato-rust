@@ -7,6 +7,14 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use eyre::{eyre, Result};
 use osu_api::models::{osu_matches::OsuMatchGame, OsuScore, OsuScoreMatchTeam};
 
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct OsuLinkedTrackedUserGrouped {
+    pub osu_id: i64,
+    pub channel_ids: Option<Vec<i64>>,
+    pub osu_username: String,
+}
+
 #[derive(sqlx::FromRow, Debug)]
 pub struct OsuLinkedTrackedUser {
     pub osu_id: i64,
@@ -200,6 +208,36 @@ impl Database {
         )
         .fetch_all(&self.pool)
         .await?)
+    }
+    
+    /// Batched way to select linked channels for large amount of users
+    ///
+    /// Pretty heavy function use with caution
+    pub async fn select_osu_tracking_users_channels(
+        &self,
+        users: &[i64]
+    ) -> Result<HashMap<i64, (String, Option<Vec<i64>>)>> {
+        let res = sqlx::query_as!(
+            OsuLinkedTrackedUserGrouped,
+            "
+        select osu_id, osu_username, array_agg(channel_id) as channel_ids from (
+        select ot.osu_id as osu_id, ot.channel_id as channel_id, op.osu_username as osu_username
+        from osu_tracking ot 
+        inner join osu_players op 
+        on ot.osu_id = op.osu_id where ot.osu_id = ANY($1::INT8[]) 
+        ) group by osu_id, osu_username
+            ",
+            users
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut hash = HashMap::with_capacity(users.len());
+        res.into_iter().for_each(|user| {
+            hash.insert(user.osu_id, (user.osu_username, user.channel_ids));
+        });
+
+        Ok(hash)
     }
 
     pub async fn select_osu_tracked_users(
