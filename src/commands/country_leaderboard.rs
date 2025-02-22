@@ -49,6 +49,9 @@ pub struct LeaderboardCommand {
 
     /// Leaderboard sorting options
     sorting: Option<LeaderboardSortingKind>,
+
+    /// Enable legacy scoring
+    legacy: Option<bool>
 }
 
 impl LeaderboardCommand {
@@ -78,6 +81,7 @@ impl LeaderboardCommand {
                     beatmap_id, 
                     self.mods.clone(), 
                     self.sorting, 
+                    self.legacy,
                     &cmd
                 ).await; // TODO another cloning....................
             } else {
@@ -101,7 +105,7 @@ impl LeaderboardCommand {
         for m in msgs {
             if let Some(link) = find_link(&m) {
                 if let Some(bid) = parse_link(link.as_ref()) {
-                    return country_leaderboard(ctx, bid, None, None, &cmd).await;
+                    return country_leaderboard(ctx, bid, self.mods.clone(), self.sorting, self.legacy, &cmd).await;
                 }
             }
         }
@@ -116,7 +120,8 @@ impl LeaderboardCommand {
 struct LeaderboardListing {
     scores: FallbackBeatmapScores,
     beatmap: OsuBeatmap,
-    user_position: Option<usize>
+    user_position: Option<usize>,
+    is_legacy: bool
 }
 
 impl ListingTrait for LeaderboardListing {
@@ -215,13 +220,19 @@ impl ListingTrait for LeaderboardListing {
                 _ => format!("{:.2}pp", score.stats.performance),
             };
 
+            let osu_score = if self.is_legacy {
+                score.stats.score.legacy.to_formatted_string(&Locale::en)
+            } else {
+                score.stats.score.lazer.to_formatted_string(&Locale::en)
+            };
+
             let _ = writeln!(
                 description,
                 "{} • {:.2}% • {} • {}",
                 score.stats.rank.to_emoji(),
                 score.stats.accuracy,
                 pp,
-                score.stats.score.to_formatted_string(&Locale::en)
+                osu_score
             );
 
             let _ = writeln!(
@@ -292,6 +303,7 @@ pub async fn country_leaderboard(
     bid: i32,
     mods: Option<String>,
     sorting: Option<LeaderboardSortingKind>,
+    legacy: Option<bool>,
     cmd: &InteractionCommand,
 ) -> Result<()> {
     let mut builder = MessageBuilder::new();
@@ -342,12 +354,35 @@ pub async fn country_leaderboard(
             }
         },
         Some(LeaderboardSortingKind::Score) => {
-            clb.items.sort_by(|a, b| b.stats.score.cmp(&a.stats.score));
+            clb.items.sort_by(|a, b| {
+
+                match legacy {
+                    Some(true) => {
+                        b.stats.score.legacy.cmp(&a.stats.score.legacy)
+                    },
+                    None | Some(false) => {
+                        b.stats.score.lazer.cmp(&a.stats.score.lazer)
+                    },
+                }
+            });
         },
-        None => {},
+        None => {
+            clb.items.sort_by(|a, b| {
+                match legacy {
+                    Some(true) => {
+                        b.stats.score.legacy.cmp(&a.stats.score.legacy)
+                    },
+                    None | Some(false) => {
+                        b.stats.score.lazer.cmp(&a.stats.score.lazer)
+                    },
+                }
+            });
+        },
     };
 
-    let mut lb_list = LeaderboardListing::new(clb, b, user_position)
+    dbg!(&legacy);
+
+    let mut lb_list = LeaderboardListing::new(clb, b, user_position, legacy.unwrap_or(false))
         .calculate_pages(total_scores, 10);
 
     lb_list.update();
@@ -409,7 +444,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
         if let Some(link) = find_link(&msg) {
             if let Some(bid) = parse_link(link.as_ref()) {
-                return country_leaderboard(ctx, bid, None, None, &command).await;
+                return country_leaderboard(ctx, bid, None, None, None, &command).await;
             }
         }
     }

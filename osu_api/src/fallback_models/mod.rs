@@ -16,8 +16,8 @@ pub struct FallbackScoreStatsMods {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallbackScoreScore {
-    lazer: i64,
-    legacy: i64,
+    pub lazer: i64,
+    pub legacy: i64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
