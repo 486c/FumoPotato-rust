@@ -13,9 +13,16 @@ pub struct FallbackScoreStatsMods {
     pub difficulty: Vec<FallbackOsuMod>,
 }
 
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FallbackScoreScore {
+    lazer: i64,
+    legacy: i64,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallbackScoreStats {
-    pub score: i64,
+    pub score: FallbackScoreScore,
     pub performance: f32,
     pub combo: u32,
     pub accuracy: f32,
