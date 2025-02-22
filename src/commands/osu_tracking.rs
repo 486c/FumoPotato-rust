@@ -33,6 +33,7 @@ fn create_tracking_embed(
     user: &OsuUserExtended,
     beatmap: &OsuBeatmap,
     beatmap_attrs: &OsuBeatmapAttributesKind,
+    top_score_pos: Option<usize>
 ) -> eyre::Result<Embed> {
     let mut description_text = String::with_capacity(100);
 
@@ -58,6 +59,15 @@ fn create_tracking_embed(
         "[{:.2}★]",
         star_rating
     );
+
+
+    if let Some(top_score_position) = top_score_pos {
+        let _ = writeln!(
+            description_text,
+            "**New top score #{}**",
+            top_score_position 
+        );
+    }
 
     let mut mods_string = String::with_capacity(24);
     if !score.mods.mods.is_empty() {
@@ -188,9 +198,11 @@ fn create_tracking_embed(
 
     let _ = write!(
         description_text,
-        " BPM: {}`",
+        " BPM: {}`\n",
         bpm.unwrap_or(0.0)
     );
+    
+
 
     let thumb_url = format!("https://b.ppy.sh/thumb/{}l.jpg", beatmap.beatmapset_id);
 
@@ -248,7 +260,7 @@ async fn osu_track_checker(
                     offset: None,
                 };
 
-                let scores = match ctx.osu_api.get_user_scores(
+                let user_top_scores = match ctx.osu_api.get_user_scores(
                     get_user_scores
                 ).await {
                     Ok(v) => v,
@@ -261,7 +273,7 @@ async fn osu_track_checker(
                     },
                 };
 
-                let min_top_score = scores.last().map(|x| x.pp.unwrap_or(0.0)).unwrap_or(0.0);
+                let min_top_score = user_top_scores.last().map(|x| x.pp.unwrap_or(0.0)).unwrap_or(0.0);
 
                 top_scores_hash.insert((score.user_id, score.ruleset_id), min_top_score);
 
@@ -279,7 +291,7 @@ async fn osu_track_checker(
                     },
                 };
 
-            if score.pp.unwrap_or(0.0) > min_top_score {
+            let user_top_scores = if score.pp.unwrap_or(0.0) > min_top_score {
                 // Update cache
                 ctx.stats.bot.cache.with_label_values(&["osu_tracking_top_scores_hash_force"]).inc();
 
@@ -311,9 +323,11 @@ async fn osu_track_checker(
                     .entry((score.user_id, score.ruleset_id))
                     .and_modify(|x| *x = min_top_score)
                     .or_insert(min_top_score);
+
+                scores
             } else {
                 continue
-            }
+            };
 
             let osu_beatmap = ctx
                 .osu_api
@@ -325,11 +339,23 @@ async fn osu_track_checker(
                 .get_beatmap_attributes(score.beatmap_id, Some(&score.mods))
                 .await?;
 
+            let top_score_position = user_top_scores.iter().enumerate().find(|(_i, x)| {
+                if let Some(beatmap) = &x.beatmap {
+                    beatmap.id == score.beatmap_id
+                    && x.created_at == score.ended_at
+                    && x.pp == score.pp
+                } else {
+                    false
+                }
+            }).map(|(i, _x)| i);
+
+
             let embed = create_tracking_embed(
                 &score,
                 &osu_user,
                 &osu_beatmap,
-                &osu_beatmap_attributes.attributes
+                &osu_beatmap_attributes.attributes,
+                top_score_position
             )?;
 
             let embeds = &[embed];
