@@ -225,7 +225,7 @@ impl Database {
         from osu_tracking ot 
         inner join osu_players op 
         on ot.osu_id = op.osu_id where ot.osu_id = ANY($1::INT8[]) 
-        ) group by osu_id, osu_username
+        ) as t group by osu_id, osu_username
             ",
             users
         )
