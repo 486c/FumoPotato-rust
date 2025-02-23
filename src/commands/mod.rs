@@ -26,9 +26,6 @@ macro_rules! add_osu_tracking_user {
         // Insert osu player to kinda cache username
         $ctx.db.add_osu_player($osu.id, &$osu.username).await?;
 
-        // Insert new tracked user
-        $ctx.db.add_tracked_osu_user($osu.id).await?;
-
         // Insert new tracking
         $ctx.db
             .add_osu_tracking($discord_channel_id, $osu.id)

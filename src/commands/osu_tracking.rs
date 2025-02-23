@@ -642,8 +642,6 @@ impl OsuTrackingAddBulk {
                     .add_osu_player(stats.user.id, &stats.user.username)
                     .await?;
 
-                ctx.db.add_tracked_osu_user(stats.user.id).await?;
-
                 ctx.db.add_osu_tracking(channel_id, stats.user.id).await?;
 
                 let _ = writeln!(str, "{} - Added", stats.user.username);

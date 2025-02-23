@@ -176,24 +176,6 @@ impl Database {
         .await?)
     }
 
-    pub async fn update_tracked_user_status(
-        &self,
-        osu_id: i64,
-        last_checked: NaiveDateTime,
-    ) -> Result<()> {
-        sqlx::query!(
-            "UPDATE osu_tracked_users
-            SET last_checked = $1
-            WHERE osu_id = $2",
-            last_checked,
-            osu_id
-        )
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
-    }
-
     pub async fn select_osu_tracked_linked_channels(
         &self,
         osu_id: i64,
@@ -240,16 +222,6 @@ impl Database {
         Ok(hash)
     }
 
-    pub async fn select_osu_tracked_users(
-        &self,
-    ) -> Result<Vec<OsuTrackedUser>> {
-        Ok(
-            sqlx::query_as!(OsuTrackedUser, "SELECT * FROM osu_tracked_users")
-                .fetch_all(&self.pool)
-                .await?,
-        )
-    }
-
     pub async fn remove_all_osu_tracking(&self, channel_id: i64) -> Result<()> {
         sqlx::query!(
             "
@@ -273,20 +245,6 @@ impl Database {
             "INSERT INTO osu_tracking VALUES($1, $2) ON CONFLICT DO NOTHING", // TODO investigate
             osu_user_id,
             channel_id
-        )
-        .execute(&self.pool)
-        .await?;
-
-        Ok(())
-    }
-
-    pub async fn add_tracked_osu_user(&self, osu_user_id: i64) -> Result<()> {
-        sqlx::query!(
-            "INSERT INTO osu_tracked_users 
-            VALUES($1, now() at time zone('utc'))
-            ON CONFLICT DO NOTHING
-            ",
-            osu_user_id
         )
         .execute(&self.pool)
         .await?;
