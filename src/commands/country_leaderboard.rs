@@ -329,22 +329,6 @@ pub async fn country_leaderboard(
         }
     };
 
-    let user_position: Option<usize> = match osu_user {
-        Some(osu_user) => {
-            let pos = clb.items
-                .iter()
-                .enumerate()
-                .find(|(_index, score)| score.player.id == osu_user.osu_id);
-
-            if let Some((index, _score)) = pos {
-                Some(index + 1)
-            } else {
-                None
-            }
-        },
-        None => None,
-    };
-
     let total_scores = clb.items.len();
 
     match sorting {
@@ -380,7 +364,21 @@ pub async fn country_leaderboard(
         },
     };
 
-    dbg!(&legacy);
+    let user_position: Option<usize> = match osu_user {
+        Some(osu_user) => {
+            let pos = clb.items
+                .iter()
+                .enumerate()
+                .find(|(_index, score)| score.player.id == osu_user.osu_id);
+
+            if let Some((index, _score)) = pos {
+                Some(index + 1)
+            } else {
+                None
+            }
+        },
+        None => None,
+    };
 
     let mut lb_list = LeaderboardListing::new(clb, b, user_position, legacy.unwrap_or(false))
         .calculate_pages(total_scores, 10);
