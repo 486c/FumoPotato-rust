@@ -310,7 +310,12 @@ pub async fn country_leaderboard(
 
     let osu_user = osu_user!(ctx, cmd);
 
-    let mut clb = match ctx.osu_api.get_countryleaderboard_fallback(bid, mods).await {
+    let (clb_res, b_res) = tokio::join!(
+        ctx.osu_api.get_countryleaderboard_fallback(bid, mods),
+        ctx.osu_api.get_beatmap(bid),
+    );
+
+    let mut clb = match clb_res {
         Ok(lb) => lb,
         Err(e) => {
             builder =
@@ -320,7 +325,7 @@ pub async fn country_leaderboard(
         }
     };
 
-    let b = match ctx.osu_api.get_beatmap(bid).await {
+    let b = match b_res {
         Ok(b) => b,
         Err(e) => {
             builder = builder.content("Issues with osu!api. blame peppy");
