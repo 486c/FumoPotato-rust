@@ -147,11 +147,6 @@ async fn main() -> Result<()> {
         println!("Failed to close osu tracking loop!");
     }
 
-    // Doing it here to ensure that it executed
-    commands::osu_tracking::osu_sync_db(ctx.clone())
-        .await
-        .expect("Failed to sync osu checker with db");
-
     commands::twitch::twitch_sync_db(ctx.clone())
         .await
         .expect("Failed to sync checker list with db");

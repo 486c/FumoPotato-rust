@@ -45,11 +45,6 @@ pub struct FumoContext {
     /// and value is if streamer is online or not
     pub twitch_checker_list: Mutex<HashMap<i64, bool>>,
 
-    /// Checker list for all tracked osu users
-    /// where key is osu id
-    /// and value is timestamp of when last checking happened
-    pub osu_checker_list: Mutex<HashMap<i64, NaiveDateTime>>,
-
     pub db: Database,
     pub stats: BotMetrics,
     pub http: Arc<Client>,
@@ -155,7 +150,6 @@ impl FumoContext {
             standby,
             stats,
             twitch_checker_list: Mutex::new(HashMap::new()),
-            osu_checker_list: Mutex::new(HashMap::new()),
             state: Mutex::new(state),
         };
 

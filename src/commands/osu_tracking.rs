@@ -64,7 +64,7 @@ fn create_tracking_embed(
     if let Some(top_score_position) = top_score_pos {
         let _ = writeln!(
             description_text,
-            "**New top score #{}**",
+            ":trophy: __**New top score #{}**__",
             top_score_position 
         );
     }
@@ -433,34 +433,6 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
     }
 }
 
-pub async fn osu_sync_checker_list(ctx: &FumoContext) -> Result<()> {
-    let tracked_users = ctx.db.select_osu_tracked_users().await?;
-
-    let mut lock = ctx.osu_checker_list.lock().await;
-
-    for tracked_user in tracked_users {
-        let _ = lock
-            .entry(tracked_user.osu_id)
-            .or_insert(tracked_user.last_checked);
-    }
-
-    Ok(())
-}
-
-pub async fn osu_sync_db(ctx: Arc<FumoContext>) -> Result<()> {
-    let lock = ctx.osu_checker_list.lock().await;
-
-    for (osu_id, last_checked) in lock.iter() {
-        ctx.db
-            .update_tracked_user_status(*osu_id, *last_checked)
-            .await?;
-    }
-
-    println!("Successfully synced db with osu tracked list");
-
-    Ok(())
-}
-
 /// Osu tracking commands
 #[derive(CommandModel, CreateCommand, Debug)]
 #[command(name = "tracking")]
@@ -578,8 +550,6 @@ impl OsuTrackingAdd {
                     None => {
                         add_osu_tracking_user!(ctx, &osu_user, channel_id);
 
-                        osu_sync_checker_list(ctx).await?;
-
                         msg = msg.content(
                             "Successfully added user to the tracking!",
                         );
@@ -687,8 +657,6 @@ impl OsuTrackingAddBulk {
             .content(str);
 
         cmd.response(ctx, &msg).await?;
-
-        osu_sync_checker_list(ctx).await?;
 
         Ok(())
     }
