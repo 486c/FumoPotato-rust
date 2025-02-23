@@ -329,15 +329,15 @@ async fn osu_track_checker(
                 continue
             };
 
-            let osu_beatmap = ctx
-                .osu_api
-                .get_beatmap(score.beatmap_id)
-                .await?;
 
-            let osu_beatmap_attributes = ctx
-                .osu_api
-                .get_beatmap_attributes(score.beatmap_id, Some(&score.mods))
-                .await?;
+            
+            let (osu_beatmap_res, osu_beatmap_attributes_res) = tokio::join!(
+                ctx.osu_api.get_beatmap(score.beatmap_id),
+                ctx.osu_api.get_beatmap_attributes(score.beatmap_id, Some(&score.mods))
+            );
+
+            let osu_beatmap = osu_beatmap_res?;
+            let osu_beatmap_attributes = osu_beatmap_attributes_res?;
 
             let top_score_position = user_top_scores.iter().enumerate().find(|(_i, x)| {
                 if let Some(beatmap) = &x.beatmap {
