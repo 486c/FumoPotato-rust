@@ -347,7 +347,7 @@ async fn osu_track_checker(
                 } else {
                     false
                 }
-            }).map(|(i, _x)| i);
+            }).map(|(i, _x)| i+1);
 
 
             let embed = create_tracking_embed(
