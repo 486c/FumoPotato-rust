@@ -551,15 +551,21 @@ pub struct OsuBeatmapsetCompact {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct OsuBeatmapAttributes {
-    pub attributes: OsuBeatmapAttributesKind,
+    pub attributes: OsuBeatmapAttributesContainer,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+pub struct OsuBeatmapAttributesContainer {
+    pub max_combo: u32,
+    pub star_rating: f32,
+}
+
+/*
+TODO look at it after rebalance
 #[derive(Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum OsuBeatmapAttributesKind {
     Osu {
-        max_combo: u32,
-        star_rating: f32,
         aim_difficulty: f32,
         approach_rate: f32,
         flashlight_difficulty: f32,
@@ -568,8 +574,6 @@ pub enum OsuBeatmapAttributesKind {
         speed_difficulty: f32,
     },
     Taiko {
-        max_combo: u32,
-        star_rating: f32,
         stamina_difficulty: f32,
         rhythm_difficulty: f32,
         colour_difficulty: f32,
@@ -577,17 +581,14 @@ pub enum OsuBeatmapAttributesKind {
         great_hit_window: f32,
     },
     Fruits {
-        max_combo: u32,
-        star_rating: f32,
         approach_rate: f32,
     },
     Mania {
-        max_combo: u32,
-        star_rating: f32,
         great_hit_window: f32,
         score_multiplier: Option<f32>,
     },
 }
+*/
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct OsuBeatmap {

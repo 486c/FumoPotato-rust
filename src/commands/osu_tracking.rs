@@ -13,7 +13,7 @@ use crate::{
 };
 use eyre::Result;
 use osu_api::models::{
-    osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap, OsuBeatmapAttributesKind, OsuGameMode, OsuUserExtended, RankingFilter, RankingKind, ScoresType, UserId
+    osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap, OsuBeatmapAttributesContainer, OsuGameMode, OsuUserExtended, RankingFilter, RankingKind, ScoresType, UserId
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
@@ -32,7 +32,7 @@ fn create_tracking_embed(
     score: &OsuScoreLazer,
     user: &OsuUserExtended,
     beatmap: &OsuBeatmap,
-    beatmap_attrs: &OsuBeatmapAttributesKind,
+    beatmap_attrs: &OsuBeatmapAttributesContainer,
     top_score_pos: Option<usize>
 ) -> eyre::Result<Embed> {
     let mut description_text = String::with_capacity(100);
@@ -47,12 +47,10 @@ fn create_tracking_embed(
         beatmap.id
     );
 
-    let (star_rating, max_combo) = match beatmap_attrs {
-        OsuBeatmapAttributesKind::Osu { star_rating, max_combo, .. } => (star_rating, max_combo),
-        OsuBeatmapAttributesKind::Taiko { star_rating, max_combo, .. } => (star_rating, max_combo),
-        OsuBeatmapAttributesKind::Fruits { star_rating, max_combo, .. } => (star_rating, max_combo),
-        OsuBeatmapAttributesKind::Mania { star_rating, max_combo, .. } => (star_rating, max_combo),
-    };
+    let (star_rating, max_combo) = (
+        beatmap_attrs.star_rating, 
+        beatmap.max_combo.unwrap_or(0)
+    );
 
     let _ = writeln!(
         description_text,
@@ -165,33 +163,33 @@ fn create_tracking_embed(
         hp_drain = (hp_drain * 1.4).min(10.0);
     }
 
-    match beatmap_attrs {
-        OsuBeatmapAttributesKind::Osu { .. } => {
-            let _ = write!(
-                description_text,
-                "`AR: {:.2} OD: {:.2} CS: {:.2} HP: {:.2}",
-                approach_rate, overall_difficulty, circle_size, hp_drain 
-            );
-        },
-        OsuBeatmapAttributesKind::Taiko { .. } => {
-            let _ = write!(
-                description_text,
-                "`OD: {:.2} HP: {:.2}",
-                 overall_difficulty, hp_drain 
-            );
-        },
-        OsuBeatmapAttributesKind::Fruits { .. } => {
+    match score.ruleset_id {
+        OsuGameMode::Fruits => {
             let _ = write!(
                 description_text,
                 "`AR: {:.2} CS: {:.2} HP: {:.2}",
                 approach_rate, circle_size, hp_drain 
             );
         },
-        OsuBeatmapAttributesKind::Mania { .. } => {
+        OsuGameMode::Mania => {
             let _ = write!(
                 description_text,
                 "`OD: {:.2} HP: {:.2}",
                 overall_difficulty, hp_drain 
+            );
+        },
+        OsuGameMode::Osu => {
+            let _ = write!(
+                description_text,
+                "`AR: {:.2} OD: {:.2} CS: {:.2} HP: {:.2}",
+                approach_rate, overall_difficulty, circle_size, hp_drain 
+            );
+        },
+        OsuGameMode::Taiko => {
+            let _ = write!(
+                description_text,
+                "`OD: {:.2} HP: {:.2}",
+                 overall_difficulty, hp_drain 
             );
         },
     }
@@ -337,7 +335,13 @@ async fn osu_track_checker(
             );
 
             let osu_beatmap = osu_beatmap_res?;
-            let osu_beatmap_attributes = osu_beatmap_attributes_res?;
+            let osu_beatmap_attributes = match osu_beatmap_attributes_res {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("Failed to fetch beatmap attributes: {}", e);
+                    return Err(e.into())
+                },
+            };
 
             let top_score_position = user_top_scores.iter().enumerate().find(|(_i, x)| {
                 if let Some(beatmap) = &x.beatmap {
