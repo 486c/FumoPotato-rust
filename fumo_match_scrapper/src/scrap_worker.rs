@@ -42,8 +42,8 @@ pub async fn run(
                 Ok(data) => {
                     if data.is_match_disbanded() {
                         println!("Fetched {}", match_id);
-                        //let boxed_data = Box::new(data);
-                        //let _ = sender.send(boxed_data);
+                        let boxed_data = Box::new(data);
+                        let _ = sender.send(boxed_data);
                     }
                 }
                 Err(e) => match e {
