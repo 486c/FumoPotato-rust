@@ -10,3 +10,4 @@ fumo_database = { workspace = true }
 clap = { version = "4.5.21", features = ["derive"] }
 dotenv = "0.15.0"
 tokio-util = "0.7.12"
+eyre = "0.6.12"

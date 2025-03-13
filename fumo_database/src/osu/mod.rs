@@ -43,6 +43,12 @@ pub struct OsuDbMatch {
 }
 
 #[derive(sqlx::FromRow, Debug)]
+pub struct OsuDbMatchExists {
+    pub id: i64,
+    pub exists: bool,
+}
+
+#[derive(sqlx::FromRow, Debug)]
 pub struct OsuDbMatchScore {
     pub game_id: Option<i64>,
     pub match_id: Option<i64>,
@@ -305,6 +311,32 @@ impl Database {
         )
         .fetch_one(&self.pool)
         .await?)
+    }
+
+    pub async fn is_osu_match_exists_batch(
+        &self, 
+        match_ids: &[i64]
+    ) -> Result<Vec<OsuDbMatchExists>> {
+        let res = sqlx::query_as!(
+            OsuDbMatchExists,
+            r#"
+                SELECT
+                    id_list.id as "id!",
+                    CASE
+                        WHEN osu_matches.id IS NOT NULL THEN TRUE
+                        ELSE FALSE
+                    END AS "exists!"
+                FROM
+                    unnest($1::int8[]) AS id_list(id)
+                LEFT JOIN
+                    osu_matches ON id_list.id = osu_matches.id;
+            "#,
+            match_ids
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(res)
     }
 
     pub async fn is_match_exists_and_not_found_batch(

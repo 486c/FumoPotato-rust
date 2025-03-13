@@ -326,8 +326,6 @@ async fn osu_track_checker(
             } else {
                 continue
             };
-
-
             
             let (osu_beatmap_res, osu_beatmap_attributes_res) = tokio::join!(
                 ctx.osu_api.get_beatmap(score.beatmap_id),

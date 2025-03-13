@@ -1,5 +1,9 @@
+mod match_not_found;
+mod scrap_worker;
+
 use clap::{command, Parser, Subcommand};
 use fumo_database::Database;
+use match_not_found::MatchNotFoundList;
 use osu_api::{models::osu_matches::OsuMatchGet, OsuApi};
 use std::{
     env,
@@ -11,7 +15,7 @@ use std::{
 };
 use tokio::{
     signal,
-    sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
+    sync::mpsc::{self, UnboundedReceiver},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -45,7 +49,7 @@ pub struct Args {
     #[arg(short, long)]
     workers: usize,
 
-    /// Batch sizeo of match_ids
+    /// Batch size of the match ids
     #[arg(short, long)]
     batch_size: usize,
 
@@ -53,82 +57,6 @@ pub struct Args {
     command: ScrapperKind,
 }
 
-async fn master(
-    range: Vec<i64>,
-    token: CancellationToken,
-    db: Arc<Database>,
-    osu_api: Arc<OsuApi>,
-    sender: UnboundedSender<Box<OsuMatchGet>>,
-    batch_size: usize,
-) {
-    let mut to_process: Vec<i64> = Vec::new();
-
-    for chunk in range.chunks(batch_size) {
-        if token.is_cancelled() {
-            break;
-        }
-
-        // 1. Check in batch manner if match_ids in chunk are
-        // exists or inside not found table
-        let matches_result = db
-            .is_match_exists_and_not_found_batch(chunk)
-            .await
-            .unwrap();
-
-        // 2. Clear to_process vec
-        to_process.clear();
-
-        // 3. Collect all neccessary match_ids
-        for (k, v) in &matches_result {
-            match v {
-                (true, true) => {
-                    println!("[{}] Match is expired, but it's in db", k);
-                    continue;
-                }
-                (true, false) => {
-                    println!("[{}] Match exists, skipping", k);
-                    continue;
-                }
-                (false, true) => {
-                    println!("[{}] Match not found", k);
-                    continue;
-                }
-                (false, false) => {}
-            };
-
-            to_process.push(*k);
-        }
-
-        for match_id in &to_process {
-            match osu_api.get_match_all_events(*match_id).await {
-                Ok(data) => {
-                    if data.is_match_disbanded() {
-                        println!("Fetched {}", match_id);
-                        let boxed_data = Box::new(data);
-                        let _ = sender.send(boxed_data);
-                    }
-                }
-                Err(e) => match e {
-                    osu_api::error::OsuApiError::NotFound { .. } => {
-                        while let Err(e) =
-                            db.insert_osu_match_not_found(*match_id).await
-                        {
-                            println!("Error inserting not found {e}");
-                        }
-
-                        println!("[{}] Inserted into not found", match_id);
-                    }
-                    osu_api::error::OsuApiError::TooManyRequests => {
-                        panic!("TOO MANY REQUESTS")
-                    }
-                    _ => println!("[{}] Error during request: {e}", match_id),
-                },
-            }
-        }
-    }
-
-    println!("Master exited");
-}
 
 async fn db_worker(
     db: Arc<Database>,
@@ -228,6 +156,7 @@ async fn main() {
     let osu_api = Arc::new(osu_api);
 
     let cancel_token = CancellationToken::new();
+    let match_not_found_list = Arc::new(MatchNotFoundList::new().unwrap());
 
     match args.command {
         ScrapperKind::Range { start, end } => {
@@ -244,12 +173,13 @@ async fn main() {
 
             println!("Range: Starting workers on chunks: {:?}", chunks);
             for chunk in chunks {
-                tokio::spawn(master(
+                tokio::spawn(scrap_worker::run(
                     chunk.collect(),
                     cancel_token.clone(),
                     db.clone(),
                     osu_api.clone(),
                     match_tx.clone(),
+                    match_not_found_list.clone(),
                     args.batch_size,
                 ));
             }
@@ -267,12 +197,13 @@ async fn main() {
 
             println!("Linear: Starting workers on chunks: {:?}", chunks);
             for chunk in chunks {
-                tokio::spawn(master(
+                tokio::spawn(scrap_worker::run(
                     chunk.collect(),
                     cancel_token.clone(),
                     db.clone(),
                     osu_api.clone(),
                     match_tx.clone(),
+                    match_not_found_list.clone(),
                     args.batch_size,
                 ));
             }
@@ -296,12 +227,13 @@ async fn main() {
                 }
             }
 
-            tokio::spawn(master(
+            tokio::spawn(scrap_worker::run(
                 chunk,
                 cancel_token.clone(),
                 db.clone(),
                 osu_api.clone(),
                 match_tx.clone(),
+                match_not_found_list.clone(),
                 args.batch_size,
             ));
         }
@@ -316,4 +248,6 @@ async fn main() {
     };
 
     tokio::time::sleep(Duration::from_secs(1)).await;
+
+    let _ = match_not_found_list.close().await;
 }
