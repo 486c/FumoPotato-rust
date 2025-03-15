@@ -7,7 +7,7 @@ pub mod models;
 pub mod fallback_models;
 
 use fallback_models::FallbackBeatmapScores;
-use models::{osu_matches::OsuMatchGet, osu_mods::OsuModsLazer, BeatmapUserScore, OsuBeatmapAttributes, ScoresBatch};
+use models::{osu_matches::{OsuMatchContainer, OsuMatchGet}, osu_mods::OsuModsLazer, BeatmapUserScore, OsuBeatmapAttributes, ScoresBatch};
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT},
     Client, Method, Response, StatusCode,
@@ -395,13 +395,6 @@ impl OsuApi {
 
             initial.events.extend_from_slice(&res.events);
 
-            println!(
-                "Appended {} events, last => {} | new => {}",
-                res.events.len(),
-                last_id,
-                res.latest_event_id
-            );
-
             last_id = res.latest_event_id;
         }
 
@@ -447,6 +440,26 @@ impl OsuApi {
         }
 
         self.stats.counters.with_label_values(&["get_scores_batch"]).inc();
+
+        self.make_request(
+            &link,
+            Method::GET,
+            ApiKind::General,
+            None
+        ).await
+    }
+
+    pub async fn get_matches_batch(
+        &self,
+        cursor_string: &Option<i64>,
+    ) -> ApiResult<OsuMatchContainer> {
+        let mut link = format!("{OSU_API_BASE}/matches");
+
+        if let Some(cursor) = cursor_string {
+            let _ = write!(link, "?cursor[id]={}", cursor);
+        };
+
+        self.stats.counters.with_label_values(&["get_matches_batch"]).inc();
 
         self.make_request(
             &link,
@@ -864,6 +877,15 @@ mod tests {
         let res = api.get_scores_batch(&None).await.unwrap();
 
         assert!(res.scores.len() != 0)
+    }
+
+    #[tokio::test]
+    async fn get_matches_batch() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let res = api.get_matches_batch(&None).await.unwrap();
+
+        assert!(res.matches.len() != 0)
     }
 
     #[tokio::test]

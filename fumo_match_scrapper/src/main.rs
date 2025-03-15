@@ -1,5 +1,7 @@
 mod match_not_found;
 mod scrap_worker;
+mod db_worker;
+mod live_scrapper;
 
 use clap::{command, Parser, Subcommand};
 use fumo_database::Database;
@@ -40,6 +42,8 @@ pub enum ScrapperKind {
         #[arg(short, long)]
         file: PathBuf,
     },
+    Live {
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -58,75 +62,6 @@ pub struct Args {
 }
 
 
-async fn db_worker(
-    db: Arc<Database>,
-    token: CancellationToken,
-    mut receiver: UnboundedReceiver<Box<OsuMatchGet>>,
-) {
-    loop {
-        if token.is_cancelled() {
-            println!("Db worker exited");
-            break;
-        };
-
-        let event = receiver.recv().await;
-        if let Some(osu_match) = event {
-            if let Some(end_time) = osu_match.osu_match.end_time {
-                let _ = db
-                    .insert_osu_match(
-                        osu_match.osu_match.id,
-                        &osu_match.osu_match.name,
-                        osu_match.osu_match.start_time,
-                        end_time,
-                    )
-                    .await
-                    .inspect_err(|e| {
-                        println!("Failed to insert match into db: {e}")
-                    });
-
-                for event in osu_match.events {
-                    if event.game.is_none() {
-                        continue;
-                    }
-
-                    let game = &event.game.unwrap();
-
-                    let _ = db
-                        .insert_osu_match_game_from_request(
-                            osu_match.osu_match.id,
-                            game,
-                        )
-                        .await
-                        .inspect_err(|e| {
-                            println!("Failed to insert game into db: {e}")
-                        });
-
-                    for score in &game.scores {
-                        let _ = db
-                            .insert_osu_match_game_score_from_request(
-                                osu_match.osu_match.id,
-                                game.id,
-                                game.beatmap_id,
-                                score,
-                            )
-                            .await
-                            .inspect_err(|e| {
-                                println!(
-                                    "Failed to insert game score into db: {e}"
-                                )
-                            });
-                    }
-                }
-            } else {
-                println!("[DB_WORKER] Got match to insert without end_time!")
-            }
-
-            println!("Inserted into DB: current queue => {}", receiver.len());
-        } else {
-            println!("DB Worker is in bad state TODO");
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() {
@@ -134,7 +69,7 @@ async fn main() {
 
     let args = Args::parse();
 
-    let (match_tx, match_rx) = mpsc::unbounded_channel();
+    let (db_match_tx, db_match_rx) = mpsc::unbounded_channel();
 
     let db = Database::init(env::var("DATABASE_URL").unwrap().as_str())
         .await
@@ -158,6 +93,8 @@ async fn main() {
     let cancel_token = CancellationToken::new();
     let match_not_found_list = Arc::new(MatchNotFoundList::new().unwrap());
 
+    tokio::spawn(db_worker::worker(db.clone(), cancel_token.clone(), db_match_rx));
+
     match args.command {
         ScrapperKind::Range { start, end } => {
             let mut chunks = Vec::new();
@@ -178,7 +115,7 @@ async fn main() {
                     cancel_token.clone(),
                     db.clone(),
                     osu_api.clone(),
-                    match_tx.clone(),
+                    db_match_tx.clone(),
                     match_not_found_list.clone(),
                     args.batch_size,
                 ));
@@ -202,7 +139,7 @@ async fn main() {
                     cancel_token.clone(),
                     db.clone(),
                     osu_api.clone(),
-                    match_tx.clone(),
+                    db_match_tx.clone(),
                     match_not_found_list.clone(),
                     args.batch_size,
                 ));
@@ -232,14 +169,20 @@ async fn main() {
                 cancel_token.clone(),
                 db.clone(),
                 osu_api.clone(),
-                match_tx.clone(),
+                db_match_tx.clone(),
                 match_not_found_list.clone(),
                 args.batch_size,
             ));
+        },
+        ScrapperKind::Live {} => {
+            live_scrapper::run(
+                osu_api.clone(),
+                cancel_token.clone(),
+                db_match_tx.clone(),
+                db.clone()
+            ).await;
         }
     };
-
-    tokio::spawn(db_worker(db.clone(), cancel_token.clone(), match_rx));
 
     tokio::select! {
         _ = signal::ctrl_c() => {

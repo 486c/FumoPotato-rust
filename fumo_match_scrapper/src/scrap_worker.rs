@@ -17,8 +17,6 @@ pub async fn run(
     match_not_found_list: Arc<MatchNotFoundList>,
     batch_size: usize,
 ) {
-    let mut to_process: Vec<i64> = Vec::new();
-
     for chunk in range.chunks(batch_size) {
         if token.is_cancelled() {
             break;

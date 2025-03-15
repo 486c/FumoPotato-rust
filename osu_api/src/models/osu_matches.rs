@@ -7,6 +7,23 @@ use crate::datetime;
 
 use super::{OsuBeatmap, OsuGameMode, OsuMods, OsuScore};
 
+/// Used in `/matches` endpoint
+#[derive(Debug, Clone, Deserialize)]
+pub struct OsuMatchCompact {
+    pub id: i64,
+    #[serde(deserialize_with = "datetime::deserialize::deserialize")]
+    pub start_time: DateTime<Utc>,
+    #[serde(deserialize_with = "datetime::deserialize_option::deserialize")]
+    pub end_time: Option<DateTime<Utc>>,
+    pub name: String
+}
+
+/// Used in `/matches` endpoint
+#[derive(Debug, Clone, Deserialize)]
+pub struct OsuMatchContainer {
+    pub matches: Vec<OsuMatchCompact>
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct OsuMatch {
     pub id: i64,
