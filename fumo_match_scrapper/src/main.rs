@@ -6,7 +6,7 @@ mod live_scrapper;
 use clap::{command, Parser, Subcommand};
 use fumo_database::Database;
 use match_not_found::MatchNotFoundList;
-use osu_api::{models::osu_matches::OsuMatchGet, OsuApi};
+use osu_api::OsuApi;
 use std::{
     env,
     fs::File,
@@ -17,7 +17,7 @@ use std::{
 };
 use tokio::{
     signal,
-    sync::mpsc::{self, UnboundedReceiver},
+    sync::mpsc::{self},
 };
 use tokio_util::sync::CancellationToken;
 

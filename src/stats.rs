@@ -6,8 +6,8 @@ pub struct BotStats {
     pub cache: IntCounterVec,
 }
 
-impl BotStats {
-    pub fn new() -> Self {
+impl Default for BotStats {
+    fn default() -> Self {
         let opts = Opts::new("fumo_bot_commands", "specific commands usage");
         let command_counters = IntCounterVec::new(opts, &["name"]).unwrap();
 

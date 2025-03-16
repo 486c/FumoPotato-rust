@@ -32,10 +32,11 @@ pub struct FallbackScoreStats {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallabackScoreStatus {
-    #[serde(rename = "isReplayAvailable")]
-    replay: bool,
-    #[serde(rename = "isPerfect")]
-    perfect: bool,
+    // unused
+    //#[serde(rename = "isReplayAvailable")]
+    //replay: bool,
+    //#[serde(rename = "isPerfect")]
+    //perfect: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -57,7 +58,8 @@ pub struct FallabackScoreCounts {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallabackScoreBeatmap {
-    id: i64
+    // unused
+    //id: i64
 }
 
 #[derive(Debug, Clone, Deserialize)]

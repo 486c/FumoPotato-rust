@@ -127,7 +127,7 @@ impl ScoringKind {
 
 struct ScoringKindVisitor;
 
-impl<'de> de::Visitor<'de> for ScoringKindVisitor {
+impl de::Visitor<'_> for ScoringKindVisitor {
     type Value = ScoringKind;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -186,7 +186,7 @@ impl<'de> Deserialize<'de> for TeamKind {
     }
 }
 
-impl<'de> de::Visitor<'de> for TeamKindVisitor {
+impl de::Visitor<'_> for TeamKindVisitor {
     type Value = TeamKind;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

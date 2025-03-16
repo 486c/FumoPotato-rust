@@ -3,7 +3,6 @@ use std::io::Write;
 use fumo_database::Database;
 use osu_api::OsuApi;
 
-use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use twilight_gateway::{
@@ -118,7 +117,7 @@ impl FumoContext {
 
         let standby = Standby::new();
 
-        let bot_metrics = BotStats::new();
+        let bot_metrics = BotStats::default();
 
         let stats = BotMetrics::new(
             osu_api.stats.counters.clone(),

@@ -194,9 +194,9 @@ fn create_tracking_embed(
         },
     }
 
-    let _ = write!(
+    let _ = writeln!(
         description_text,
-        " BPM: {}`\n",
+        " BPM: {}`",
         bpm.unwrap_or(0.0)
     );
     
@@ -353,7 +353,7 @@ async fn osu_track_checker(
 
 
             let embed = create_tracking_embed(
-                &score,
+                score,
                 &osu_user,
                 &osu_beatmap,
                 &osu_beatmap_attributes.attributes,
@@ -430,7 +430,7 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
         cursor = Some(current_newest_score_id);
 
         let mut state_lock = ctx.state.lock().await;
-        state_lock.osu_checker_last_cursor = cursor.clone();
+        state_lock.osu_checker_last_cursor = cursor;
         drop(state_lock);
     }
 }

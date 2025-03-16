@@ -53,11 +53,10 @@ impl MatchNotFoundList {
 
         reader.split(b',')
             .flatten()
-            .map(|split| {
+            .flat_map(|split| {
                 let split_str = unsafe { std::str::from_utf8_unchecked(&split) };
                 split_str.parse::<u32>()
             })
-            .flatten()
             .for_each(|num| {
                 inner.insert(num);
             });
@@ -83,7 +82,7 @@ impl MatchNotFoundList {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
-            .create(true)
+            .truncate(true)
             .open(MATCH_NOT_FOUND_FILE_PATH)?;
 
         let mut writer = BufWriter::new(file);
@@ -91,7 +90,7 @@ impl MatchNotFoundList {
 
         lock.iter().for_each(|num| {
             let _ = writer.write(
-                &format!("{},", num).as_bytes()
+                format!("{},", num).as_bytes()
             );
         });
 

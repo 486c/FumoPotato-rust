@@ -5,7 +5,7 @@ use serde::de;
 
 struct LocalDateTimeVisitor;
 
-impl<'de> de::Visitor<'de> for LocalDateTimeVisitor {
+impl de::Visitor<'_> for LocalDateTimeVisitor {
     type Value = DateTime<Utc>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

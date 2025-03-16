@@ -51,7 +51,7 @@ pub enum RankStatus {
 
 struct RankStatusVisitor;
 
-impl<'de> Visitor<'de> for RankStatusVisitor {
+impl Visitor<'_> for RankStatusVisitor {
     type Value = RankStatus;
 
     #[inline]
@@ -67,7 +67,7 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             3 => Ok(RankStatus::Qualified),
             4 => Ok(RankStatus::Loved),
             _ => {
-                return Err(Error::invalid_value(
+                Err(Error::invalid_value(
                     Unexpected::Unsigned(v),
                     &r#"0, 1, 2, 3 or 4"#,
                 ))
@@ -85,7 +85,7 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             3 => Ok(RankStatus::Qualified),
             4 => Ok(RankStatus::Loved),
             _ => {
-                return Err(Error::invalid_value(
+                Err(Error::invalid_value(
                     Unexpected::Signed(v),
                     &r#"-2, -1, 0, 1, 2, 3 or 4"#,
                 ))
@@ -103,7 +103,7 @@ impl<'de> Visitor<'de> for RankStatusVisitor {
             "qualified" => Ok(RankStatus::Qualified),
             "loved" => Ok(RankStatus::Loved),
             _ => {
-                return Err(Error::invalid_value(
+                Err(Error::invalid_value(
                     Unexpected::Str(v),
                     &r#"ranked, graveyard, wip and other"#,
                 ))
@@ -167,7 +167,7 @@ impl fmt::Display for OsuGrade {
 
 struct OsuRankVisitor;
 
-impl<'de> Visitor<'de> for OsuRankVisitor {
+impl Visitor<'_> for OsuRankVisitor {
     type Value = OsuGrade;
 
     #[inline]
@@ -479,7 +479,7 @@ impl OsuGameMode {
 
 struct OsuGameModeVisitor;
 
-impl<'de> Visitor<'de> for OsuGameModeVisitor {
+impl Visitor<'_> for OsuGameModeVisitor {
     type Value = OsuGameMode;
 
     #[inline]
@@ -678,7 +678,7 @@ impl TryFrom<i16> for OsuScoreMatchTeam {
 
 struct OsuScoreMatchTeamVisitor;
 
-impl<'de> de::Visitor<'de> for OsuScoreMatchTeamVisitor {
+impl de::Visitor<'_> for OsuScoreMatchTeamVisitor {
     type Value = OsuScoreMatchTeam;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

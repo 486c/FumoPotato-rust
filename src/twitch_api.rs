@@ -25,7 +25,7 @@ pub enum StreamType {
 }
 
 struct StreamTypeVisitor;
-impl<'de> Visitor<'de> for StreamTypeVisitor {
+impl Visitor<'_> for StreamTypeVisitor {
     type Value = StreamType;
 
     #[inline]

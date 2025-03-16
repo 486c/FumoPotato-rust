@@ -4,7 +4,7 @@ use std::fmt;
 
 struct LocalDateTimeVisitor;
 
-impl<'de> de::Visitor<'de> for LocalDateTimeVisitor {
+impl de::Visitor<'_> for LocalDateTimeVisitor {
     type Value = DateTime<Utc>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -106,7 +106,7 @@ pub mod deserialize_bool {
         d.deserialize_any(OsuBoolVisitor)
     }
 
-    impl<'de> de::Visitor<'de> for OsuBoolVisitor {
+    impl de::Visitor<'_> for OsuBoolVisitor {
         type Value = bool;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

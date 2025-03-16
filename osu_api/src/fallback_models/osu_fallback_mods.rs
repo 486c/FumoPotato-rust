@@ -18,7 +18,7 @@ pub fn deserialize<'de, D: Deserializer<'de>>(
 
 struct FallbackOsuModVisitor;
 
-impl<'de> Visitor<'de> for FallbackOsuModVisitor {
+impl Visitor<'_> for FallbackOsuModVisitor {
     type Value = Option<f32>;
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

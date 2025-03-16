@@ -176,10 +176,10 @@ pub fn calc_ar(ar: f32, mods: &OsuModsLazer) -> f64 {
 pub fn calc_od(od: f32, mods: &OsuModsLazer, mode: &OsuGameMode) -> f64 {
     let mut od = od as f64;
 
-    match mode {
-        OsuGameMode::Fruits => return od,
-        _ => {}
-    };
+
+    if mode == &OsuGameMode::Fruits { 
+        return od 
+    }
 
     if mods.contains("EZ") {
         od /= 2.0;
