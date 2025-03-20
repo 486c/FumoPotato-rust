@@ -226,8 +226,10 @@ impl OsuApi {
         }
 
         if let Some(mode) = user_scores.mode {
-            link.push_str(&format!("ruleset={}&", mode))
+            link.push_str(&format!("mode={}&", mode))
         }
+
+        dbg!(&link[..link.len()-1]);
 
         let r = self
             .make_request(
@@ -702,14 +704,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_top_scores_correct_mode() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let mode = OsuGameMode::Osu;
+
+
+        let req = GetUserScores {
+            user_id: 9211305,
+            kind: ScoresType::Best,
+            include_fails: Some(false),
+            mode: Some(mode),
+            limit: Some(100),
+            offset: None,
+        };
+
+        let scores = api.get_user_scores(req).await.unwrap();
+
+        for score in scores {
+            assert_eq!(score.mode, format!("{}", mode))
+        }
+    }
+
+    #[tokio::test]
     async fn test_get_scores_deser() {
         let api = API_INSTANCE.get().await.unwrap();
+
 
         let req = GetUserScores::new(11692602, ScoresType::Best)
             .limit(100)
             .include_fails(true);
 
-        api.get_user_scores(req).await.unwrap();
+
+        let _scores = api.get_user_scores(req).await.unwrap();
     }
 
     #[tokio::test]
