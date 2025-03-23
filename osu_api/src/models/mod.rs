@@ -518,6 +518,22 @@ impl<'de> Deserialize<'de> for OsuGameMode {
     }
 }
 
+impl TryFrom<&str> for OsuGameMode {
+    type Error = OsuApiError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "osu" => Ok(OsuGameMode::Osu),
+            "fruits" => Ok(OsuGameMode::Fruits),
+            "taiko" => Ok(OsuGameMode::Taiko),
+            "mania" => Ok(OsuGameMode::Mania),
+            _ => {
+                Err(OsuApiError::Casting) // TODO: Think about a better result not this
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct OauthResponse {
     pub token_type: String,
@@ -646,6 +662,7 @@ pub enum OsuScoreMatchTeam {
     Blue = 2,
 }
 
+/*
 impl<'r> Decode<'r, Postgres> for OsuScoreMatchTeam {
     fn decode(value: <Postgres as sqlx::Database>::ValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
         let value = <i16 as Decode<'r, Postgres>>::decode(value)?;
@@ -674,6 +691,19 @@ impl TryFrom<i16> for OsuScoreMatchTeam {
         }
     }
 
+}
+*/
+
+
+impl From<i16> for OsuScoreMatchTeam {
+    fn from(value: i16) -> Self {
+        match value {
+            0 => Self::None,
+            1 => Self::Red,
+            2 => Self::Blue,
+            _ => Self::None
+        }
+    }
 }
 
 struct OsuScoreMatchTeamVisitor;
@@ -863,7 +893,7 @@ mod utils {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum UserId {
     Username(String),
     Id(i64),

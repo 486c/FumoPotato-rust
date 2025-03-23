@@ -1,57 +1,20 @@
-use eyre::Result;
 use fumo_database::osu::OsuDbMatch;
+use twilight_model::application::interaction::InteractionData;
+use twilight_model::application::interaction::Interaction;
+use std::time::Duration;
 use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
 use osu_api::models::{OsuUserExtended, UserId};
-use std::{fmt::Write, time::Duration};
-use tokio_stream::StreamExt;
-use twilight_interactions::command::{
-    CommandModel, CommandOption, CreateCommand, CreateOption,
-};
-use twilight_model::{
-    application::interaction::{Interaction, InteractionData},
-    channel::message::MessageFlags,
-};
+use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_model::channel::message::MessageFlags;
 use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
+use eyre::Result;
+use std::fmt::Write;
+use tokio_stream::StreamExt;
 
-use crate::{
-    components::listing::ListingTrait,
-    fumo_context::FumoContext,
-    utils::{static_components::pages_components, interaction::{InteractionCommand, InteractionComponent }},
-};
+use crate::{components::listing::ListingTrait, fumo_context::FumoContext, utils::{interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components}};
 
-
-/// All osu! multiplayer related commands
-#[derive(CommandModel, CreateCommand, Debug)]
-#[command(name = "multiplayer")]
-pub enum MultiplayerCommands {
-    #[command(name = "list")]
-    List(MultiplayerList),
-}
-
-impl MultiplayerCommands {
-    pub async fn handle(
-        ctx: &FumoContext,
-        cmd: InteractionCommand,
-    ) -> Result<()> {
-        let command = Self::from_interaction(cmd.data.clone().into())?;
-
-        match command {
-            MultiplayerCommands::List(command) => {
-                ctx.stats.bot.cmd.with_label_values(&["multiplayer_list"]).inc();
-                command.run(ctx, cmd).await
-            },
-        }
-    }
-}
-
-#[derive(Debug, CommandOption, CreateOption)]
-pub enum ListKind {
-    #[option(name = "All", value = "all")]
-    All = 0,
-    #[option(name = "Tournament", value = "tournament")]
-    Tournament = 1,
-}
+use super::ListKind;
 
 #[listing]
 pub struct MatchesListing {
@@ -121,7 +84,7 @@ impl ListingTrait for MatchesListing {
 #[derive(CommandModel, CreateCommand, Debug)]
 #[command(name = "list")]
 pub struct MultiplayerList {
-    /// List all matches or only tournament related
+    /// List all matches or only in tournament related
     kind: ListKind,
 
     /// osu! user id or username

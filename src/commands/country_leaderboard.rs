@@ -1,6 +1,6 @@
 use crate::{
     components::listing::ListingTrait, fumo_context::FumoContext, utils::{
-        interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components, OSU_MAP_ID_NEW, OSU_MAP_ID_OLD
+        interaction::{InteractionCommand, InteractionComponent}, searching::{find_beatmap_link, parse_beatmap_link}, static_components::pages_components, OSU_MAP_ID_NEW, OSU_MAP_ID_OLD
     }
 };
 use fumo_macro::listing;
@@ -75,7 +75,7 @@ impl LeaderboardCommand {
 
         // If link already provided go straight to parsing
         if let Some(link) = &self.link {
-            if let Some(beatmap_id) = parse_link(link) {
+            if let Some(beatmap_id) = parse_beatmap_link(link) {
                 return country_leaderboard(
                     ctx, 
                     beatmap_id, 
@@ -103,8 +103,8 @@ impl LeaderboardCommand {
             .await?;
 
         for m in msgs {
-            if let Some(link) = find_link(&m) {
-                if let Some(bid) = parse_link(link.as_ref()) {
+            if let Some(link) = find_beatmap_link(&m) {
+                if let Some(bid) = parse_beatmap_link(link.as_ref()) {
                     return country_leaderboard(ctx, bid, self.mods.clone(), self.sorting, self.legacy, &cmd).await;
                 }
             }
@@ -268,34 +268,7 @@ impl ListingTrait for LeaderboardListing {
             .build();
 
         self.embed = Some(embed);
-
     }
-}
-
-fn find_link(msg: &Message) -> Option<&String> {
-    match msg.author.id.get() {
-        // owo bot
-        289066747443675143 => msg.embeds.first()?.author.as_ref()?.url.as_ref(),
-        // bath bot & mikaizuku
-        297073686916366336 | 839937716921565252 => {
-            msg.embeds.first()?.url.as_ref()
-        }
-        _ => None,
-    }
-}
-
-fn parse_link(str: &str) -> Option<i32> {
-    if !str.contains("https://osu.ppy.sh") {
-        return None;
-    }
-
-    let m = if let Some(o) = OSU_MAP_ID_OLD.get().captures(str) {
-        o.get(1)
-    } else {
-        OSU_MAP_ID_NEW.get().captures(str).and_then(|o| o.get(2))
-    };
-
-    m.and_then(|o| o.as_str().parse().ok())
 }
 
 pub async fn country_leaderboard(
@@ -445,8 +418,8 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
             .model()
             .await?;
 
-        if let Some(link) = find_link(&msg) {
-            if let Some(bid) = parse_link(link.as_ref()) {
+        if let Some(link) = find_beatmap_link(&msg) {
+            if let Some(bid) = parse_beatmap_link(link.as_ref()) {
                 return country_leaderboard(ctx, bid, None, None, None, &command).await;
             }
         }

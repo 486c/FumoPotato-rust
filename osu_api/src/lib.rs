@@ -837,6 +837,9 @@ mod tests {
             OsuMatchEventKind::MatchDisbanded
         );
         // assert!(res.events.len() > 100); // TODO find a mp find a lot of events
+
+        let res = api.get_match_all_events(116854723).await.unwrap();
+        dbg!(res);
     }
 
     #[tokio::test]

@@ -199,8 +199,6 @@ fn create_tracking_embed(
         " BPM: {}`",
         bpm.unwrap_or(0.0)
     );
-    
-
 
     let thumb_url = format!("https://b.ppy.sh/thumb/{}l.jpg", beatmap.beatmapset_id);
 

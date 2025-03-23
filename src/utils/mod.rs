@@ -1,5 +1,6 @@
 pub mod interaction;
 pub mod static_components;
+pub mod searching;
 
 use std::ops;
 

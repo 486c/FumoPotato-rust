@@ -43,6 +43,19 @@ pub struct OsuDbMatch {
 }
 
 #[derive(sqlx::FromRow, Debug)]
+pub struct OsuDbMatchGame {
+    pub id: i64,
+    pub match_id: i64,
+    pub beatmap_id: i64,
+    pub mods: i64,
+    pub mode: String,
+    pub scoring_kind: i64,
+    pub team_kind: i64,
+    pub start_time: NaiveDateTime,
+    pub end_time: NaiveDateTime,
+}
+
+#[derive(sqlx::FromRow, Debug)]
 pub struct OsuDbMatchExists {
     pub id: i64,
     pub exists: bool,
@@ -50,8 +63,8 @@ pub struct OsuDbMatchExists {
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct OsuDbMatchScore {
-    pub game_id: Option<i64>,
-    pub match_id: Option<i64>,
+    pub game_id: i64,
+    pub match_id: i64,
     pub beatmap_id: i64,
     pub user_id: i64,
     pub accuracy: f64,
@@ -67,7 +80,10 @@ pub struct OsuDbMatchScore {
     pub slot: i16,
     pub team: OsuScoreMatchTeam,
     pub pass: bool,
-    pub pp: Option<f64>
+    pub pp: Option<f64>,
+    pub match_name: String,
+    pub end_time: NaiveDateTime,
+    pub start_time: NaiveDateTime,
 }
 
 impl Database {
@@ -491,18 +507,64 @@ impl Database {
         Ok(())
     }
 
+    pub async fn select_games(
+        &self,
+        games_ids: &[i64]
+    ) -> Result<Vec<OsuDbMatchGame>>{
+        let res = sqlx::query_as!(
+            OsuDbMatchGame,
+            r#"
+                SELECT 
+                    id,
+                    match_id as "match_id!", 
+                    beatmap_id,
+                    mods,
+                    mode,
+                    scoring_kind,
+                    team_kind,
+                    start_time, end_time
+                FROM osu_match_games WHERE id = ANY($1::INT8[])
+            "#,
+            &games_ids
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(res)
+    }
+
     pub async fn select_beatmap_scores(
         &self,
         beatmap_id: i64,
-        user_id: i64
+        user_id: i64,
+        is_tournament: bool
     ) -> Result<Vec<OsuDbMatchScore>> {
-        let res = sqlx::query_as::<_, OsuDbMatchScore>(
-            "SELECT * FROM osu_match_game_scores WHERE user_id = $1 AND beatmap_id = $2",
-        )
-        .bind(user_id)
-        .bind(beatmap_id)
-        .fetch_all(&self.pool)
-        .await?;
+        let name_filter = if is_tournament {
+            r#"(.+):\s*(\(*.+\)*)\s*vs\s*(\(*.+\)*)"#
+        } else {
+            ".*"
+        };
+
+        let res = sqlx::query_as!(
+            OsuDbMatchScore,
+            r#"
+            select * from(
+                select 
+                game_id as "game_id!", osu_matches.id as "match_id!", 
+                osu_match_game_scores.beatmap_id, user_id, accuracy, 
+                osu_match_game_scores.mods, 
+                score, count50, count100, count300, countgeki, countkatu, countmiss, 
+                max_combo, slot, pass, pp, team, osu_match_games.start_time, 
+                osu_match_games.end_time, osu_matches."name" as match_name 
+            from osu_match_game_scores 
+            left join osu_match_games 
+                on osu_match_game_scores.game_id = osu_match_games.id
+            left join osu_matches
+                on osu_match_game_scores.match_id = osu_matches.id
+            where osu_match_game_scores.beatmap_id = $1 and osu_match_game_scores.user_id = $2)
+            WHERE match_name ~ $3"#,
+            beatmap_id, user_id, name_filter
+        ).fetch_all(&self.pool).await?;
 
         Ok(res)
     }
