@@ -561,7 +561,7 @@ impl Database {
                 on osu_match_game_scores.game_id = osu_match_games.id
             left join osu_matches
                 on osu_match_game_scores.match_id = osu_matches.id
-            where osu_match_game_scores.beatmap_id = $1 and osu_match_game_scores.user_id = $2)
+            where osu_match_game_scores.beatmap_id = $1 and osu_match_game_scores.user_id = $2) as t1
             WHERE match_name ~ $3"#,
             beatmap_id, user_id, name_filter
         ).fetch_all(&self.pool).await?;
