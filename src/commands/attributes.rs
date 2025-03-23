@@ -1,10 +1,10 @@
 use crate::{
     fumo_context::FumoContext,
-    utils::{ar_to_ms, hit_windows_circle_std, ms_to_ar, interaction::InteractionCommand},
+    utils::{ar_to_ms, calc_ar, calc_od, hit_window, hit_windows_circle_std, interaction::InteractionCommand, ms_to_ar, HitWindow},
 };
 
 use fumo_twilight::message::MessageBuilder;
-use osu_api::models::OsuMods;
+use osu_api::models::{osu_mods::OsuModsLazer, OsuGameMode, OsuMods};
 
 use std::{fmt::Write, str::FromStr};
 
@@ -40,37 +40,18 @@ impl OsuAr {
         cmd: InteractionCommand,
     ) -> Result<()> {
         // Unwrap cuz ar option is required and there's no way this could fail
-        let mut ar = self.ar;
+        let ar = self.ar;
+
         let mods = if let Some(mods) = &self.mods {
-            OsuMods::from_str(mods.as_str()).unwrap()
+            OsuModsLazer::from_str(mods.as_str()).unwrap()
         } else {
-            OsuMods::NOMOD
+            OsuModsLazer::default()
         };
 
         let old_ar = ar;
 
-        // Apply EZ
-        if mods.contains(OsuMods::EASY) {
-            ar /= 2.0;
-        }
-
-        // Apply HR
-        if mods.contains(OsuMods::HARDROCK) {
-            ar = (ar * 1.4).min(10.0);
-        }
-
-        // Calculate ms only after applying EZ & HR
-        let mut ms = ar_to_ms(ar);
-
-        if mods.contains(OsuMods::DOUBLETIME) {
-            ms /= 1.5;
-        }
-
-        if mods.contains(OsuMods::HALFTIME) {
-            ms /= 0.75;
-        }
-
-        ar = ms_to_ar(ms);
+        let ar = calc_ar(old_ar as f32, &mods);
+        let ms = ar_to_ms(ar);
 
         cmd.defer(ctx).await?;
 
@@ -106,38 +87,24 @@ impl OsuOd {
     ) -> Result<()> {
         let mut st = String::new();
         // Unwrap cuz `od` option is required and there's no way this could fail
-        let mut od = self.od;
+        let od = self.od;
+
         let mods = if let Some(mods) = &self.mods {
-            OsuMods::from_str(mods.as_str()).unwrap()
+            OsuModsLazer::from_str(mods.as_str()).unwrap()
         } else {
-            OsuMods::NOMOD
+            OsuModsLazer::default()
         };
 
-        if mods.contains(OsuMods::EASY) {
-            od /= 2.0;
-        }
-
-        if mods.contains(OsuMods::HARDROCK) {
-            od = (od * 1.4).min(10.0);
-        }
-
-        let (mut c300, mut c100, mut c50) = hit_windows_circle_std(od);
-
-        if mods.contains(OsuMods::DOUBLETIME) {
-            c300 /= 1.5;
-            c100 /= 1.5;
-            c50 /= 1.5;
-        }
-
-        if mods.contains(OsuMods::HALFTIME) {
-            c300 /= 0.75;
-            c100 /= 0.75;
-            c50 /= 0.75;
-        }
+        let new_od = calc_od(od as f32, &mods, &OsuGameMode::Osu);
+        let HitWindow::Osu(c300, c100, c50) = hit_window(new_od, &OsuGameMode::Osu) else {
+            cmd.defer(ctx).await?;
+            let msg = MessageBuilder::new()
+                .content("Internal error during calculation. blame lopij");
+            cmd.update(ctx, &msg).await?;
+            return Ok(())
+        };
 
         cmd.defer(ctx).await?;
-
-        let new_od = (c300 - 80.0) / -6.0;
 
         let _ = writeln!(st, "```{od} -> {:.2} ({})", new_od, mods);
         let _ = writeln!(st, "300: ±{c300:.2}ms");

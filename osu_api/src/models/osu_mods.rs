@@ -83,6 +83,14 @@ impl Display for OsuModsLazer {
     }
 }
 
+impl Default for OsuModsLazer {
+    fn default() -> Self {
+        Self {
+            mods: vec![OsuModLazer { acronym: "NM".to_string(), settings: None }],
+        }
+    }
+}
+
 /*
 #[test]
 fn test_mods_creation() {
