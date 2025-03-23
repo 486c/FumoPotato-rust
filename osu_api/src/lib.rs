@@ -229,8 +229,6 @@ impl OsuApi {
             link.push_str(&format!("mode={}&", mode))
         }
 
-        dbg!(&link[..link.len()-1]);
-
         let r = self
             .make_request(
                 &link[..link.len() - 1],
