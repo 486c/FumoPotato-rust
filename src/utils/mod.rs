@@ -163,7 +163,7 @@ pub fn calc_ar(ar: f32, mods: &OsuModsLazer) -> f64 {
         return ms_to_ar(ms);
     }
 
-    if mods.contains("DT") {
+    if mods.contains("DT") || mods.contains("NC") {
         ms /= 1.5;
     }
 
@@ -198,7 +198,7 @@ pub fn calc_od(od: f32, mods: &OsuModsLazer, mode: &OsuGameMode) -> f64 {
         return hit_window.to_od()
     }
 
-    if mods.contains("DT") {
+    if mods.contains("DT") || mods.contains("NC") {
         hit_window = hit_window / 1.5;
     }
 
