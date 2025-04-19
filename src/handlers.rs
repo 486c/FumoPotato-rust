@@ -33,44 +33,50 @@ async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
         "twitch" => twitch::run(&ctx, cmd).await,
         "osu" => OsuCommands::handle(&ctx, cmd).await,
         "multiplayer" => MultiplayerCommands::handle(&ctx, cmd).await,
-        _ => return println!("Got unhandled interaction command"),
+        _ => return tracing::error!("Got unhandled interaction command: {}", cmd.data.name.as_str()),
     };
 
     // TODO Add some basic error message i guess
     match res {
         Ok(_) => {}
-        Err(e) => println!("{:?}", e.wrap_err("Command failed")),
+        Err(e) => tracing::error!("Failed to handle command: {e}"),
     }
 }
 
-pub async fn event_loop(ctx: Arc<FumoContext>, shards: &mut [Shard]) {
+pub async fn event_loop(ctx: Arc<FumoContext>, shards: &mut [Shard]) -> eyre::Result<()> {
+
     let mut events = ShardEventStream::new(shards.iter_mut());
 
-    loop {
-        match events.next().await {
-            Some((shard, Ok(event))) => {
-                let ctx = Arc::clone(&ctx);
-                let shard_id = shard.id().number();
+    while let Some((shard, event)) = events.next().await {
+        let event = match event {
+            Ok(event) => event,
+            Err(source) => {
+                tracing::error!("Received a failed event: {}", source);
 
-                tokio::spawn(async move {
-                    let future = handle_event(ctx, shard_id, event);
+                if source.is_fatal() {
+                    tracing::error!("Got fatal shard event: {}", source);
+                    return Err(source.into());
+                };
 
-                    if let Err(e) = future.await {
-                        println!("{:?}", e.wrap_err("Failed to handle event"))
-                    }
-                });
-            }
-            Some((_shard, Err(error))) => {
-                if error.is_fatal() {
-                    println!("Got fatal shard event! Quiting event loop!");
-                    break;
-                }
-
-                continue;
-            }
-            None => return,
+                continue
+            },
         };
-    }
+
+        let ctx = Arc::clone(&ctx);
+        let shard_id = shard.id().number();
+
+        tokio::spawn(async move {
+            let future = handle_event(ctx, shard_id, event);
+
+            if let Err(e) = future.await {
+                tracing::error!("Failed to handle event: {:?}", e);
+            };
+        });
+    };
+
+
+    tracing::warn!("Closing event loop");
+    Ok(())
 }
 
 pub fn global_commands() -> Vec<Command> {

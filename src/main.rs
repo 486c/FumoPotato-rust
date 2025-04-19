@@ -32,7 +32,7 @@ async fn spawn_twitch_worker(
             _ = commands::twitch::twitch_worker(
                 twitch_ctx.clone()
             ) => {
-                println!("Twitch checker loop sudenly ended!")
+                tracing::error!("Twitch checker loop sudenly ended!")
             }
             _ = rx => {
             }
@@ -49,7 +49,7 @@ async fn spawn_osu_worker(
             _ = commands::osu_tracking::osu_tracking_worker(
                 ctx.clone()
             ) => {
-                println!("Osu tracking checker loop sudenly ended!");
+                tracing::error!("Osu tracking checker loop sudenly ended!");
             }
             _ = rx => {
             }
@@ -59,6 +59,12 @@ async fn spawn_osu_worker(
 
 #[tokio::main(worker_threads = 4)]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .with_thread_names(false)
+        .init();
+
     dotenv()?;
 
     let token = env::var("DISCORD_TOKEN")?;
@@ -69,7 +75,7 @@ async fn main() -> Result<()> {
     let application_id =
         ctx.http.current_user().await?.model().await?.id.cast();
 
-    println!("Setting global commands...");
+    tracing::info!("Setting global commands...");
 
     // Mixing manually created commands
     // and twilight-interactions created commands :)
@@ -114,10 +120,10 @@ async fn main() -> Result<()> {
     let event_ctx = Arc::clone(&ctx);
 
     tokio::select! {
-        _ = event_loop(event_ctx, &mut shards) => println!("Error in event loop!"),
+        _ = event_loop(event_ctx, &mut shards) => tracing::error!("Error in event loop!"),
         res = signal::ctrl_c() => match res {
-            Ok(_) => println!("\nGot Ctrl+C"),
-            Err(_) => println!("Can't get Cntrl+C signal for some reason"),
+            Ok(_) => tracing::info!("Got Ctrl+C"),
+            Err(_) => tracing::error!("Can't get Cntrl+C signal for some reason"),
         }
     }
 
@@ -127,24 +133,25 @@ async fn main() -> Result<()> {
         let res = shard.close(reason).await;
 
         match res {
-            Ok(_) => println!("Closed shard"),
-            // TODO use eyre report here i guess
-            Err(e) => println!("Failed to close shard: \n{:?}", e),
+            Ok(_) => tracing::info!("Closed shard"),
+            Err(e) => tracing::error!("Failed to close shard: {}", e),
         }
     }
 
     if twitch_tx.send(()).is_err() {
-        println!("Failed to close twitch loop!");
+        tracing::error!("Failed to close twitch loop!");
     }
-    println!("Closed twitch loop!");
+
+    tracing::info!("Closed twitch loop!");
 
     if server_tx.send(()).is_err() {
-        println!("Failed to close http server!");
+        tracing::error!("Failed to close http server!");
     }
-    println!("Closed http server!");
+
+    tracing::info!("Closed http server!");
 
     if osu_tx.send(()).is_err() {
-        println!("Failed to close osu tracking loop!");
+        tracing::error!("Failed to close osu tracking loop!");
     }
 
     commands::twitch::twitch_sync_db(ctx.clone())
@@ -154,7 +161,7 @@ async fn main() -> Result<()> {
     // Wait for all threads complete peacefully
     tokio::time::sleep(Duration::from_secs(5)).await;
 
-    println!("Bye!!!");
+    tracing::info!("Bye!!!");
 
     Ok(())
 }

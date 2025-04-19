@@ -178,11 +178,11 @@ impl TwitchApi {
         tokio::spawn(async move {
             loop {
                 expire /= 2;
-                println!("Twitch token update scheduled in {expire} seconds");
+                tracing::info!("Twitch token update scheduled in {expire} seconds");
                 tokio::select! {
                     _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
                     _ = &mut rx => {
-                        println!("twitch token loop is closed!");
+                        tracing::error!("twitch token loop is closed!");
                         break;
                     }
                 }
@@ -193,7 +193,7 @@ impl TwitchApi {
                 *token = Some(response.access_token);
 
                 expire = response.expires_in;
-                println!("Successfully updated twitch api token");
+                tracing::info!("Successfully updated twitch api token");
             }
         });
     }

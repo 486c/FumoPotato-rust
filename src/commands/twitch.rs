@@ -23,15 +23,15 @@ use crate::random_string;
 use eyre::{bail, Result};
 
 pub async fn twitch_worker(ctx: Arc<FumoContext>) {
-    println!("Syncing twitch checker list!");
+    tracing::info!("Syncing twitch checker list!");
     twitch_sync_checker_list(&ctx).await.unwrap();
 
-    println!("Starting twitch checker loop!");
+    tracing::info!("Starting twitch checker loop!");
     loop {
         if let Err(e) = twitch_checker(&ctx).await {
-            println!(
-                "{:?}",
-                e.wrap_err("Error occured inside twitch tracking loop!")
+            tracing::error!(
+                "Error inside twitch tracking loop: {}", 
+                e
             );
         }
         tokio::time::sleep(Duration::from_secs(120)).await;
@@ -110,7 +110,7 @@ pub async fn twitch_sync_db(ctx: Arc<FumoContext>) -> Result<()> {
         ctx.db.set_online_status(*streamer_id, *status).await?;
     }
 
-    println!("Database is successfully synced with checker list");
+    tracing::info!("Database is successfully synced with checker list");
     Ok(())
 }
 
@@ -168,9 +168,7 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                                 .await;
 
                         if let Err(e) = res {
-                            println!("Error happened during announcing");
-
-                            println!("{:?}", e);
+                            tracing::error!("Error happened twitch announce_channel: {e}");
                         }
                     }
                 }

@@ -60,7 +60,7 @@ pub async fn server_loop(ctx: Arc<FumoContext>) {
 
 pub async fn run_server(ctx: Arc<FumoContext>, shutdown_rx: Receiver<()>) {
     tokio::select! {
-        _ = server_loop(ctx.clone()) => println!("wtf"),
-        _ = shutdown_rx => println!("Bye http server"),
+        _ = server_loop(ctx.clone()) => tracing::error!("Http server suddenly closes"),
+        _ = shutdown_rx => tracing::info!("Bye http server"),
     };
 }

@@ -583,7 +583,7 @@ impl OsuApi {
     async fn update_token(osu: Arc<OsuToken>, expire: u64, rx: Receiver<()>) {
         tokio::spawn(async move {
             OsuApi::token_loop(Arc::clone(&osu), expire, rx).await;
-            println!("osu!api token loop is closed!");
+            tracing::info!("osu!api token loop is closed!");
         });
     }
 
@@ -594,7 +594,7 @@ impl OsuApi {
     ) {
         loop {
             expire /= 2;
-            println!("osu! token update scheduled in {expire} seconds");
+            tracing::info!("osu! token update scheduled in {expire} seconds");
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
                 _ = &mut rx => {
@@ -608,7 +608,7 @@ impl OsuApi {
             *token = response.access_token;
 
             expire = response.expires_in as u64;
-            println!("Successfully updated osu! token!");
+            tracing::info!("Successfully updated osu! token!");
         }
     }
 }

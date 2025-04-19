@@ -261,10 +261,11 @@ async fn osu_track_checker(
                 ).await {
                     Ok(v) => v,
                     Err(e) => {
-                        println!(
-                            "Failed to fetch {} user top scores inside tracking loop: {e}",
-                            score.user_id
+                        tracing::error!(
+                            user_id = score.user_id,
+                            "Failed to fetch user top scores inside tracking loop: {e}",
                         );
+
                         continue
                     },
                 };
@@ -282,7 +283,10 @@ async fn osu_track_checker(
                 .await? {
                     Some(v) => v,
                     None => {
-                        println!("User {} from scores batch not found ", score.user_id);
+                        tracing::error!(
+                            user_id = score.user_id,
+                            "Cannot fetch user from get_scores_batch fetch"
+                        );
                         continue;
                     },
                 };
@@ -305,9 +309,9 @@ async fn osu_track_checker(
                 ).await {
                     Ok(v) => v,
                     Err(e) => {
-                        println!(
-                            "Failed to fetch {} user top scores inside tracking loop: {e}",
-                            score.user_id
+                        tracing::error!(
+                            user_id = score.user_id,
+                            "Failed to fetch user top scores inside tracking loop: {e}",
                         );
                         continue
                     },
@@ -334,7 +338,7 @@ async fn osu_track_checker(
             let osu_beatmap_attributes = match osu_beatmap_attributes_res {
                 Ok(v) => v,
                 Err(e) => {
-                    println!("Failed to fetch beatmap attributes: {}", e);
+                    tracing::error!("Failed to fetch beatmap attributes: {}", e);
                     return Err(e.into())
                 },
             };
@@ -368,8 +372,8 @@ async fn osu_track_checker(
                         .embeds(embeds)
                         .unwrap()
                         .await
-                        .inspect_err(|x| {
-                            println!("Error during creation of embed messages for tracking: {}", x)
+                        .inspect_err(|err| {
+                            tracing::error!("Error during creation of embed messages for tracking: {err}")
                         });
                 }
             }
@@ -381,7 +385,7 @@ async fn osu_track_checker(
 }
 
 pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
-    println!("Starting osu tracking worker!");
+    tracing::info!("Starting osu tracking worker!");
 
     let mut top_scores_hash: HashMap<(i64, OsuGameMode), f32> = HashMap::new(); // TODO
 
@@ -398,9 +402,11 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
         let batch = match ctx.osu_api.get_scores_batch(&cursor).await {
             Ok(v) => v,
             Err(e) => {
-                println!(
+                tracing::error!(
+                    cursor = cursor,
                     "Error happened during get_scores_batch inside tracking loop: {e}"
                 );
+
                 continue;
             },
         };
@@ -421,8 +427,11 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
             &ctx, &batch.scores, &mut top_scores_hash, &mut user_id_buffer
         ).await;
         
-        if let Err(e) = res {
-            println!("Failed to run osu_track_checker: {e}, on {:?}", cursor)
+        if let Err(err) = res {
+            tracing::error!(
+                cursor = cursor,
+                "Failed to run osu_track_checker: {err}"
+            )
         }
 
         cursor = Some(current_newest_score_id);
