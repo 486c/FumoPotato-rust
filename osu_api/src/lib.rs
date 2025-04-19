@@ -543,7 +543,10 @@ impl OsuApi {
         run_loop: bool,
     ) -> ApiResult<OsuApi> {
         let inner = Arc::new(OsuToken {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(Duration::from_secs(2))
+                .connect_timeout(Duration::from_secs(2))
+                .build()?,
             client_id,
             secret: secret.to_owned(),
             token: Default::default(),
