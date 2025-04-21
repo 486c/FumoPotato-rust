@@ -4,6 +4,7 @@ pub struct BotStats {
     /// Command usage counters
     pub cmd: IntCounterVec,
     pub cache: IntCounterVec,
+    pub discord_events: IntCounterVec,
 }
 
 impl Default for BotStats {
@@ -11,13 +12,16 @@ impl Default for BotStats {
         let opts = Opts::new("fumo_bot_commands", "specific commands usage");
         let command_counters = IntCounterVec::new(opts, &["name"]).unwrap();
 
-
         let opts = Opts::new("fumo_bot_cache", "caches miss/hits/force_updates");
         let cache_counters = IntCounterVec::new(opts, &["kind"]).unwrap();
+
+        let opts = Opts::new("fumo_bot_discord_events", "caches miss/hits/force_updates");
+        let discord_events_counters = IntCounterVec::new(opts, &["kind"]).unwrap();
 
         Self {
             cmd: command_counters,
             cache: cache_counters,
+            discord_events: discord_events_counters,
         }
     }
 }
@@ -40,6 +44,7 @@ impl BotMetrics {
         registry.register(Box::new(osu_metrics.clone())).unwrap();
         registry.register(Box::new(bot_metrics.cmd.clone())).unwrap();
         registry.register(Box::new(bot_metrics.cache.clone())).unwrap();
+        registry.register(Box::new(bot_metrics.discord_events.clone())).unwrap();
 
         Self {
             registry,

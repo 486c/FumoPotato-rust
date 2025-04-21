@@ -93,6 +93,7 @@ impl FumoContext {
             token.to_owned(),
             Intents::MESSAGE_CONTENT
                 | Intents::DIRECT_MESSAGES
+                | Intents::GUILD_MESSAGES
                 | Intents::DIRECT_MESSAGE_REACTIONS
                 | Intents::MESSAGE_CONTENT,
         )

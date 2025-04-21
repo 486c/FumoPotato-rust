@@ -38,9 +38,12 @@ async fn service(
 }
 
 pub async fn server_loop(ctx: Arc<FumoContext>) {
-    let addr = SocketAddr::from(([0, 0, 0, 0], 5000));
+    let port = 5000;
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     let listener = TcpListener::bind(&addr).await.unwrap();
+
+    tracing::info!("Started metrics HTTP server at :{}", port);
 
     loop {
         let (stream, _) = listener.accept().await.unwrap();

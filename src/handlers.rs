@@ -160,6 +160,9 @@ async fn handle_event(
     _shard_id: u64,
     event: Event,
 ) -> Result<()> {
+    ctx.stats.bot.discord_events
+        .with_label_values(&["incoming"]).inc();
+
     ctx.standby.process(&event);
 
     if let Event::InteractionCreate(c) = event {
