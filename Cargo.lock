@@ -615,7 +615,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_database"
-version = "6.0.2"
+version = "6.0.3"
 dependencies = [
  "chrono",
  "eyre",
@@ -625,7 +625,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_macro"
-version = "6.0.2"
+version = "6.0.3"
 dependencies = [
  "fumo_twilight",
  "proc-macro2",
@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_potato"
-version = "6.0.2"
+version = "6.0.3"
 dependencies = [
  "async-once-cell",
  "bytes",
@@ -673,7 +673,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_potato_scrapper"
-version = "6.0.2"
+version = "6.0.3"
 dependencies = [
  "clap",
  "dotenv",
@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_twilight"
-version = "6.0.2"
+version = "6.0.3"
 dependencies = [
  "twilight-model",
 ]
@@ -1480,7 +1480,7 @@ dependencies = [
 
 [[package]]
 name = "osu_api"
-version = "6.0.2"
+version = "6.0.3"
 dependencies = [
  "bitflags 2.6.0",
  "chrono",

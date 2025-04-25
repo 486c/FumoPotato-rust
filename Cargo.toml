@@ -4,7 +4,7 @@ version = { workspace = true }
 edition = "2021"
 
 [workspace.package]
-version = "6.0.2"
+version = "6.0.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
