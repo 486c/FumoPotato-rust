@@ -107,11 +107,11 @@ impl MultiplayerCompare {
         
         
         let (scores, beatmap) = tokio::join!(
-            ctx.db.select_beatmap_scores(beatmap_id, user_id, self.kind.is_tournament()),
+            ctx.db.select_beatmap_scores_by_user(beatmap_id, user_id, self.kind.is_tournament()),
             ctx.osu_api.get_beatmap(beatmap_id as i32)
         );
 
-        let (scores, beatmap) = (scores?, beatmap?);
+        let (mut scores, beatmap) = (scores?, beatmap?);
 
         if scores.is_empty() {
             let builder = MessageBuilder::new()
@@ -119,6 +119,8 @@ impl MultiplayerCompare {
             cmd.update(ctx, &builder).await?;
             return Ok(())
         }
+
+        scores.sort_by(|a, b| b.score.cmp(&a.score));
 
         let embed = create_embed(
             &scores, 
@@ -178,7 +180,7 @@ fn create_embed(
 
     let _ = write!(
         description_text,
-        "**{:.2}pp**",
+        "~~**{:.2}pp**~~",
         first_score.pp.unwrap_or(0.0),
     );
 
@@ -221,7 +223,7 @@ fn create_embed(
     for (idx, score) in scores.iter().enumerate().skip(1) {
         let _ = writeln!(
             description_text,
-            "**{}**. {} • {:.2}pp • {:.2}% • +{}",
+            "**{}**. {} • ~~{:.2}pp~~ • {:.2}% • +{}",
             idx + 1,
             score.score.to_formatted_string(&Locale::en),
             score.pp.unwrap_or(0.0),
