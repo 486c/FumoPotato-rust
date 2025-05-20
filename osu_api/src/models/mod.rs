@@ -627,6 +627,7 @@ pub struct OsuBeatmap {
 }
 
 impl OsuBeatmap {
+    // Returns `{Artist} - {Title} [{Version}]`
     pub fn metadata(&self) -> String {
         format!(
             "{} - {} [{}]",
@@ -851,6 +852,11 @@ pub struct OsuUserExtended {
     pub occupation: Option<String>,
     pub playmode: OsuGameMode,
     pub statistics: OsuUserExtendedStatistics,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct GetUsersResponse {
+    pub users: Vec<OsuUser>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

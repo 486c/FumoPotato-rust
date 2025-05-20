@@ -7,7 +7,7 @@ pub mod models;
 pub mod fallback_models;
 
 use fallback_models::FallbackBeatmapScores;
-use models::{osu_matches::{OsuMatchContainer, OsuMatchGet}, osu_mods::OsuModsLazer, BeatmapUserScore, OsuBeatmapAttributes, ScoresBatch};
+use models::{osu_matches::{OsuMatchContainer, OsuMatchGet}, osu_mods::OsuModsLazer, BeatmapUserScore, GetUsersResponse, OsuBeatmapAttributes, OsuUser, ScoresBatch};
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT},
     Client, Method, Response, StatusCode,
@@ -427,6 +427,40 @@ impl OsuApi {
 
         self.make_request(&link, Method::GET, ApiKind::General, None)
             .await
+    }
+
+    pub async fn get_users(
+        &self,
+        user_ids: &[i64]
+    ) -> ApiResult<GetUsersResponse> {
+        let link = format!("{OSU_API_BASE}/users");
+        let mut result = Vec::with_capacity(user_ids.len());
+
+        for chunk in user_ids.chunks(50) {
+            let mut link = link.clone();
+
+            for (i, id) in chunk.iter().enumerate() {
+                if i == 0 {
+                    let _ = write!(link, "?ids[]={}", id);
+                } else {
+                    let _ = write!(link, "&ids[]={}", id);
+                }
+            }
+
+            self.stats.counters.with_label_values(&["get_users"]).inc();
+            let users_response: GetUsersResponse = 
+                self.make_request(&link, Method::GET, ApiKind::General, None).await?;
+            
+            // TODO
+            users_response.users.iter().for_each(|v| {
+                result.push(v.clone())
+            })
+
+        }
+
+        Ok(GetUsersResponse {
+            users: result
+        })
     }
 
     pub async fn get_scores_batch(
@@ -899,6 +933,21 @@ mod tests {
         assert_eq!("BY", res.ranking[0].user.country_code);
         assert_eq!("BY", res.ranking[20].user.country_code);
         assert_eq!("BY", res.ranking[49].user.country_code);
+    }
+
+    #[tokio::test]
+    async fn get_users_batch() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let res = api.get_users(&[6892711]).await.unwrap();
+
+        assert_eq!(res.users.len(), 1);
+        assert_eq!(&res.users[0].username, "LoPij");
+
+        let res = api.get_users(&[6892711, 17851835, 7979597]).await.unwrap();
+        assert_eq!(res.users.len(), 3);
+
+        dbg!(res);
     }
 
     #[tokio::test]

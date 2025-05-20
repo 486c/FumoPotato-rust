@@ -5,7 +5,7 @@ use std::time::Duration;
 use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
 use osu_api::models::{OsuUserExtended, UserId};
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{CommandModel, CreateCommand };
 use twilight_model::channel::message::MessageFlags;
 use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
 use eyre::Result;
@@ -54,7 +54,8 @@ impl ListingTrait for MatchesListing {
             .skip(start_at)
             .take(self.entries_per_page);
 
-        let mut description_str = String::new();
+        let mut description_str = String::with_capacity(150);
+
         for m in matches_iter {
             let _ = writeln!(
                 description_str, 

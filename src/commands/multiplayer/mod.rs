@@ -1,5 +1,6 @@
 use compare::MultiplayerCompare;
 use eyre::Result;
+use leaderboard::MultiplayerLeaderboard;
 use twilight_interactions::command::{
     CommandModel, CommandOption, CreateCommand, CreateOption
 };
@@ -11,6 +12,7 @@ use crate::{
 
 mod list;
 mod compare;
+mod leaderboard;
 
 use list::MultiplayerList;
 
@@ -38,7 +40,9 @@ pub enum MultiplayerCommands {
     #[command(name = "list")]
     List(MultiplayerList),
     #[command(name = "compare")]
-    Compare(MultiplayerCompare)
+    Compare(MultiplayerCompare),
+    #[command(name = "leaderboard")]
+    Leaderboard(MultiplayerLeaderboard)
 }
 
 impl MultiplayerCommands {
@@ -57,6 +61,10 @@ impl MultiplayerCommands {
                 ctx.stats.bot.cmd.with_label_values(&["multiplayer_compare"]).inc();
                 command.run(ctx, cmd).await
             },
+            MultiplayerCommands::Leaderboard(command) => {
+                ctx.stats.bot.cmd.with_label_values(&["multiplayer_leaderboard"]).inc();
+                command.run(ctx, cmd).await
+            }
         }
     }
 }

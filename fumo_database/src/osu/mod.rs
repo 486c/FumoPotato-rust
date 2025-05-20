@@ -84,6 +84,7 @@ pub struct OsuDbMatchScore {
     pub match_name: String,
     pub end_time: NaiveDateTime,
     pub start_time: NaiveDateTime,
+    pub osu_username: Option<String>
 }
 
 impl Database {
@@ -533,7 +534,78 @@ impl Database {
         Ok(res)
     }
 
+    pub async fn insert_username(&self, user_id: i64, username: &str) -> Result<()> {
+        sqlx::query!(
+            r#"INSERT INTO osu_username_kv (osu_id, osu_username) VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
+            user_id, username
+        ).execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_usernames_batch(
+        &self,
+        user_ids: &[i64],
+    ) -> Result<HashMap<i64, String>> {
+        let rows = sqlx::query!(
+            "SELECT * FROM osu_username_kv WHERE osu_id = ANY($1::INT8[])",
+            user_ids
+        ).fetch_all(&self.pool)
+        .await?;
+
+        let mut map = HashMap::new();
+
+        for row in rows {
+            let id = row.osu_id;
+            let username = row.osu_username;
+
+            map.entry(id).or_insert(username);
+        }
+
+        Ok(map)
+    }
+    
     pub async fn select_beatmap_scores(
+        &self, 
+        beatmap_id: i64,
+        is_tournament: bool
+    ) -> Result<Vec<OsuDbMatchScore>> {
+        let name_filter = if is_tournament {
+            r#"(.+):\s*(\(*.+\)*)\s*vs\s*(\(*.+\)*)"#
+        } else {
+            ".*"
+        };
+
+        let res = sqlx::query_as!(
+            OsuDbMatchScore,
+            r#"
+            select * from(
+                select 
+                game_id as "game_id!", osu_matches.id as "match_id!", 
+                osu_match_game_scores.beatmap_id, user_id, accuracy, 
+                osu_match_game_scores.mods, 
+                score, count50, count100, count300, countgeki, countkatu, countmiss, 
+                max_combo, slot, pass, pp, team, osu_match_games.start_time, 
+                osu_match_games.end_time, osu_matches."name" as match_name,
+                osu_username as "osu_username?"
+            from osu_match_game_scores 
+            left join osu_match_games 
+                on osu_match_game_scores.game_id = osu_match_games.id
+            left join osu_matches
+                on osu_match_game_scores.match_id = osu_matches.id
+            left join osu_username_kv
+            	on osu_match_game_scores.user_id = osu_username_kv.osu_id
+            where osu_match_game_scores.beatmap_id = $1) as t1
+            WHERE match_name ~ $2 
+            "#,
+            beatmap_id, &name_filter
+        ).fetch_all(&self.pool).await?;
+
+        Ok(res)
+    }
+
+    pub async fn select_beatmap_scores_by_user(
         &self,
         beatmap_id: i64,
         user_id: i64,
@@ -545,6 +617,8 @@ impl Database {
             ".*"
         };
 
+        todo!()
+        /*
         let res = sqlx::query_as!(
             OsuDbMatchScore,
             r#"
@@ -567,5 +641,6 @@ impl Database {
         ).fetch_all(&self.pool).await?;
 
         Ok(res)
+        */
     }
 }
