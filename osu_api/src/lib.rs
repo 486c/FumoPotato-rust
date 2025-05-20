@@ -454,8 +454,9 @@ impl OsuApi {
             // TODO
             users_response.users.iter().for_each(|v| {
                 result.push(v.clone())
-            })
+            });
 
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
 
         Ok(GetUsersResponse {
