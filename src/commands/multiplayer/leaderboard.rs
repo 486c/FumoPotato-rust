@@ -5,6 +5,7 @@ use osu_api::models::OsuBeatmap;
 use osu_api::models::OsuMods;
 use twilight_model::channel::message::Embed;
 use twilight_util::builder::embed::ImageSource;
+use std::collections::HashSet;
 use std::fmt::Write;
 use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
@@ -163,7 +164,9 @@ impl MultiplayerLeaderboard {
         let fetch_usernames: Vec<i64> = scores.iter()
             .filter(|score| score.osu_username.is_none())
             .map(|score| score.user_id)
-            .collect();
+            .collect::<HashSet<i64>>()
+            .into_iter()
+            .collect::<Vec<i64>>();
 
         if !fetch_usernames.is_empty() {
             let temp_msg = MessageBuilder::new()
