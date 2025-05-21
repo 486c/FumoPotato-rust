@@ -174,7 +174,7 @@ impl MultiplayerLeaderboard {
 
             cmd.update(ctx, &temp_msg).await?;
 
-            let users_response = ctx.osu_api.get_users(&fetch_usernames).await?;
+            let users_response = ctx.osu_api.lookup_users(&fetch_usernames).await?;
 
             // Filling usernames
             for user in users_response.users {

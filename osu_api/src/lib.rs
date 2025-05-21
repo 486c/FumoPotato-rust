@@ -429,6 +429,41 @@ impl OsuApi {
             .await
     }
 
+    pub async fn lookup_users(
+        &self,
+        user_ids: &[i64]
+    ) -> ApiResult<GetUsersResponse> {
+        let link = format!("{OSU_API_BASE}/users/lookup");
+        let mut result = Vec::with_capacity(user_ids.len());
+
+        for chunk in user_ids.chunks(50) {
+            let mut link = link.clone();
+
+            for (i, id) in chunk.iter().enumerate() {
+                if i == 0 {
+                    let _ = write!(link, "?ids[]={}", id);
+                } else {
+                    let _ = write!(link, "&ids[]={}", id);
+                }
+            }
+
+            self.stats.counters.with_label_values(&["get_users"]).inc();
+            let users_response: GetUsersResponse = 
+                self.make_request(&link, Method::GET, ApiKind::General, None).await?;
+            
+            // TODO
+            users_response.users.iter().for_each(|v| {
+                result.push(v.clone())
+            });
+
+            tokio::time::sleep(Duration::from_millis(1200)).await;
+        }
+
+        Ok(GetUsersResponse {
+            users: result
+        })
+    }
+
     pub async fn get_users(
         &self,
         user_ids: &[i64]
@@ -946,6 +981,21 @@ mod tests {
         assert_eq!(&res.users[0].username, "LoPij");
 
         let res = api.get_users(&[6892711, 17851835, 7979597]).await.unwrap();
+        assert_eq!(res.users.len(), 3);
+
+        dbg!(res);
+    }
+
+    #[tokio::test]
+    async fn get_lookup_users_batch() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let res = api.lookup_users(&[6892711]).await.unwrap();
+
+        assert_eq!(res.users.len(), 1);
+        assert_eq!(&res.users[0].username, "LoPij");
+
+        let res = api.lookup_users(&[6892711, 17851835, 7979597]).await.unwrap();
         assert_eq!(res.users.len(), 3);
 
         dbg!(res);
