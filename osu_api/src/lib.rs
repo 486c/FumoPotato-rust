@@ -456,7 +456,7 @@ impl OsuApi {
                 result.push(v.clone())
             });
 
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_millis(1200)).await;
         }
 
         Ok(GetUsersResponse {

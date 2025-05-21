@@ -170,7 +170,7 @@ impl MultiplayerLeaderboard {
 
         if !fetch_usernames.is_empty() {
             let temp_msg = MessageBuilder::new()
-                .embed(create_please_wait_embed(&scores));
+                .embed(create_please_wait_embed(&scores, fetch_usernames.len()));
 
             cmd.update(ctx, &temp_msg).await?;
 
@@ -242,7 +242,10 @@ impl MultiplayerLeaderboard {
 }
 
 #[inline]
-pub fn create_please_wait_embed(scores: &[OsuDbMatchScore]) -> Embed {
+pub fn create_please_wait_embed(
+    scores: &[OsuDbMatchScore],
+    user_ids_to_fetch: usize,
+) -> Embed {
     let mut description = String::with_capacity(30);
     
     let _ = writeln!(
@@ -252,7 +255,8 @@ pub fn create_please_wait_embed(scores: &[OsuDbMatchScore]) -> Embed {
 
     let _ = writeln!(
         description, 
-        "Fetching and caching usernames, please wait a bit UwU~"
+        "Fetching and caching {} usernames, please wait a bit UwU~",
+        user_ids_to_fetch
     );
 
     EmbedBuilder::new()
