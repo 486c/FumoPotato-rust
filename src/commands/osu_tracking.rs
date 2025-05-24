@@ -94,16 +94,35 @@ fn create_tracking_embed(
         score.ended_at.timestamp()
     );
 
-    let _ = writeln!(
-        description_text,
-        "[{}/{}/{}/{}] • x{}/{}",
-        score.stats.great.unwrap_or(0),
-        score.stats.ok.unwrap_or(0),
-        score.stats.meh.unwrap_or(0),
-        score.stats.miss.unwrap_or(0),
-        score.max_combo,
-        max_combo
-    );
+
+    match score.ruleset_id {
+        OsuGameMode::Mania => {
+            let _ = writeln!(
+                description_text,
+                "[{}/{}/{}/{}] • x{}/{}",
+                score.stats.great.unwrap_or(0),
+                score.stats.ok.unwrap_or(0),
+                score.stats.meh.unwrap_or(0),
+                score.stats.miss.unwrap_or(0),
+                score.max_combo,
+                max_combo
+            );
+        },
+        _ => {
+            let _ = writeln!(
+                description_text,
+                "[{}/{}/{}/{}/{}/{}] • x{}/{}",
+                score.stats.perfect.unwrap_or(0),
+                score.stats.great.unwrap_or(0),
+                score.stats.good.unwrap_or(0),
+                score.stats.ok.unwrap_or(0),
+                score.stats.meh.unwrap_or(0),
+                score.stats.miss.unwrap_or(0),
+                score.max_combo,
+                max_combo
+            );
+        },
+    }
 
     let bpm = beatmap.bpm.map(|x| {
         if let Some(speed_change) = score.mods.speed_changes() {

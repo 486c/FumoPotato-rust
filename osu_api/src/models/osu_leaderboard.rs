@@ -7,10 +7,12 @@ use super::{osu_mods::OsuModsLazer, OsuGameMode, OsuGrade, OsuUserCompact};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct StatisticsLazer {
-    pub ok: Option<u32>,
-    pub meh: Option<u32>,
     pub miss: Option<u32>,
+    pub meh: Option<u32>,
+    pub ok: Option<u32>,
+    pub good: Option<u32>,
     pub great: Option<u32>,
+    pub perfect: Option<u32>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
