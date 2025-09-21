@@ -116,6 +116,9 @@ impl OsuApi {
             _ => unimplemented!(),
         };
 
+        // Force timeout
+        let r = r.timeout(Duration::from_secs(3));
+
         let mut req = match api_kind {
             ApiKind::General => r
                 .header(ACCEPT, "application/json")
