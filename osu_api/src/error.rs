@@ -1,4 +1,5 @@
 use reqwest::StatusCode;
+use serde::Deserialize;
 use thiserror::Error;
 
 use super::models::ApiError;
@@ -39,4 +40,6 @@ pub enum OsuApiError {
     Serializing(#[from] serde_json::Error),
     #[error("casting error")]
     Casting,
+    #[error("cursor is too old")]
+    CursorTooOld
 }

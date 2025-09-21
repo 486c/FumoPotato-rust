@@ -169,6 +169,7 @@ impl OsuApi {
             }
             StatusCode::UNAUTHORIZED => return Err(OsuApiError::Unauthorized),
             StatusCode::FORBIDDEN => return Err(OsuApiError::Forbidden),
+            /*
             StatusCode::UNPROCESSABLE_ENTITY => {
                 let bytes = r.bytes().await?;
 
@@ -176,6 +177,7 @@ impl OsuApi {
                     body: std::str::from_utf8(&bytes).unwrap().to_owned(),
                 });
             }
+            */
             _ => (),
         };
 
@@ -194,6 +196,16 @@ impl OsuApi {
                     body: std::str::from_utf8(&bytes).unwrap().to_owned(),
                     url: response_url.clone(),
                 });
+            }
+        };
+
+        // Small matching for osu api strings
+        if let Some(error_string) = &parsed.error {
+            match error_string.as_str() {
+                "cursor is too old" => {
+                    return Err(OsuApiError::CursorTooOld)
+                },
+                _ => {}
             }
         };
 

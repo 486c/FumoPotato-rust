@@ -12,9 +12,9 @@ use crate::{
     utils::{calc_ar, calc_od, interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components},
 };
 use eyre::Result;
-use osu_api::models::{
+use osu_api::{error::OsuApiError, models::{
     osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap, OsuBeatmapAttributesContainer, OsuGameMode, OsuUserExtended, RankingFilter, RankingKind, ScoresType, UserId
-};
+}};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::{Interaction, InteractionData},
@@ -97,24 +97,33 @@ fn create_tracking_embed(
 
     match score.ruleset_id {
         OsuGameMode::Mania => {
+            let x320 = score.stats.perfect.unwrap_or(0);
+            let x300 = score.stats.great.unwrap_or(0);
+            let x200 = score.stats.good.unwrap_or(0);
+
+            let ma_ratio = x320 as f32 / x300 as f32;
+            let pa_ratio = x300 as f32 / x200 as f32;
+
             let _ = writeln!(
                 description_text,
-                "[{}/{}/{}/{}] • x{}/{}",
+                "[{}/{}/{}/{}/{}/{}] • x{}/{} • MA: {:.2} PA: {:.2}",
+                score.stats.perfect.unwrap_or(0),
                 score.stats.great.unwrap_or(0),
+                score.stats.good.unwrap_or(0),
                 score.stats.ok.unwrap_or(0),
                 score.stats.meh.unwrap_or(0),
                 score.stats.miss.unwrap_or(0),
                 score.max_combo,
-                max_combo
+                max_combo,
+                ma_ratio,
+                pa_ratio
             );
         },
         _ => {
             let _ = writeln!(
                 description_text,
-                "[{}/{}/{}/{}/{}/{}] • x{}/{}",
-                score.stats.perfect.unwrap_or(0),
+                "[{}/{}/{}/{}] • x{}/{}",
                 score.stats.great.unwrap_or(0),
-                score.stats.good.unwrap_or(0),
                 score.stats.ok.unwrap_or(0),
                 score.stats.meh.unwrap_or(0),
                 score.stats.miss.unwrap_or(0),
@@ -421,6 +430,18 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
         let batch = match ctx.osu_api.get_scores_batch(&cursor).await {
             Ok(v) => v,
             Err(e) => {
+                if let OsuApiError::CursorTooOld = e {
+                    tracing::warn!(cursor = cursor, "cursor is too old, incrementing by 1000");
+
+                    cursor = cursor.and_then(|x| Some(x + 1000));
+
+                    if let Some(mut cursor) = &mut cursor {
+                        cursor += 1000;
+                    };
+
+                    continue;
+                };
+
                 tracing::error!(
                     cursor = cursor,
                     "Error happened during get_scores_batch inside tracking loop: {e}"

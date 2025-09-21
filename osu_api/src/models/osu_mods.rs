@@ -90,12 +90,3 @@ impl Default for OsuModsLazer {
         }
     }
 }
-
-/*
-#[test]
-fn test_mods_creation() {
-    let mods = OsuModsLazer::from_str("CLDTHR").unwrap();
-
-    assert!(&format!("{mods}") == "CLDTHR");
-}
-*/
