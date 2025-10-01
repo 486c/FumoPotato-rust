@@ -370,7 +370,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
                     }
                 }
                 "list" => twitch_list(ctx, &command).await,
-                _ => todo!(),
+                _ => unimplemented!(),
             }
         } else {
             bail!("No subcommand found")
