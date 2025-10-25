@@ -178,7 +178,9 @@ impl TwitchApi {
         tokio::spawn(async move {
             loop {
                 expire /= 2;
-                tracing::info!("Twitch token update scheduled in {expire} seconds");
+                tracing::info!(
+                    "Twitch token update scheduled in {expire} seconds"
+                );
                 tokio::select! {
                     _ = tokio::time::sleep(Duration::from_secs(expire)) => {}
                     _ = &mut rx => {

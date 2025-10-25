@@ -88,7 +88,8 @@ async fn main() -> Result<()> {
     );
 
     commands.push(
-        commands::country_leaderboard::LeaderboardCommand::create_command().into(),
+        commands::country_leaderboard::LeaderboardCommand::create_command()
+            .into(),
     );
 
     // Set global commands

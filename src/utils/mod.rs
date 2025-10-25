@@ -1,6 +1,6 @@
 pub mod interaction;
-pub mod static_components;
 pub mod searching;
+pub mod static_components;
 
 use std::ops;
 
@@ -68,15 +68,19 @@ impl ops::Div<f64> for HitWindow {
 
     fn div(self, rhs: f64) -> Self::Output {
         match self {
-            HitWindow::Osu(c300, c100, c50) => Self::Osu(c300 / rhs, c100 / rhs, c50 / rhs),
+            HitWindow::Osu(c300, c100, c50) => {
+                Self::Osu(c300 / rhs, c100 / rhs, c50 / rhs)
+            }
             HitWindow::Mania(max, c300, c200, c100, c50) => Self::Mania(
                 max / rhs,
                 c300 / rhs,
                 c200 / rhs,
                 c100 / rhs,
-                c50 / rhs
+                c50 / rhs,
             ),
-            HitWindow::Taiko(great, ok, miss) => Self::Taiko(great / rhs, ok / rhs, miss / rhs),
+            HitWindow::Taiko(great, ok, miss) => {
+                Self::Taiko(great / rhs, ok / rhs, miss / rhs)
+            }
             HitWindow::Fruits => Self::Fruits,
         }
     }
@@ -93,30 +97,26 @@ pub fn hit_window(od: f64, mode: &OsuGameMode) -> HitWindow {
     match mode {
         OsuGameMode::Fruits => HitWindow::Fruits,
         OsuGameMode::Mania => HitWindow::Mania(
-            16.0, 
+            16.0,
             64.0 - 3.0 * od,
             97.0 - 3.0 * od,
             127.0 - 3.0 * od,
-            151.0 - 3.0 * od 
+            151.0 - 3.0 * od,
         ),
-        OsuGameMode::Osu => HitWindow::Osu(80.0 - 6.0 * od, 140.0 - 8.0 * od, 200.0 - 10.0 * od),
+        OsuGameMode::Osu => {
+            HitWindow::Osu(80.0 - 6.0 * od, 140.0 - 8.0 * od, 200.0 - 10.0 * od)
+        }
         OsuGameMode::Taiko => {
             let great = 50.0 - 3.0 * od;
 
             let (ok, miss) = if od <= 5.0 {
-                (
-                    120.0 - 8.0 * od,
-                    135.0 - 8.0 * od 
-                )
+                (120.0 - 8.0 * od, 135.0 - 8.0 * od)
             } else {
-                (
-                    110.0 - 6.0 * od,
-                    120.0 - 5.0 * od
-                )
+                (110.0 - 6.0 * od, 120.0 - 5.0 * od)
             };
 
             HitWindow::Taiko(great, ok, miss)
-        },
+        }
     }
 }
 
@@ -141,7 +141,6 @@ pub fn ms_to_ar(ms: f64) -> f64 {
         5.0
     }
 }
-
 
 pub fn calc_ar(ar: f32, mods: &OsuModsLazer) -> f64 {
     let mut ar = ar as f64;
@@ -176,8 +175,8 @@ pub fn calc_ar(ar: f32, mods: &OsuModsLazer) -> f64 {
 pub fn calc_od(od: f32, mods: &OsuModsLazer, mode: &OsuGameMode) -> f64 {
     let mut od = od as f64;
 
-    if mode == &OsuGameMode::Fruits { 
-        return od 
+    if mode == &OsuGameMode::Fruits {
+        return od;
     }
 
     if mods.contains("EZ") {
@@ -193,7 +192,7 @@ pub fn calc_od(od: f32, mods: &OsuModsLazer, mode: &OsuGameMode) -> f64 {
     if let Some(speed_change) = mods.speed_changes() {
         hit_window = hit_window / speed_change as f64;
 
-        return hit_window.to_od()
+        return hit_window.to_od();
     }
 
     if mods.contains("DT") || mods.contains("NC") {

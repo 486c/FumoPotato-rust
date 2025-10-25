@@ -1,26 +1,31 @@
 use fumo_database::osu::OsuDbMatchScore;
-use num_format::Locale;
-use num_format::ToFormattedString;
-use osu_api::models::OsuBeatmap;
-use osu_api::models::OsuMods;
-use twilight_model::channel::message::Embed;
-use twilight_util::builder::embed::ImageSource;
-use std::collections::HashSet;
-use std::fmt::Write;
 use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
+use num_format::{Locale, ToFormattedString};
+use osu_api::models::{OsuBeatmap, OsuMods};
+use std::{collections::HashSet, fmt::Write};
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
+use twilight_model::channel::message::Embed;
+use twilight_util::builder::embed::{
+    EmbedBuilder, EmbedFooterBuilder, ImageSource,
+};
 
-use twilight_model::application::interaction::InteractionData;
-use twilight_model::application::interaction::Interaction;
 use tokio_stream::StreamExt;
+use twilight_model::application::interaction::{Interaction, InteractionData};
 
 use std::time::Duration;
 
-use crate::{components::listing::ListingTrait, fumo_context::FumoContext, utils::{interaction::{ InteractionCommand, InteractionComponent}, searching::{find_beatmap_link, parse_beatmap_link}, static_components::pages_components}};
-use eyre::Result;
 use super::ListKind;
+use crate::{
+    components::listing::ListingTrait,
+    fumo_context::FumoContext,
+    utils::{
+        interaction::{InteractionCommand, InteractionComponent},
+        searching::{find_beatmap_link, parse_beatmap_link},
+        static_components::pages_components,
+    },
+};
+use eyre::Result;
 
 /// Show multiplayer leaderboard for beatmap
 #[derive(CommandModel, CreateCommand, Debug)]
@@ -32,7 +37,6 @@ pub struct MultiplayerLeaderboard {
     /// Beatmap ID or beatmap link
     pub beatmap: Option<String>,
 }
-
 
 #[listing]
 pub struct LeaderboardListing {
@@ -81,7 +85,10 @@ impl ListingTrait for LeaderboardListing {
                 description,
                 "{}. [{}](https://osu.ppy.sh/users/{}) • {} • {:.2}% • +{}",
                 idx,
-                score.osu_username.as_ref().map_or("Unknown", |v| v.as_str()),
+                score
+                    .osu_username
+                    .as_ref()
+                    .map_or("Unknown", |v| v.as_str()),
                 score.user_id,
                 score.score.to_formatted_string(&Locale::en),
                 score.accuracy * 100.0,
@@ -91,19 +98,24 @@ impl ListingTrait for LeaderboardListing {
             let _ = writeln!(
                 description,
                 "[{}](https://osu.ppy.sh/community/matches/{})",
-                score.match_name,
-                score.match_id
+                score.match_name, score.match_id
             );
         }
 
-        let thumb_url = format!("https://b.ppy.sh/thumb/{}l.jpg", self.beatmap.beatmapset_id);
+        let thumb_url = format!(
+            "https://b.ppy.sh/thumb/{}l.jpg",
+            self.beatmap.beatmapset_id
+        );
 
         let embed = EmbedBuilder::new()
             .color(123432)
             .title(self.beatmap.metadata())
             .description(&description)
             .footer(footer)
-            .thumbnail(ImageSource::url(thumb_url).expect("Thumbnail url should be valid"))
+            .thumbnail(
+                ImageSource::url(thumb_url)
+                    .expect("Thumbnail url should be valid"),
+            )
             .url(format!("https://osu.ppy.sh/b/{}", self.beatmap.id))
             .build();
 
@@ -122,14 +134,15 @@ impl MultiplayerLeaderboard {
         let beatmap = match &self.beatmap {
             Some(link) => {
                 let Some(beatmap_id) = parse_beatmap_link(link.as_ref()) else {
-                    let builder = MessageBuilder::new()
-                        .content("Failed to parse beatmap id from provided link");
+                    let builder = MessageBuilder::new().content(
+                        "Failed to parse beatmap id from provided link",
+                    );
                     cmd.update(ctx, &builder).await?;
-                    return Ok(())
+                    return Ok(());
                 };
 
                 beatmap_id as i64
-            },
+            }
             None => 'blk: {
                 // Try to fetch from recent messages
                 let msgs = ctx
@@ -146,22 +159,23 @@ impl MultiplayerLeaderboard {
                             break 'blk bid as i64;
                         }
                     }
-                };
+                }
 
                 let builder = MessageBuilder::new()
                     .content("Failed to find beatmap from recent 50 messages");
                 cmd.update(ctx, &builder).await?;
                 return Ok(());
-            },
+            }
         };
 
-        let mut scores = ctx.db.select_beatmap_scores(
-            beatmap,
-            self.kind.is_tournament()
-        ).await?;
+        let mut scores = ctx
+            .db
+            .select_beatmap_scores(beatmap, self.kind.is_tournament())
+            .await?;
 
         // Finding a users that doesn't have a cached username
-        let fetch_usernames: Vec<i64> = scores.iter()
+        let fetch_usernames: Vec<i64> = scores
+            .iter()
             .filter(|score| score.osu_username.is_none())
             .map(|score| score.user_id)
             .collect::<HashSet<i64>>()
@@ -169,12 +183,14 @@ impl MultiplayerLeaderboard {
             .collect::<Vec<i64>>();
 
         if !fetch_usernames.is_empty() {
-            let temp_msg = MessageBuilder::new()
-                .embed(create_please_wait_embed(&scores, fetch_usernames.len()));
+            let temp_msg = MessageBuilder::new().embed(
+                create_please_wait_embed(&scores, fetch_usernames.len()),
+            );
 
             cmd.update(ctx, &temp_msg).await?;
 
-            let users_response = ctx.osu_api.lookup_users(&fetch_usernames).await?;
+            let users_response =
+                ctx.osu_api.lookup_users(&fetch_usernames).await?;
 
             // Filling usernames
             for user in users_response.users {
@@ -182,13 +198,13 @@ impl MultiplayerLeaderboard {
             }
 
             // Fetching second time, TODO yep thats bad
-            scores = ctx.db.select_beatmap_scores(
-                beatmap,
-                self.kind.is_tournament()
-            ).await?;
+            scores = ctx
+                .db
+                .select_beatmap_scores(beatmap, self.kind.is_tournament())
+                .await?;
         }
 
-        let beatmap = ctx.osu_api.get_beatmap(beatmap as i32).await?;
+        let beatmap = ctx.osu_api.get_beatmap(beatmap).await?;
 
         let scores_len = scores.len();
 
@@ -202,10 +218,10 @@ impl MultiplayerLeaderboard {
         let mut msg_builder = MessageBuilder::new()
             .embed(
                 leaderboard_list
-                .embed
-                .as_ref()
-                .expect("embed should be present")
-                .clone(),
+                    .embed
+                    .as_ref()
+                    .expect("embed should be present")
+                    .clone(),
             )
             .components(pages_components());
 
@@ -224,10 +240,10 @@ impl MultiplayerLeaderboard {
             msg_builder = msg_builder
                 .embed(
                     leaderboard_list
-                    .embed
-                    .as_ref()
-                    .expect("embed should be present")
-                    .clone(),
+                        .embed
+                        .as_ref()
+                        .expect("embed should be present")
+                        .clone(),
                 )
                 .components(pages_components());
 
@@ -247,14 +263,11 @@ pub fn create_please_wait_embed(
     user_ids_to_fetch: usize,
 ) -> Embed {
     let mut description = String::with_capacity(30);
-    
-    let _ = writeln!(
-        description, 
-        "Found {} scores", scores.len()
-    );
+
+    let _ = writeln!(description, "Found {} scores", scores.len());
 
     let _ = writeln!(
-        description, 
+        description,
         "Fetching and caching {} usernames, please wait a bit UwU~",
         user_ids_to_fetch
     );

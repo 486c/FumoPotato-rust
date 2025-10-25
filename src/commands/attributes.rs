@@ -1,6 +1,9 @@
 use crate::{
     fumo_context::FumoContext,
-    utils::{ar_to_ms, calc_ar, calc_od, hit_window, hit_windows_circle_std, interaction::InteractionCommand, ms_to_ar, HitWindow},
+    utils::{
+        ar_to_ms, calc_ar, calc_od, hit_window, hit_windows_circle_std,
+        interaction::InteractionCommand, ms_to_ar, HitWindow,
+    },
 };
 
 use fumo_twilight::message::MessageBuilder;
@@ -96,12 +99,14 @@ impl OsuOd {
         };
 
         let new_od = calc_od(od as f32, &mods, &OsuGameMode::Osu);
-        let HitWindow::Osu(c300, c100, c50) = hit_window(new_od, &OsuGameMode::Osu) else {
+        let HitWindow::Osu(c300, c100, c50) =
+            hit_window(new_od, &OsuGameMode::Osu)
+        else {
             cmd.defer(ctx).await?;
             let msg = MessageBuilder::new()
                 .content("Internal error during calculation. blame lopij");
             cmd.update(ctx, &msg).await?;
-            return Ok(())
+            return Ok(());
         };
 
         cmd.defer(ctx).await?;

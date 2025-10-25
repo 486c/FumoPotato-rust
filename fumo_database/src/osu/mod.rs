@@ -7,7 +7,6 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use eyre::{eyre, Result};
 use osu_api::models::{osu_matches::OsuMatchGame, OsuScore, OsuScoreMatchTeam};
 
-
 #[derive(sqlx::FromRow, Debug)]
 pub struct OsuLinkedTrackedUserGrouped {
     pub osu_id: i64,
@@ -84,7 +83,7 @@ pub struct OsuDbMatchScore {
     pub match_name: String,
     pub end_time: NaiveDateTime,
     pub start_time: NaiveDateTime,
-    pub osu_username: Option<String>
+    pub osu_username: Option<String>,
 }
 
 impl Database {
@@ -214,13 +213,13 @@ impl Database {
         .fetch_all(&self.pool)
         .await?)
     }
-    
+
     /// Batched way to select linked channels for large amount of users
     ///
     /// Pretty heavy function use with caution
     pub async fn select_osu_tracking_users_channels(
         &self,
-        users: &[i64]
+        users: &[i64],
     ) -> Result<HashMap<i64, (String, Option<Vec<i64>>)>> {
         let res = sqlx::query_as!(
             OsuLinkedTrackedUserGrouped,
@@ -331,8 +330,8 @@ impl Database {
     }
 
     pub async fn is_osu_match_exists_batch(
-        &self, 
-        match_ids: &[i64]
+        &self,
+        match_ids: &[i64],
     ) -> Result<Vec<OsuDbMatchExists>> {
         let res = sqlx::query_as!(
             OsuDbMatchExists,
@@ -510,8 +509,8 @@ impl Database {
 
     pub async fn select_games(
         &self,
-        games_ids: &[i64]
-    ) -> Result<Vec<OsuDbMatchGame>>{
+        games_ids: &[i64],
+    ) -> Result<Vec<OsuDbMatchGame>> {
         let res = sqlx::query_as!(
             OsuDbMatchGame,
             r#"
@@ -534,7 +533,11 @@ impl Database {
         Ok(res)
     }
 
-    pub async fn insert_username(&self, user_id: i64, username: &str) -> Result<()> {
+    pub async fn insert_username(
+        &self,
+        user_id: i64,
+        username: &str,
+    ) -> Result<()> {
         sqlx::query!(
             r#"INSERT INTO osu_username_kv (osu_id, osu_username) VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
             user_id, username
@@ -551,7 +554,8 @@ impl Database {
         let rows = sqlx::query!(
             "SELECT * FROM osu_username_kv WHERE osu_id = ANY($1::INT8[])",
             user_ids
-        ).fetch_all(&self.pool)
+        )
+        .fetch_all(&self.pool)
         .await?;
 
         let mut map = HashMap::new();
@@ -565,11 +569,11 @@ impl Database {
 
         Ok(map)
     }
-    
+
     pub async fn select_beatmap_scores(
-        &self, 
+        &self,
         beatmap_id: i64,
-        is_tournament: bool
+        is_tournament: bool,
     ) -> Result<Vec<OsuDbMatchScore>> {
         let name_filter = if is_tournament {
             r#"(.+):\s*(\(*.+\)*)\s*vs\s*(\(*.+\)*)"#
@@ -609,7 +613,7 @@ impl Database {
         &self,
         beatmap_id: i64,
         user_id: i64,
-        is_tournament: bool
+        is_tournament: bool,
     ) -> Result<Vec<OsuDbMatchScore>> {
         let name_filter = if is_tournament {
             r#"(.+):\s*(\(*.+\)*)\s*vs\s*(\(*.+\)*)"#

@@ -1,4 +1,8 @@
 use fumo_twilight::message::MessageBuilder;
+use rosu_pp::{
+    model::mods::rosu_mods::{GameMod, GameMods},
+    Performance,
+};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use twilight_util::builder::embed::EmbedAuthorBuilder;
 
@@ -9,12 +13,21 @@ use std::fmt::Write;
 
 use crate::{
     fumo_context::FumoContext,
-    utils::{calc_ar, calc_od, interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components},
+    utils::{
+        calc_ar, calc_od,
+        interaction::{InteractionCommand, InteractionComponent},
+        static_components::pages_components,
+    },
 };
 use eyre::Result;
-use osu_api::{error::OsuApiError, models::{
-    osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap, OsuBeatmapAttributesContainer, OsuGameMode, OsuUserExtended, RankingFilter, RankingKind, ScoresType, UserId
-}};
+use osu_api::{
+    error::OsuApiError,
+    models::{
+        osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap,
+        OsuBeatmapAttributesContainer, OsuGameMode, OsuUserExtended,
+        RankingFilter, RankingKind, ScoresType, UserId,
+    },
+};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::{Interaction, InteractionData},
@@ -33,7 +46,7 @@ fn create_tracking_embed(
     user: &OsuUserExtended,
     beatmap: &OsuBeatmap,
     beatmap_attrs: &OsuBeatmapAttributesContainer,
-    top_score_pos: Option<usize>
+    top_score_pos: Option<usize>,
 ) -> eyre::Result<Embed> {
     let mut description_text = String::with_capacity(100);
 
@@ -47,23 +60,16 @@ fn create_tracking_embed(
         beatmap.id
     );
 
-    let (star_rating, max_combo) = (
-        beatmap_attrs.star_rating, 
-        beatmap.max_combo.unwrap_or(0)
-    );
+    let (star_rating, max_combo) =
+        (beatmap_attrs.star_rating, beatmap.max_combo.unwrap_or(0));
 
-    let _ = writeln!(
-        description_text,
-        "[{:.2}★]",
-        star_rating
-    );
-
+    let _ = writeln!(description_text, "[{:.2}★]", star_rating);
 
     if let Some(top_score_position) = top_score_pos {
         let _ = writeln!(
             description_text,
             ":trophy: __**New top score #{}**__",
-            top_score_position 
+            top_score_position
         );
     }
 
@@ -94,7 +100,6 @@ fn create_tracking_embed(
         score.ended_at.timestamp()
     );
 
-
     match score.ruleset_id {
         OsuGameMode::Mania => {
             let x320 = score.stats.perfect.unwrap_or(0);
@@ -118,7 +123,7 @@ fn create_tracking_embed(
                 ma_ratio,
                 pa_ratio
             );
-        },
+        }
         _ => {
             let _ = writeln!(
                 description_text,
@@ -130,46 +135,40 @@ fn create_tracking_embed(
                 score.max_combo,
                 max_combo
             );
-        },
+        }
     }
 
     let bpm = beatmap.bpm.map(|x| {
         if let Some(speed_change) = score.mods.speed_changes() {
-            return x * speed_change
+            return x * speed_change;
         };
 
         if score.mods.contains("DT") {
-            return x * 1.5
+            return x * 1.5;
         }
 
         if score.mods.contains("HT") {
-            return x * 0.75
+            return x * 0.75;
         }
 
         x
     });
 
-    let beatmap_ar = beatmap.ar.ok_or(
-        eyre::eyre!("beatmap ar is empty")
-    )?;
+    let beatmap_ar = beatmap.ar.ok_or(eyre::eyre!("beatmap ar is empty"))?;
 
-    let beatmap_od = beatmap.accuracy.ok_or(
-        eyre::eyre!("beatmap od is empty")
-    )?;
+    let beatmap_od =
+        beatmap.accuracy.ok_or(eyre::eyre!("beatmap od is empty"))?;
 
-    let beatmap_cs = beatmap.cs.ok_or(
-        eyre::eyre!("beatmap cs is empty")
-    )?;
+    let beatmap_cs = beatmap.cs.ok_or(eyre::eyre!("beatmap cs is empty"))?;
 
-    let beatmap_hp = beatmap.drain.ok_or(
-        eyre::eyre!("beatmap hp is empty")
-    )?;
-    
+    let beatmap_hp = beatmap.drain.ok_or(eyre::eyre!("beatmap hp is empty"))?;
+
     // AR
     let approach_rate = calc_ar(beatmap_ar, &score.mods);
 
     // OD
-    let overall_difficulty = calc_od(beatmap_od, &score.mods, &score.ruleset_id);
+    let overall_difficulty =
+        calc_od(beatmap_od, &score.mods, &score.ruleset_id);
 
     let mut circle_size = beatmap_cs;
 
@@ -196,45 +195,47 @@ fn create_tracking_embed(
             let _ = write!(
                 description_text,
                 "`AR: {:.2} CS: {:.2} HP: {:.2}",
-                approach_rate, circle_size, hp_drain 
+                approach_rate, circle_size, hp_drain
             );
-        },
+        }
         OsuGameMode::Mania => {
             let _ = write!(
                 description_text,
                 "`OD: {:.2} HP: {:.2}",
-                overall_difficulty, hp_drain 
+                overall_difficulty, hp_drain
             );
-        },
+        }
         OsuGameMode::Osu => {
             let _ = write!(
                 description_text,
                 "`AR: {:.2} OD: {:.2} CS: {:.2} HP: {:.2}",
-                approach_rate, overall_difficulty, circle_size, hp_drain 
+                approach_rate, overall_difficulty, circle_size, hp_drain
             );
-        },
+        }
         OsuGameMode::Taiko => {
             let _ = write!(
                 description_text,
                 "`OD: {:.2} HP: {:.2}",
-                 overall_difficulty, hp_drain 
+                overall_difficulty, hp_drain
             );
-        },
+        }
     }
 
-    let _ = writeln!(
-        description_text,
-        " BPM: {}`",
-        bpm.unwrap_or(0.0)
-    );
+    let _ = writeln!(description_text, " BPM: {:.2}`", bpm.unwrap_or(0.0));
 
-    let thumb_url = format!("https://b.ppy.sh/thumb/{}l.jpg", beatmap.beatmapset_id);
+    let thumb_url =
+        format!("https://b.ppy.sh/thumb/{}l.jpg", beatmap.beatmapset_id);
 
-    let footer = EmbedFooterBuilder::new(format!("Mapper {}", beatmap.beatmapset.creator));
+    let footer = EmbedFooterBuilder::new(format!(
+        "Mapper {}",
+        beatmap.beatmapset.creator
+    ));
 
     let author = EmbedAuthorBuilder::new(format!(
         "{}: {:.2}pp (#{})",
-        &user.username, user.statistics.pp, user.statistics.global_rank.unwrap_or(0),
+        &user.username,
+        user.statistics.pp,
+        user.statistics.global_rank.unwrap_or(0),
     ))
     .url(format!("https://osu.ppy.sh/u/{}", user.id));
 
@@ -245,15 +246,14 @@ fn create_tracking_embed(
         .author(author)
         .thumbnail(ImageSource::url(thumb_url).unwrap())
         .url(format!("https://osu.ppy.sh/u/{}", user.id))
-        .build()
-    )
+        .build())
 }
 
 async fn osu_track_checker(
-    ctx: &FumoContext, 
-    scores: &[OsuScoreLazer],
+    ctx: &FumoContext,
+    scores: &mut [OsuScoreLazer],
     top_scores_hash: &mut HashMap<(i64, OsuGameMode), f32>,
-    buff: &mut [i64]
+    buff: &mut [i64],
 ) -> Result<()> {
     let mut len = 0;
 
@@ -262,18 +262,30 @@ async fn osu_track_checker(
         len += 1;
     });
 
-    let linked_channels = ctx.db.select_osu_tracking_users_channels(
-        &buff[0..len]
-    ).await?;
+    let linked_channels = ctx
+        .db
+        .select_osu_tracking_users_channels(&buff[0..len])
+        .await?;
 
-    for score in scores {
+    for score in scores.iter_mut() {
         if let Some(channels_to_notify) = linked_channels.get(&score.user_id) {
-            let min_top_score = if let Some(min_top_score) = top_scores_hash.get(&(score.user_id, score.ruleset_id)) {
-                ctx.stats.bot.cache.with_label_values(&["osu_tracking_top_scores_hash_hit"]).inc();
+            let min_top_score = if let Some(min_top_score) =
+                top_scores_hash.get(&(score.user_id, score.ruleset_id))
+            {
+                // Cache hit
+                ctx.stats
+                    .bot
+                    .cache
+                    .with_label_values(&["osu_tracking_top_scores_hash_hit"])
+                    .inc();
                 *min_top_score
             } else {
                 // Cache miss
-                ctx.stats.bot.cache.with_label_values(&["osu_tracking_top_scores_hash_miss"]).inc();
+                ctx.stats
+                    .bot
+                    .cache
+                    .with_label_values(&["osu_tracking_top_scores_hash_miss"])
+                    .inc();
 
                 let get_user_scores = GetUserScores {
                     user_id: score.user_id,
@@ -284,9 +296,11 @@ async fn osu_track_checker(
                     offset: None,
                 };
 
-                let user_top_scores = match ctx.osu_api.get_user_scores(
-                    get_user_scores
-                ).await {
+                let user_top_scores = match ctx
+                    .osu_api
+                    .get_user_scores(get_user_scores)
+                    .await
+                {
                     Ok(v) => v,
                     Err(e) => {
                         tracing::error!(
@@ -294,13 +308,17 @@ async fn osu_track_checker(
                             "Failed to fetch user top scores inside tracking loop: {e}",
                         );
 
-                        continue
-                    },
+                        continue;
+                    }
                 };
 
-                let min_top_score = user_top_scores.last().map(|x| x.pp.unwrap_or(0.0)).unwrap_or(0.0);
+                let min_top_score = user_top_scores
+                    .last()
+                    .map(|x| x.pp.unwrap_or(0.0))
+                    .unwrap_or(0.0);
 
-                top_scores_hash.insert((score.user_id, score.ruleset_id), min_top_score);
+                top_scores_hash
+                    .insert((score.user_id, score.ruleset_id), min_top_score);
 
                 min_top_score
             };
@@ -308,20 +326,105 @@ async fn osu_track_checker(
             let osu_user = match ctx
                 .osu_api
                 .get_user(UserId::Id(score.user_id), Some(score.ruleset_id))
-                .await? {
-                    Some(v) => v,
-                    None => {
+                .await?
+            {
+                Some(v) => v,
+                None => {
+                    tracing::error!(
+                        user_id = score.user_id,
+                        "Cannot fetch user from get_scores_batch fetch"
+                    );
+                    continue;
+                }
+            };
+
+            // Score might come with null pp's
+            // Such as dt rates or +RX
+            'blk: {
+                if score.pp.is_none() {
+                    let beatmap_bytes =
+                        ctx.osu_api.download_beatmap(score.beatmap_id).await?;
+
+                    let beatmap = rosu_pp::Beatmap::from_bytes(&beatmap_bytes)?;
+
+                    if let Err(err) = beatmap.check_suspicion() {
                         tracing::error!(
-                            user_id = score.user_id,
-                            "Cannot fetch user from get_scores_batch fetch"
+                            beatmap_id = score.beatmap_id,
+                            "Attempt to calculate suspicious beatmap: {err}"
                         );
-                        continue;
-                    },
-                };
+
+                        break 'blk;
+                    };
+
+                    let mut rosu_mods = GameMods::new();
+
+                    for mode in &score.mods.mods {
+                        rosu_mods.insert(GameMod::new(
+                            mode.acronym.as_str(),
+                            score.ruleset_id.as_u8().into(),
+                        ));
+                    }
+
+                    let mut diff_attrs_builder =
+                        rosu_pp::Difficulty::new().mods(rosu_mods);
+
+                    if let Some(speed_changes) = score.mods.speed_changes() {
+                        diff_attrs_builder =
+                            diff_attrs_builder.clock_rate(speed_changes.into())
+                    };
+
+                    let diff_attrs = diff_attrs_builder.calculate(&beatmap);
+
+                    let mut pp_builder = Performance::new(diff_attrs)
+                        .accuracy((score.accuracy * 100.0).into())
+                        .misses(score.stats.miss.unwrap_or(0))
+                        .slider_end_hits(
+                            score.stats.slider_tail_hit.unwrap_or(0),
+                        )
+                        .large_tick_hits(
+                            score.stats.large_tick_hit.unwrap_or(0),
+                        )
+                        .small_tick_hits(
+                            score.stats.small_tick_hit.unwrap_or(0),
+                        )
+                        .n300(score.stats.great.unwrap_or(0))
+                        .n100(score.stats.ok.unwrap_or(0))
+                        .n50(score.stats.meh.unwrap_or(0))
+                        .n_katu(score.stats.good.unwrap_or(0))
+                        .n_geki(score.stats.great.unwrap_or(0))
+                        .combo(score.max_combo);
+
+                    if let Some(speed_changes) = score.mods.speed_changes() {
+                        pp_builder = pp_builder.clock_rate(speed_changes.into())
+                    };
+
+                    pp_builder = match pp_builder
+                        .try_mode(score.ruleset_id.as_u8().into())
+                    {
+                        Ok(pp_builder) => pp_builder,
+                        Err(_) => {
+                            tracing::error!(
+                                beatmap_id = score.beatmap_id,
+                                score_id = score.id,
+                                "Failed to convert perfomance builder for gamemode"
+                            );
+                            break 'blk;
+                        }
+                    };
+
+                    let pp = pp_builder.calculate();
+
+                    score.pp = Some(pp.pp() as f32);
+                }
+            }
 
             let user_top_scores = if score.pp.unwrap_or(0.0) > min_top_score {
                 // Update cache
-                ctx.stats.bot.cache.with_label_values(&["osu_tracking_top_scores_hash_force"]).inc();
+                ctx.stats
+                    .bot
+                    .cache
+                    .with_label_values(&["osu_tracking_top_scores_hash_force"])
+                    .inc();
 
                 let get_user_scores = GetUserScores {
                     user_id: score.user_id,
@@ -332,20 +435,23 @@ async fn osu_track_checker(
                     offset: None,
                 };
 
-                let scores = match ctx.osu_api.get_user_scores(
-                    get_user_scores
-                ).await {
+                let scores = match ctx
+                    .osu_api
+                    .get_user_scores(get_user_scores)
+                    .await
+                {
                     Ok(v) => v,
                     Err(e) => {
                         tracing::error!(
                             user_id = score.user_id,
                             "Failed to fetch user top scores inside tracking loop: {e}",
                         );
-                        continue
-                    },
+                        continue;
+                    }
                 };
 
-                let min_top_score = scores.last().map(|x| x.pp.unwrap_or(0.0)).unwrap_or(0.0);
+                let min_top_score =
+                    scores.last().map(|x| x.pp.unwrap_or(0.0)).unwrap_or(0.0);
 
                 top_scores_hash
                     .entry((score.user_id, score.ruleset_id))
@@ -354,40 +460,49 @@ async fn osu_track_checker(
 
                 scores
             } else {
-                continue
+                continue;
             };
-            
+
             let (osu_beatmap_res, osu_beatmap_attributes_res) = tokio::join!(
                 ctx.osu_api.get_beatmap(score.beatmap_id),
-                ctx.osu_api.get_beatmap_attributes(score.beatmap_id, Some(&score.mods))
+                ctx.osu_api.get_beatmap_attributes(
+                    score.beatmap_id,
+                    Some(&score.mods)
+                )
             );
 
             let osu_beatmap = osu_beatmap_res?;
             let osu_beatmap_attributes = match osu_beatmap_attributes_res {
                 Ok(v) => v,
                 Err(e) => {
-                    tracing::error!("Failed to fetch beatmap attributes: {}", e);
-                    return Err(e.into())
-                },
+                    tracing::error!(
+                        "Failed to fetch beatmap attributes: {}",
+                        e
+                    );
+                    return Err(e.into());
+                }
             };
 
-            let top_score_position = user_top_scores.iter().enumerate().find(|(_i, x)| {
-                if let Some(beatmap) = &x.beatmap {
-                    beatmap.id == score.beatmap_id
-                    && x.created_at == score.ended_at
-                    && x.pp == score.pp
-                } else {
-                    false
-                }
-            }).map(|(i, _x)| i+1);
-
+            let top_score_position = user_top_scores
+                .iter()
+                .enumerate()
+                .find(|(_i, x)| {
+                    if let Some(beatmap) = &x.beatmap {
+                        beatmap.id == score.beatmap_id as i32
+                            && x.created_at == score.ended_at
+                            && x.pp == score.pp
+                    } else {
+                        false
+                    }
+                })
+                .map(|(i, _x)| i + 1);
 
             let embed = create_tracking_embed(
                 score,
                 &osu_user,
                 &osu_beatmap,
                 &osu_beatmap_attributes.attributes,
-                top_score_position
+                top_score_position,
             )?;
 
             let embeds = &[embed];
@@ -405,7 +520,6 @@ async fn osu_track_checker(
                         });
                 }
             }
-
         }
     }
 
@@ -427,11 +541,14 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
     // top - old
     // bottom - new
     loop {
-        let batch = match ctx.osu_api.get_scores_batch(&cursor).await {
+        let mut batch = match ctx.osu_api.get_scores_batch(&cursor).await {
             Ok(v) => v,
             Err(e) => {
                 if let OsuApiError::CursorTooOld = e {
-                    tracing::warn!(cursor = cursor, "cursor is too old, incrementing by 1000");
+                    tracing::warn!(
+                        cursor = cursor,
+                        "cursor is too old, incrementing by 1000"
+                    );
 
                     cursor = cursor.and_then(|x| Some(x + 1000));
 
@@ -448,25 +565,30 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
                 );
 
                 continue;
-            },
+            }
         };
 
         if batch.scores.is_empty() {
             tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
             continue;
         }
-        
+
         if batch.scores.len() < OSU_TRACKING_BATCH_SIZE {
             tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
             continue;
         }
 
-        let current_newest_score_id = batch.scores.last().map(|x| x.id).unwrap_or(0);
+        let current_newest_score_id =
+            batch.scores.last().map(|x| x.id).unwrap_or(0);
 
         let res = osu_track_checker(
-            &ctx, &batch.scores, &mut top_scores_hash, &mut user_id_buffer
-        ).await;
-        
+            &ctx,
+            &mut batch.scores,
+            &mut top_scores_hash,
+            &mut user_id_buffer,
+        )
+        .await;
+
         if let Err(err) = res {
             tracing::error!(
                 cursor = cursor,

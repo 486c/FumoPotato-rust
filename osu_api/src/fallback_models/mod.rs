@@ -2,7 +2,10 @@ use chrono::{DateTime, Utc};
 use osu_fallback_mods::FallbackOsuMod;
 use serde::Deserialize;
 
-use crate::{datetime_timestamp, models::{OsuGameMode, OsuGrade, OsuMods}};
+use crate::{
+    datetime_timestamp,
+    models::{OsuGameMode, OsuGrade, OsuMods},
+};
 
 pub mod osu_fallback_mods;
 
@@ -12,7 +15,6 @@ pub struct FallbackScoreStatsMods {
     pub array: Vec<String>,
     pub difficulty: Vec<FallbackOsuMod>,
 }
-
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallbackScoreScore {
@@ -34,9 +36,9 @@ pub struct FallbackScoreStats {
 pub struct FallabackScoreStatus {
     // unused
     //#[serde(rename = "isReplayAvailable")]
-    //replay: bool,
+    // replay: bool,
     //#[serde(rename = "isPerfect")]
-    //perfect: bool,
+    // perfect: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -55,17 +57,16 @@ pub struct FallabackScoreCounts {
     pub xmiss: u32,
 }
 
-
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallabackScoreBeatmap {
     // unused
-    //id: i64
+    // id: i64
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallabackScorePlayer {
     pub id: i64,
-    pub username: String
+    pub username: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -87,5 +88,5 @@ pub struct FallbackScore {
 pub struct FallbackBeatmapScores {
     pub ruleset: OsuGameMode,
     pub count: u32,
-    pub items: Vec<FallbackScore>
+    pub items: Vec<FallbackScore>,
 }

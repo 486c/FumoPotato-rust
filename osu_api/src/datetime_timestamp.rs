@@ -16,7 +16,6 @@ impl de::Visitor<'_> for LocalDateTimeVisitor {
     where
         E: de::Error,
     {
-
         match DateTime::from_timestamp(value as i64, 0) {
             Some(v) => Ok(v),
             None => Err(E::custom(format!(

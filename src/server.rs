@@ -19,12 +19,10 @@ async fn metrics_handler(
     let metric_families = ctx.stats.registry.gather();
     encoder.encode(&metric_families, &mut buf).unwrap();
 
-    Ok(
-        Response::builder()
-            .header("Content-Type", "text/plain")
-            .body(Bytes::from(buf).into())
-            .expect("failed to build response for metrics endpoint")
-    )
+    Ok(Response::builder()
+        .header("Content-Type", "text/plain")
+        .body(Bytes::from(buf).into())
+        .expect("failed to build response for metrics endpoint"))
 }
 
 async fn service(

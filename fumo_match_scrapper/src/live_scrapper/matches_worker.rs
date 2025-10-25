@@ -1,4 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use fumo_database::Database;
 use osu_api::{models::osu_matches::OsuMatchGet, OsuApi};
@@ -18,24 +22,30 @@ async fn fetch_new_matches(
 
     if fetched_matches.matches.is_empty() {
         println!("Fetched matches is empty for some reason");
-        return Ok(())
+        return Ok(());
     }
 
-    let newest = fetched_matches.matches.first().ok_or_else(|| eyre::eyre!("Failed to get newest match id!"))?;
+    let newest = fetched_matches
+        .matches
+        .first()
+        .ok_or_else(|| eyre::eyre!("Failed to get newest match id!"))?;
 
     // Collecting a newly appeared match_id's
     for fetched_match in &fetched_matches.matches {
         if let Some(last_id) = last_id {
             // Skipping already checked ones
             if fetched_match.id < *last_id {
-                continue
+                continue;
             }
         }
 
         // Checking if match is really ended
         // if not sending it to the checking queue
         if fetched_match.end_time.is_none() {
-            println!("[{}] Not ended yet, pushing to the queue", fetched_match.id);
+            println!(
+                "[{}] Not ended yet, pushing to the queue",
+                fetched_match.id
+            );
             let mut lock = end_queue.write().await;
 
             if lock.contains_key(&fetched_match.id) {
@@ -46,7 +56,7 @@ async fn fetch_new_matches(
 
             continue;
         }
-        
+
         // Adding to the regular queue
         buffer.push(fetched_match.id);
     }
@@ -66,17 +76,17 @@ async fn fetch_new_matches(
                 println!("Fetched {}", match_id);
                 let boxed_data = Box::new(data);
                 let _ = db_sender.send(boxed_data);
-            },
+            }
             Err(e) => match e {
                 osu_api::error::OsuApiError::NotFound { .. } => {
                     println!("[{}] Not found", match_id);
-                    continue
-                },
+                    continue;
+                }
                 _ => println!("[{}] Error during request: {e}", match_id),
             },
         }
     }
-    
+
     *last_id = Some(newest.id);
 
     Ok(())
@@ -98,16 +108,17 @@ pub async fn run(
             &osu_api,
             &db_sender,
             &end_queue,
-            &db
-        ).await;
+            &db,
+        )
+        .await;
 
         match res {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 println!("Error during new matches checker: {e}");
-            },
+            }
         }
-        
+
         // tokio select
         tokio::time::sleep(Duration::from_secs(30)).await;
     }

@@ -1,7 +1,10 @@
 // For static components such as buttons/embeds and other stuff
 // that's gonna be reused a lot
 
-use twilight_model::channel::message::{component::{ActionRow, Button, ButtonStyle}, Component};
+use twilight_model::channel::message::{
+    component::{ActionRow, Button, ButtonStyle},
+    Component,
+};
 
 pub fn pages_components() -> Vec<Component> {
     let mut vec = Vec::with_capacity(2);

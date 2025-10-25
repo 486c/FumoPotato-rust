@@ -13,6 +13,9 @@ pub struct StatisticsLazer {
     pub good: Option<u32>,
     pub great: Option<u32>,
     pub perfect: Option<u32>,
+    pub large_tick_hit: Option<u32>,
+    pub small_tick_hit: Option<u32>,
+    pub slider_tail_hit: Option<u32>, // slider_end_hits
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -21,7 +24,7 @@ pub struct OsuScoreLazer {
     pub ranked: bool,
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
     pub preserve: bool,
-    pub beatmap_id: i32,
+    pub beatmap_id: i64,
 
     pub mods: OsuModsLazer,
     pub best_id: Option<u32>,

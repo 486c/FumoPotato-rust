@@ -1,7 +1,7 @@
-mod match_not_found;
-mod scrap_worker;
 mod db_worker;
 mod live_scrapper;
+mod match_not_found;
+mod scrap_worker;
 
 use clap::{command, Parser, Subcommand};
 use fumo_database::Database;
@@ -42,8 +42,7 @@ pub enum ScrapperKind {
         #[arg(short, long)]
         file: PathBuf,
     },
-    Live {
-    }
+    Live {},
 }
 
 #[derive(Parser, Debug)]
@@ -60,8 +59,6 @@ pub struct Args {
     #[command(subcommand)]
     command: ScrapperKind,
 }
-
-
 
 #[tokio::main]
 async fn main() {
@@ -93,7 +90,11 @@ async fn main() {
     let cancel_token = CancellationToken::new();
     let match_not_found_list = Arc::new(MatchNotFoundList::new().unwrap());
 
-    tokio::spawn(db_worker::worker(db.clone(), cancel_token.clone(), db_match_rx));
+    tokio::spawn(db_worker::worker(
+        db.clone(),
+        cancel_token.clone(),
+        db_match_rx,
+    ));
 
     match args.command {
         ScrapperKind::Range { start, end } => {
@@ -173,14 +174,15 @@ async fn main() {
                 match_not_found_list.clone(),
                 args.batch_size,
             ));
-        },
+        }
         ScrapperKind::Live {} => {
             live_scrapper::run(
                 osu_api.clone(),
                 cancel_token.clone(),
                 db_match_tx.clone(),
-                db.clone()
-            ).await;
+                db.clone(),
+            )
+            .await;
         }
     };
 

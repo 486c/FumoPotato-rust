@@ -1,11 +1,13 @@
-use serde::{Deserialize, Deserializer};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer,
+};
 use std::fmt;
-use serde::de::{self, Visitor};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct FallbackOsuMod {
     pub acronym: String,
-    
+
     #[serde(deserialize_with = "deserialize")]
     pub speed: Option<f32>,
 }

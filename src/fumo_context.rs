@@ -1,7 +1,10 @@
-use crate::{stats::{BotMetrics, BotStats}, twitch_api::TwitchApi};
-use std::io::Write;
+use crate::{
+    stats::{BotMetrics, BotStats},
+    twitch_api::TwitchApi,
+};
 use fumo_database::Database;
 use osu_api::OsuApi;
+use std::io::Write;
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
@@ -12,7 +15,10 @@ use twilight_http::{client::InteractionClient, Client};
 use twilight_model::id::{marker::ApplicationMarker, Id};
 use twilight_standby::Standby;
 
-use std::{collections::HashMap, env, fs::File, io::read_to_string, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap, env, fs::File, io::read_to_string, path::PathBuf,
+    sync::Arc,
+};
 
 use eyre::Result;
 
@@ -25,11 +31,11 @@ pub struct FumoContextState {
 
 impl Drop for FumoContextState {
     fn drop(&mut self) {
-        let mut file = File::create(STATE_FILE)
-            .expect("failed to open state file");
+        let mut file =
+            File::create(STATE_FILE).expect("failed to open state file");
 
-        let json_string = serde_json::to_string(&self)
-            .expect("failed to serialize state");
+        let json_string =
+            serde_json::to_string(&self).expect("failed to serialize state");
 
         let _ = file.write_all(json_string.as_bytes());
     }
@@ -120,10 +126,8 @@ impl FumoContext {
 
         let bot_metrics = BotStats::default();
 
-        let stats = BotMetrics::new(
-            osu_api.stats.counters.clone(),
-            bot_metrics
-        );
+        let stats =
+            BotMetrics::new(osu_api.stats.counters.clone(), bot_metrics);
 
         // Trying to load state from file
         let state_path = PathBuf::from(STATE_FILE);

@@ -41,5 +41,5 @@ pub enum OsuApiError {
     #[error("casting error")]
     Casting,
     #[error("cursor is too old")]
-    CursorTooOld
+    CursorTooOld,
 }

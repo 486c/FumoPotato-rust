@@ -3,11 +3,16 @@ mod datetime_timestamp;
 mod metrics;
 
 pub mod error;
-pub mod models;
 pub mod fallback_models;
+pub mod models;
 
 use fallback_models::FallbackBeatmapScores;
-use models::{osu_matches::{OsuMatchContainer, OsuMatchGet}, osu_mods::OsuModsLazer, BeatmapUserScore, GetUsersResponse, OsuBeatmapAttributes, OsuUser, ScoresBatch};
+use models::{
+    osu_matches::{OsuMatchContainer, OsuMatchGet},
+    osu_mods::OsuModsLazer,
+    BeatmapUserScore, GetUsersResponse, OsuBeatmapAttributes, OsuUser,
+    ScoresBatch,
+};
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT},
     Client, Method, Response, StatusCode,
@@ -15,8 +20,8 @@ use reqwest::{
 
 use self::models::{
     osu_leaderboard::OsuLeaderboardLazer, ApiError, GetRanking, GetUserScores,
-    OauthResponse, OsuBeatmap, OsuGameMode, OsuScore,
-    OsuUserExtended, RankingKind, Rankings, UserId,
+    OauthResponse, OsuBeatmap, OsuGameMode, OsuScore, OsuUserExtended,
+    RankingKind, Rankings, UserId,
 };
 
 use std::{fmt::Write, time::Duration};
@@ -34,6 +39,7 @@ use crate::{error::OsuApiError, models::OsuUserStatistics};
 use serde::de::DeserializeOwned;
 
 static OSU_BASE: &str = "https://osu.ppy.sh";
+static CATBOY_BASE: &str = "https://catboy.best";
 static OSU_API_BASE: &str = "https://osu.ppy.sh/api/v2";
 
 type ApiResult<T> = Result<T, OsuApiError>;
@@ -42,6 +48,7 @@ pub enum ApiKind {
     General,
     Hidden,
     Fallback,
+    NotOsu,
 }
 
 #[derive(Debug)]
@@ -105,7 +112,7 @@ impl OsuApi {
         link: &str,
         method: Method,
         api_kind: ApiKind,
-        body: Option<String>
+        body: Option<String>,
     ) -> ApiResult<T> {
         let token = self.inner.token.read().await;
 
@@ -130,6 +137,7 @@ impl OsuApi {
             ApiKind::Fallback => r
                 .header(USER_AGENT, "fumo_potato")
                 .header("x-api-key", &self.fallback_token),
+            ApiKind::NotOsu => r.header(USER_AGENT, "fumo_potato"),
         };
 
         if let Some(body) = body {
@@ -139,6 +147,49 @@ impl OsuApi {
         let resp = req.send().await?;
 
         self.handle_error(resp).await
+    }
+
+    /// Basically a same version but returns a raw bytes instead of
+    /// trying to deserialize a body
+    async fn make_request_simple(
+        &self,
+        link: &str,
+        method: Method,
+        api_kind: ApiKind,
+    ) -> ApiResult<Vec<u8>> {
+        let r = &self.inner.client;
+        let r = match method {
+            Method::GET => r.get(link),
+            Method::POST => r.post(link),
+            _ => unimplemented!(),
+        };
+
+        let r = r.timeout(Duration::from_secs(3));
+
+        let req = match api_kind {
+            ApiKind::NotOsu => r.header(USER_AGENT, "fumo_potato"),
+            _ => unimplemented!(),
+        };
+
+        let resp = req.send().await?;
+
+        match resp.status() {
+            StatusCode::NOT_FOUND => {
+                return Err(OsuApiError::NotFound {
+                    url: resp.url().to_string(),
+                })
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                return Err(OsuApiError::TooManyRequests)
+            }
+            StatusCode::UNAUTHORIZED => return Err(OsuApiError::Unauthorized),
+            StatusCode::FORBIDDEN => return Err(OsuApiError::Forbidden),
+            _ => {}
+        };
+
+        let bytes = resp.bytes().await?;
+
+        Ok(bytes.into())
     }
 
     async fn handle_error<T: DeserializeOwned>(
@@ -172,15 +223,6 @@ impl OsuApi {
             }
             StatusCode::UNAUTHORIZED => return Err(OsuApiError::Unauthorized),
             StatusCode::FORBIDDEN => return Err(OsuApiError::Forbidden),
-            /*
-            StatusCode::UNPROCESSABLE_ENTITY => {
-                let bytes = r.bytes().await?;
-
-                return Err(OsuApiError::UnprocessableEntity {
-                    body: std::str::from_utf8(&bytes).unwrap().to_owned(),
-                });
-            }
-            */
             _ => (),
         };
 
@@ -205,9 +247,7 @@ impl OsuApi {
         // Small matching for osu api strings
         if let Some(error_string) = &parsed.error {
             match error_string.as_str() {
-                "cursor is too old" => {
-                    return Err(OsuApiError::CursorTooOld)
-                },
+                "cursor is too old" => return Err(OsuApiError::CursorTooOld),
                 _ => {}
             }
         };
@@ -249,11 +289,14 @@ impl OsuApi {
                 &link[..link.len() - 1],
                 Method::GET,
                 ApiKind::General,
-                None
+                None,
             )
             .await?;
 
-        self.stats.counters.with_label_values(&["get_user_scores"]).inc();
+        self.stats
+            .counters
+            .with_label_values(&["get_user_scores"])
+            .inc();
 
         Ok(r)
     }
@@ -301,27 +344,33 @@ impl OsuApi {
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
 
-        self.stats.counters.with_label_values(&["get_user_beatmap_scores"]).inc();
+        self.stats
+            .counters
+            .with_label_values(&["get_user_beatmap_scores"])
+            .inc();
 
         Ok(r)
     }
 
-    pub async fn get_beatmap(&self, bid: i32) -> ApiResult<OsuBeatmap> {
+    pub async fn get_beatmap(&self, bid: i64) -> ApiResult<OsuBeatmap> {
         let link = format!("{OSU_API_BASE}/beatmaps/{bid}");
 
         let r = self
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
-        
-        self.stats.counters.with_label_values(&["get_beatmap"]).inc();
+
+        self.stats
+            .counters
+            .with_label_values(&["get_beatmap"])
+            .inc();
 
         Ok(r)
     }
 
     pub async fn get_beatmap_attributes(
-        &self, 
-        bid: i32, 
-        mods: Option<&OsuModsLazer>
+        &self,
+        bid: i64,
+        mods: Option<&OsuModsLazer>,
     ) -> ApiResult<OsuBeatmapAttributes> {
         let mut link = format!("{OSU_API_BASE}/beatmaps/{bid}/attributes");
 
@@ -340,7 +389,10 @@ impl OsuApi {
             .make_request(&link, Method::POST, ApiKind::General, None)
             .await?;
 
-        self.stats.counters.with_label_values(&["get_beatmap_attributes"]).inc();
+        self.stats
+            .counters
+            .with_label_values(&["get_beatmap_attributes"])
+            .inc();
 
         Ok(r)
     }
@@ -381,7 +433,10 @@ impl OsuApi {
                 .make_request(&link, Method::GET, ApiKind::General, None)
                 .await?;
 
-            self.stats.counters.with_label_values(&["get_rankings"]).inc();
+            self.stats
+                .counters
+                .with_label_values(&["get_rankings"])
+                .inc();
 
             let amount_to_append =
                 (amount - buffer.len()).min(res.ranking.len());
@@ -437,7 +492,6 @@ impl OsuApi {
             let _ = write!(link, "&limit={}", limit);
         }
 
-
         self.stats.counters.with_label_values(&["get_match"]).inc();
 
         self.make_request(&link, Method::GET, ApiKind::General, None)
@@ -446,7 +500,7 @@ impl OsuApi {
 
     pub async fn lookup_users(
         &self,
-        user_ids: &[i64]
+        user_ids: &[i64],
     ) -> ApiResult<GetUsersResponse> {
         let link = format!("{OSU_API_BASE}/users/lookup");
         let mut result = Vec::with_capacity(user_ids.len());
@@ -463,25 +517,25 @@ impl OsuApi {
             }
 
             self.stats.counters.with_label_values(&["get_users"]).inc();
-            let users_response: GetUsersResponse = 
-                self.make_request(&link, Method::GET, ApiKind::General, None).await?;
-            
+            let users_response: GetUsersResponse = self
+                .make_request(&link, Method::GET, ApiKind::General, None)
+                .await?;
+
             // TODO
-            users_response.users.iter().for_each(|v| {
-                result.push(v.clone())
-            });
+            users_response
+                .users
+                .iter()
+                .for_each(|v| result.push(v.clone()));
 
             tokio::time::sleep(Duration::from_millis(1200)).await;
         }
 
-        Ok(GetUsersResponse {
-            users: result
-        })
+        Ok(GetUsersResponse { users: result })
     }
 
     pub async fn get_users(
         &self,
-        user_ids: &[i64]
+        user_ids: &[i64],
     ) -> ApiResult<GetUsersResponse> {
         let link = format!("{OSU_API_BASE}/users");
         let mut result = Vec::with_capacity(user_ids.len());
@@ -498,20 +552,32 @@ impl OsuApi {
             }
 
             self.stats.counters.with_label_values(&["get_users"]).inc();
-            let users_response: GetUsersResponse = 
-                self.make_request(&link, Method::GET, ApiKind::General, None).await?;
-            
+            let users_response: GetUsersResponse = self
+                .make_request(&link, Method::GET, ApiKind::General, None)
+                .await?;
+
             // TODO
-            users_response.users.iter().for_each(|v| {
-                result.push(v.clone())
-            });
+            users_response
+                .users
+                .iter()
+                .for_each(|v| result.push(v.clone()));
 
             tokio::time::sleep(Duration::from_millis(1200)).await;
         }
 
-        Ok(GetUsersResponse {
-            users: result
-        })
+        Ok(GetUsersResponse { users: result })
+    }
+
+    pub async fn download_beatmap(&self, bid: i64) -> ApiResult<Vec<u8>> {
+        let link = format!("{CATBOY_BASE}/osu/{bid}");
+
+        self.stats
+            .counters
+            .with_label_values(&["download_beatmap"])
+            .inc();
+
+        self.make_request_simple(&link, Method::GET, ApiKind::NotOsu)
+            .await
     }
 
     pub async fn get_scores_batch(
@@ -524,14 +590,13 @@ impl OsuApi {
             let _ = write!(link, "?cursor[id]={}", cursor);
         }
 
-        self.stats.counters.with_label_values(&["get_scores_batch"]).inc();
+        self.stats
+            .counters
+            .with_label_values(&["get_scores_batch"])
+            .inc();
 
-        self.make_request(
-            &link,
-            Method::GET,
-            ApiKind::General,
-            None
-        ).await
+        self.make_request(&link, Method::GET, ApiKind::General, None)
+            .await
     }
 
     pub async fn get_matches_batch(
@@ -544,14 +609,13 @@ impl OsuApi {
             let _ = write!(link, "?cursor[id]={}", cursor);
         };
 
-        self.stats.counters.with_label_values(&["get_matches_batch"]).inc();
+        self.stats
+            .counters
+            .with_label_values(&["get_matches_batch"])
+            .inc();
 
-        self.make_request(
-            &link,
-            Method::GET,
-            ApiKind::General,
-            None
-        ).await
+        self.make_request(&link, Method::GET, ApiKind::General, None)
+            .await
     }
 
     pub async fn get_leaderboard_hidden(
@@ -565,8 +629,12 @@ impl OsuApi {
             link.push_str("type=country")
         }
 
-        self.stats.counters.with_label_values(&["get_leaderboard_hidden"]).inc();
-        self.make_request(&link, Method::GET, ApiKind::Hidden, None).await
+        self.stats
+            .counters
+            .with_label_values(&["get_leaderboard_hidden"])
+            .inc();
+        self.make_request(&link, Method::GET, ApiKind::Hidden, None)
+            .await
     }
 
     // This method works only if FALLBACK_API variable
@@ -574,7 +642,7 @@ impl OsuApi {
     pub async fn get_countryleaderboard_fallback(
         &self,
         bid: i32,
-        mods: Option<String>
+        mods: Option<String>,
     ) -> ApiResult<FallbackBeatmapScores> {
         let mut link = format!(
             "{}/osu/beatmaps/v2/{}/scores?country=BY&type=country",
@@ -590,16 +658,13 @@ impl OsuApi {
         let mut retries = 0;
         while retries <= 5 {
             let resp = self
-                .make_request(
-                    &link, 
-                    Method::GET, 
-                    ApiKind::Fallback, 
-                    None
-                )
+                .make_request(&link, Method::GET, ApiKind::Fallback, None)
                 .await;
 
-
-            self.stats.counters.with_label_values(&["get_countryleaderboard"]).inc();
+            self.stats
+                .counters
+                .with_label_values(&["get_countryleaderboard"])
+                .inc();
 
             match resp {
                 Ok(r) => return Ok(r),
@@ -795,7 +860,6 @@ mod tests {
 
         let mode = OsuGameMode::Osu;
 
-
         let req = GetUserScores {
             user_id: 9211305,
             kind: ScoresType::Best,
@@ -816,11 +880,9 @@ mod tests {
     async fn test_get_scores_deser() {
         let api = API_INSTANCE.get().await.unwrap();
 
-
         let req = GetUserScores::new(11692602, ScoresType::Best)
             .limit(100)
             .include_fails(true);
-
 
         let _scores = api.get_user_scores(req).await.unwrap();
     }
@@ -884,7 +946,10 @@ mod tests {
     async fn test_get_fallback_beatmap_leaderboard() {
         let api = API_INSTANCE.get().await.unwrap();
 
-        let res = api.get_countryleaderboard_fallback(1627148, None).await.unwrap();
+        let res = api
+            .get_countryleaderboard_fallback(1627148, None)
+            .await
+            .unwrap();
 
         assert_eq!(res.items.len(), 50);
     }
@@ -892,7 +957,6 @@ mod tests {
     #[tokio::test]
     async fn test_get_match() {
         let api = API_INSTANCE.get().await.unwrap();
-
 
         // Multiple matches to make sure it's deserialize correctly
         let _ = api.get_match(116432947, None, None, None).await.unwrap();
@@ -946,21 +1010,22 @@ mod tests {
 
         let res1 = api.get_beatmap_attributes(2025942, None).await.unwrap();
 
-        //assert!(matches!(res1.attributes, OsuBeatmapAttributesKind::Osu{ .. }));
+        // assert!(matches!(res1.attributes, OsuBeatmapAttributesKind::Osu{ .. }));
 
         let mods_dt = OsuModsLazer::from_str("DTHD").unwrap();
-        let res2 = api.get_beatmap_attributes(2025942, Some(&mods_dt)).await.unwrap();
-        
-        /*
-        match (res1.attributes, res2.attributes) {
-            (OsuBeatmapAttributesKind::Osu { star_rating: nm_sr, .. }, 
-             OsuBeatmapAttributesKind::Osu { star_rating: dt_sr, .. }) => {
-                assert!(nm_sr != dt_sr);
-                assert!(dt_sr > nm_sr);
-            }
-            (_, _) => panic!("Got non Osu gamemode"),
-        }
-        */
+        let res2 = api
+            .get_beatmap_attributes(2025942, Some(&mods_dt))
+            .await
+            .unwrap();
+
+        // match (res1.attributes, res2.attributes) {
+        // (OsuBeatmapAttributesKind::Osu { star_rating: nm_sr, .. },
+        // OsuBeatmapAttributesKind::Osu { star_rating: dt_sr, .. }) => {
+        // assert!(nm_sr != dt_sr);
+        // assert!(dt_sr > nm_sr);
+        // }
+        // (_, _) => panic!("Got non Osu gamemode"),
+        // }
 
         // Edge cases
         let res1 = api.get_beatmap_attributes(4878596, None).await.unwrap();
@@ -1010,7 +1075,10 @@ mod tests {
         assert_eq!(res.users.len(), 1);
         assert_eq!(&res.users[0].username, "LoPij");
 
-        let res = api.lookup_users(&[6892711, 17851835, 7979597]).await.unwrap();
+        let res = api
+            .lookup_users(&[6892711, 17851835, 7979597])
+            .await
+            .unwrap();
         assert_eq!(res.users.len(), 3);
 
         dbg!(res);
@@ -1032,6 +1100,17 @@ mod tests {
         let res = api.get_matches_batch(&None).await.unwrap();
 
         assert!(res.matches.len() != 0)
+    }
+
+    #[tokio::test]
+    async fn test_download_beatmap() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let res = api.download_beatmap(5295637).await.unwrap();
+
+        assert!(!res.is_empty());
+
+        println!("{:?}", str::from_utf8(&res[0..50]));
     }
 
     #[tokio::test]
@@ -1119,5 +1198,4 @@ mod tests {
         let mods = OsuMods::from_str("DTMR").unwrap();
         assert_eq!(mods, OsuMods::DOUBLETIME | OsuMods::MIRROR);
     }
-
 }

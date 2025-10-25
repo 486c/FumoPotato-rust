@@ -19,16 +19,22 @@ pub async fn worker(
         let event = receiver.recv().await;
         if let Some(osu_match) = event {
             if let Some(end_time) = osu_match.osu_match.end_time {
-                if db.insert_osu_match(
-                    osu_match.osu_match.id,
-                    &osu_match.osu_match.name,
-                    osu_match.osu_match.start_time,
-                    end_time,
-                )
-                .await
-                .inspect_err(|e| {
-                    println!("[{}] Failed to insert match into db: {e}", osu_match.osu_match.id)
-                }).is_err() {
+                if db
+                    .insert_osu_match(
+                        osu_match.osu_match.id,
+                        &osu_match.osu_match.name,
+                        osu_match.osu_match.start_time,
+                        end_time,
+                    )
+                    .await
+                    .inspect_err(|e| {
+                        println!(
+                            "[{}] Failed to insert match into db: {e}",
+                            osu_match.osu_match.id
+                        )
+                    })
+                    .is_err()
+                {
                     continue 'main_loop;
                 };
 
@@ -39,14 +45,17 @@ pub async fn worker(
 
                     let game = &event.game.unwrap();
 
-                    if db.insert_osu_match_game_from_request(
-                        osu_match.osu_match.id,
-                        game,
-                    )
-                    .await
-                    .inspect_err(|e| {
-                        println!("Failed to insert game into db: {e}")
-                    }).is_err() {
+                    if db
+                        .insert_osu_match_game_from_request(
+                            osu_match.osu_match.id,
+                            game,
+                        )
+                        .await
+                        .inspect_err(|e| {
+                            println!("Failed to insert game into db: {e}")
+                        })
+                        .is_err()
+                    {
                         continue 'main_loop;
                     };
 

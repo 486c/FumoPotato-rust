@@ -1,19 +1,25 @@
 use crate::{
-    components::listing::ListingTrait, fumo_context::FumoContext, utils::{
-        interaction::{InteractionCommand, InteractionComponent}, searching::{find_beatmap_link, parse_beatmap_link}, static_components::pages_components, OSU_MAP_ID_NEW, OSU_MAP_ID_OLD
-    }
+    components::listing::ListingTrait,
+    fumo_context::FumoContext,
+    utils::{
+        interaction::{InteractionCommand, InteractionComponent},
+        searching::{find_beatmap_link, parse_beatmap_link},
+        static_components::pages_components,
+    },
 };
 use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
-use osu_api::{fallback_models::FallbackBeatmapScores, models::{OsuBeatmap, RankStatus}};
+use osu_api::{
+    fallback_models::FallbackBeatmapScores,
+    models::{OsuBeatmap, RankStatus},
+};
 
-use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
+use twilight_interactions::command::{
+    CommandModel, CommandOption, CreateCommand, CreateOption,
+};
 use twilight_model::{
     application::interaction::{Interaction, InteractionData},
-    channel::message::{
-        embed::EmbedFooter,
-        Message,
-    },
+    channel::message::embed::EmbedFooter,
 };
 use twilight_util::builder::embed::{
     image_source::ImageSource, EmbedAuthorBuilder, EmbedBuilder,
@@ -51,7 +57,7 @@ pub struct LeaderboardCommand {
     sorting: Option<LeaderboardSortingKind>,
 
     /// Enable legacy scoring
-    legacy: Option<bool>
+    legacy: Option<bool>,
 }
 
 impl LeaderboardCommand {
@@ -77,19 +83,20 @@ impl LeaderboardCommand {
         if let Some(link) = &self.link {
             if let Some(beatmap_id) = parse_beatmap_link(link) {
                 return country_leaderboard(
-                    ctx, 
-                    beatmap_id, 
-                    self.mods.clone(), 
-                    self.sorting, 
+                    ctx,
+                    beatmap_id,
+                    self.mods.clone(),
+                    self.sorting,
                     self.legacy,
-                    &cmd
-                ).await; // TODO another cloning....................
+                    &cmd,
+                )
+                .await; // TODO another cloning....................
             } else {
-                let builder = MessageBuilder::new()
-                    .content("Please provide valid link");
+                let builder =
+                    MessageBuilder::new().content("Please provide valid link");
 
                 cmd.update(ctx, &builder).await?;
-                return Ok(())
+                return Ok(());
             }
         }
 
@@ -105,12 +112,21 @@ impl LeaderboardCommand {
         for m in msgs {
             if let Some(link) = find_beatmap_link(&m) {
                 if let Some(bid) = parse_beatmap_link(link.as_ref()) {
-                    return country_leaderboard(ctx, bid, self.mods.clone(), self.sorting, self.legacy, &cmd).await;
+                    return country_leaderboard(
+                        ctx,
+                        bid,
+                        self.mods.clone(),
+                        self.sorting,
+                        self.legacy,
+                        &cmd,
+                    )
+                    .await;
                 }
             }
         }
-        
-        let builder = MessageBuilder::new().content("Couldn't find any score/beatmap!");
+
+        let builder =
+            MessageBuilder::new().content("Couldn't find any score/beatmap!");
         cmd.update(ctx, &builder).await?;
         Ok(())
     }
@@ -121,7 +137,7 @@ struct LeaderboardListing {
     scores: FallbackBeatmapScores,
     beatmap: OsuBeatmap,
     user_position: Option<usize>,
-    is_legacy: bool
+    is_legacy: bool,
 }
 
 impl ListingTrait for LeaderboardListing {
@@ -142,12 +158,8 @@ impl ListingTrait for LeaderboardListing {
     }
 
     fn update(&mut self) {
-        let mut text = format!(
-            "Page {}/{}", 
-            self.current_page, 
-            self.max_pages
-        );
-        
+        let mut text = format!("Page {}/{}", self.current_page, self.max_pages);
+
         if let Some(pos) = self.user_position {
             text.push_str(&format!(
                 " • Your position: {}/{}",
@@ -179,11 +191,13 @@ impl ListingTrait for LeaderboardListing {
             if score.stats.mods.difficulty.is_empty() {
                 mods_string.push_str("NM");
             } else {
-                score.stats.mods.difficulty
+                score
+                    .stats
+                    .mods
+                    .difficulty
                     .iter()
                     .for_each(|x| mods_string.push_str(&x.acronym))
             };
-
 
             let mut score_row = String::with_capacity(100);
 
@@ -196,7 +210,10 @@ impl ListingTrait for LeaderboardListing {
                 mods_string
             );
 
-            let mode_with_speed_change = score.stats.mods.difficulty
+            let mode_with_speed_change = score
+                .stats
+                .mods
+                .difficulty
                 .iter()
                 .find(|x| x.speed.is_some());
 
@@ -204,10 +221,10 @@ impl ListingTrait for LeaderboardListing {
                 match mode.speed {
                     Some(speed) => {
                         let _ = write!(score_row, " (x{})**", speed);
-                    },
+                    }
                     None => {
                         let _ = write!(score_row, "**");
-                    },
+                    }
                 }
             } else {
                 let _ = write!(score_row, "**");
@@ -285,7 +302,7 @@ pub async fn country_leaderboard(
 
     let (clb_res, b_res) = tokio::join!(
         ctx.osu_api.get_countryleaderboard_fallback(bid, mods),
-        ctx.osu_api.get_beatmap(bid),
+        ctx.osu_api.get_beatmap(bid as i64),
     );
 
     let mut clb = match clb_res {
@@ -312,39 +329,36 @@ pub async fn country_leaderboard(
     match sorting {
         Some(LeaderboardSortingKind::Pp) => {
             if b.status != RankStatus::Loved {
-                clb.items.sort_by(|a, b| b.stats.performance.partial_cmp(&a.stats.performance).unwrap_or(Ordering::Equal));
+                clb.items.sort_by(|a, b| {
+                    b.stats
+                        .performance
+                        .partial_cmp(&a.stats.performance)
+                        .unwrap_or(Ordering::Equal)
+                });
             }
-        },
+        }
         Some(LeaderboardSortingKind::Score) => {
-            clb.items.sort_by(|a, b| {
-
-                match legacy {
-                    Some(true) => {
-                        b.stats.score.legacy.cmp(&a.stats.score.legacy)
-                    },
-                    None | Some(false) => {
-                        b.stats.score.lazer.cmp(&a.stats.score.lazer)
-                    },
+            clb.items.sort_by(|a, b| match legacy {
+                Some(true) => b.stats.score.legacy.cmp(&a.stats.score.legacy),
+                None | Some(false) => {
+                    b.stats.score.lazer.cmp(&a.stats.score.lazer)
                 }
             });
-        },
+        }
         None => {
-            clb.items.sort_by(|a, b| {
-                match legacy {
-                    Some(true) => {
-                        b.stats.score.legacy.cmp(&a.stats.score.legacy)
-                    },
-                    None | Some(false) => {
-                        b.stats.score.lazer.cmp(&a.stats.score.lazer)
-                    },
+            clb.items.sort_by(|a, b| match legacy {
+                Some(true) => b.stats.score.legacy.cmp(&a.stats.score.legacy),
+                None | Some(false) => {
+                    b.stats.score.lazer.cmp(&a.stats.score.lazer)
                 }
             });
-        },
+        }
     };
 
     let user_position: Option<usize> = match osu_user {
         Some(osu_user) => {
-            let pos = clb.items
+            let pos = clb
+                .items
                 .iter()
                 .enumerate()
                 .find(|(_index, score)| score.player.id == osu_user.osu_id);
@@ -354,22 +368,23 @@ pub async fn country_leaderboard(
             } else {
                 None
             }
-        },
+        }
         None => None,
     };
 
-    let mut lb_list = LeaderboardListing::new(clb, b, user_position, legacy.unwrap_or(false))
-        .calculate_pages(total_scores, 10);
+    let mut lb_list =
+        LeaderboardListing::new(clb, b, user_position, legacy.unwrap_or(false))
+            .calculate_pages(total_scores, 10);
 
     lb_list.update();
 
     let mut msg_builder = MessageBuilder::new()
         .embed(
             lb_list
-            .embed
-            .as_ref()
-            .expect("embed should be present")
-            .clone()
+                .embed
+                .as_ref()
+                .expect("embed should be present")
+                .clone(),
         )
         .components(pages_components());
 
@@ -379,17 +394,15 @@ pub async fn country_leaderboard(
     tokio::pin!(msg_stream);
 
     while let Some(Ok(component)) = msg_stream.next().await {
-        lb_list
-            .handle_interaction_component(ctx, &component)
-            .await;
+        lb_list.handle_interaction_component(ctx, &component).await;
         lb_list.update();
 
         msg_builder = msg_builder.embed(
             lb_list
-            .embed
-            .as_ref()
-            .expect("embed should be present")
-            .clone(),
+                .embed
+                .as_ref()
+                .expect("embed should be present")
+                .clone(),
         );
 
         cmd.update(ctx, &msg_builder).await?;
@@ -407,7 +420,11 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
     let mut builder = MessageBuilder::new();
 
-    ctx.stats.bot.cmd.with_label_values(&["leaderboard_app_interaction"]).inc();
+    ctx.stats
+        .bot
+        .cmd
+        .with_label_values(&["leaderboard_app_interaction"])
+        .inc();
 
     // If we got app interaction
     if let Some(id) = command.data.target_id {
@@ -420,7 +437,10 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
         if let Some(link) = find_beatmap_link(&msg) {
             if let Some(bid) = parse_beatmap_link(link.as_ref()) {
-                return country_leaderboard(ctx, bid, None, None, None, &command).await;
+                return country_leaderboard(
+                    ctx, bid, None, None, None, &command,
+                )
+                .await;
             }
         }
     }

@@ -1,5 +1,8 @@
 use crate::{
-    commands::{country_leaderboard::LeaderboardCommand, multiplayer::MultiplayerCommands, osu::OsuCommands},
+    commands::{
+        country_leaderboard::LeaderboardCommand,
+        multiplayer::MultiplayerCommands, osu::OsuCommands,
+    },
     fumo_context::FumoContext,
 };
 use tokio_stream::StreamExt;
@@ -24,16 +27,17 @@ use eyre::Result;
 
 async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     let res = match cmd.data.name.as_str() {
-        "Leaderboard" => {
-            country_leaderboard::run(&ctx, cmd).await
-        }
-        "leaderboard" => {
-            LeaderboardCommand::handle(&ctx, cmd).await
-        },
+        "Leaderboard" => country_leaderboard::run(&ctx, cmd).await,
+        "leaderboard" => LeaderboardCommand::handle(&ctx, cmd).await,
         "twitch" => twitch::run(&ctx, cmd).await,
         "osu" => OsuCommands::handle(&ctx, cmd).await,
         "multiplayer" => MultiplayerCommands::handle(&ctx, cmd).await,
-        _ => return tracing::error!("Got unhandled interaction command: {}", cmd.data.name.as_str()),
+        _ => {
+            return tracing::error!(
+                "Got unhandled interaction command: {}",
+                cmd.data.name.as_str()
+            )
+        }
     };
 
     // TODO Add some basic error message i guess
@@ -43,8 +47,10 @@ async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
     }
 }
 
-pub async fn event_loop(ctx: Arc<FumoContext>, shards: &mut [Shard]) -> eyre::Result<()> {
-
+pub async fn event_loop(
+    ctx: Arc<FumoContext>,
+    shards: &mut [Shard],
+) -> eyre::Result<()> {
     let mut events = ShardEventStream::new(shards.iter_mut());
 
     while let Some((shard, event)) = events.next().await {
@@ -58,8 +64,8 @@ pub async fn event_loop(ctx: Arc<FumoContext>, shards: &mut [Shard]) -> eyre::Re
                     return Err(source.into());
                 };
 
-                continue
-            },
+                continue;
+            }
         };
 
         let ctx = Arc::clone(&ctx);
@@ -72,8 +78,7 @@ pub async fn event_loop(ctx: Arc<FumoContext>, shards: &mut [Shard]) -> eyre::Re
                 tracing::error!("Failed to handle event: {:?}", e);
             };
         });
-    };
-
+    }
 
     tracing::warn!("Closing event loop");
     Ok(())
@@ -160,8 +165,11 @@ async fn handle_event(
     _shard_id: u64,
     event: Event,
 ) -> Result<()> {
-    ctx.stats.bot.discord_events
-        .with_label_values(&["incoming"]).inc();
+    ctx.stats
+        .bot
+        .discord_events
+        .with_label_values(&["incoming"])
+        .inc();
 
     ctx.standby.process(&event);
 

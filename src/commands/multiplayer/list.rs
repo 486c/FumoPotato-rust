@@ -1,18 +1,25 @@
+use eyre::Result;
 use fumo_database::osu::OsuDbMatch;
-use twilight_model::application::interaction::InteractionData;
-use twilight_model::application::interaction::Interaction;
-use std::time::Duration;
 use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
 use osu_api::models::{OsuUserExtended, UserId};
-use twilight_interactions::command::{CommandModel, CreateCommand };
-use twilight_model::channel::message::MessageFlags;
-use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
-use eyre::Result;
-use std::fmt::Write;
+use std::{fmt::Write, time::Duration};
 use tokio_stream::StreamExt;
+use twilight_interactions::command::{CommandModel, CreateCommand};
+use twilight_model::{
+    application::interaction::{Interaction, InteractionData},
+    channel::message::MessageFlags,
+};
+use twilight_util::builder::embed::{EmbedBuilder, EmbedFooterBuilder};
 
-use crate::{components::listing::ListingTrait, fumo_context::FumoContext, utils::{interaction::{InteractionCommand, InteractionComponent}, static_components::pages_components}};
+use crate::{
+    components::listing::ListingTrait,
+    fumo_context::FumoContext,
+    utils::{
+        interaction::{InteractionCommand, InteractionComponent},
+        static_components::pages_components,
+    },
+};
 
 use super::ListKind;
 
@@ -58,10 +65,9 @@ impl ListingTrait for MatchesListing {
 
         for m in matches_iter {
             let _ = writeln!(
-                description_str, 
-                "- **[{}](https://osu.ppy.sh/community/matches/{})**", 
-                m.name,
-                m.id
+                description_str,
+                "- **[{}](https://osu.ppy.sh/community/matches/{})**",
+                m.name, m.id
             );
             let _ = writeln!(
                 description_str,
@@ -89,7 +95,7 @@ pub struct MultiplayerList {
     kind: ListKind,
 
     /// osu! user id or username
-    user: Option<String>
+    user: Option<String>,
 }
 
 impl MultiplayerList {
@@ -98,11 +104,8 @@ impl MultiplayerList {
         ctx: &FumoContext,
         cmd: InteractionCommand,
     ) -> Result<()> {
-        
         let osu_user_id = match &self.user {
-            Some(value) => {
-                UserId::from(value.as_ref())
-            },
+            Some(value) => UserId::from(value.as_ref()),
             None => {
                 let osu_user = osu_user!(ctx, cmd);
 
@@ -114,10 +117,9 @@ impl MultiplayerList {
                     return Ok(());
                 }
 
-
                 let osu_user_db = osu_user.unwrap();
                 UserId::Id(osu_user_db.osu_id)
-            },
+            }
         };
 
         cmd.defer(ctx).await?;

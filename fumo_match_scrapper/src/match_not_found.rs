@@ -1,4 +1,10 @@
-use std::{collections::HashSet, fs::{File, OpenOptions}, io::{BufRead, BufReader, BufWriter, Write}, path::PathBuf, time::SystemTime};
+use std::{
+    collections::HashSet,
+    fs::{File, OpenOptions},
+    io::{BufRead, BufReader, BufWriter, Write},
+    path::PathBuf,
+    time::SystemTime,
+};
 
 use tokio::sync::RwLock;
 
@@ -9,33 +15,33 @@ pub struct MatchNotFoundList {
     // Still better than keeping then in DB :)
     //
     // Using u32 to reduce used memory even more
-    list: RwLock<HashSet<u32>>, 
+    list: RwLock<HashSet<u32>>,
 
     modified: SystemTime,
 }
 
 impl MatchNotFoundList {
     pub fn new() -> eyre::Result<Self> {
-        let (list, modified_time) = if !PathBuf::from(MATCH_NOT_FOUND_FILE_PATH).exists() {
-            (HashSet::new(), SystemTime::now())
-        } else {
-            let file = File::open(MATCH_NOT_FOUND_FILE_PATH)?;
+        let (list, modified_time) =
+            if !PathBuf::from(MATCH_NOT_FOUND_FILE_PATH).exists() {
+                (HashSet::new(), SystemTime::now())
+            } else {
+                let file = File::open(MATCH_NOT_FOUND_FILE_PATH)?;
 
-            let stat = file.metadata()?;
-            let mut reader = BufReader::new(file);
+                let stat = file.metadata()?;
+                let mut reader = BufReader::new(file);
 
-            let inner = Self::reader_to_list(&mut reader);
+                let inner = Self::reader_to_list(&mut reader);
 
-            (inner, stat.modified()?)
-        };
-
+                (inner, stat.modified()?)
+            };
 
         Ok(Self {
             list: list.into(),
             modified: modified_time,
         })
     }
-    
+
     pub async fn check(&self, match_id: i64) -> bool {
         let lock = self.list.read().await;
 
@@ -51,10 +57,12 @@ impl MatchNotFoundList {
     fn reader_to_list(reader: &mut BufReader<File>) -> HashSet<u32> {
         let mut inner = HashSet::new();
 
-        reader.split(b',')
+        reader
+            .split(b',')
             .flatten()
             .flat_map(|split| {
-                let split_str = unsafe { std::str::from_utf8_unchecked(&split) };
+                let split_str =
+                    unsafe { std::str::from_utf8_unchecked(&split) };
                 split_str.parse::<u32>()
             })
             .for_each(|num| {
@@ -89,9 +97,7 @@ impl MatchNotFoundList {
         let lock = self.list.read().await;
 
         lock.iter().for_each(|num| {
-            let _ = writer.write(
-                format!("{},", num).as_bytes()
-            );
+            let _ = writer.write(format!("{},", num).as_bytes());
         });
 
         let _ = writer.flush();

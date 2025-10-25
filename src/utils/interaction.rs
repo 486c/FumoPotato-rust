@@ -159,21 +159,19 @@ impl InteractionCommand {
 
         None
     }
-    
-    /*
-    #[inline]
-    pub fn get_option(&self, name: &str) -> Option<&CommandDataOption> {
-        self.data.options.iter().find(|x| x.name == name)
-    }
 
-    #[inline]
-    pub fn get_option_string(&self, name: &str) -> Option<&str> {
-        if let Some(option) = self.get_option(name) {
-            if let CommandOptionValue::String(v) = &option.value {
-                return Some(v.as_str());
-            }
-        };
-        None
-    }
-    */
+    // #[inline]
+    // pub fn get_option(&self, name: &str) -> Option<&CommandDataOption> {
+    // self.data.options.iter().find(|x| x.name == name)
+    // }
+    //
+    // #[inline]
+    // pub fn get_option_string(&self, name: &str) -> Option<&str> {
+    // if let Some(option) = self.get_option(name) {
+    // if let CommandOptionValue::String(v) = &option.value {
+    // return Some(v.as_str());
+    // }
+    // };
+    // None
+    // }
 }

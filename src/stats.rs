@@ -12,11 +12,16 @@ impl Default for BotStats {
         let opts = Opts::new("fumo_bot_commands", "specific commands usage");
         let command_counters = IntCounterVec::new(opts, &["name"]).unwrap();
 
-        let opts = Opts::new("fumo_bot_cache", "caches miss/hits/force_updates");
+        let opts =
+            Opts::new("fumo_bot_cache", "caches miss/hits/force_updates");
         let cache_counters = IntCounterVec::new(opts, &["kind"]).unwrap();
 
-        let opts = Opts::new("fumo_bot_discord_events", "caches miss/hits/force_updates");
-        let discord_events_counters = IntCounterVec::new(opts, &["kind"]).unwrap();
+        let opts = Opts::new(
+            "fumo_bot_discord_events",
+            "caches miss/hits/force_updates",
+        );
+        let discord_events_counters =
+            IntCounterVec::new(opts, &["kind"]).unwrap();
 
         Self {
             cmd: command_counters,
@@ -33,18 +38,21 @@ pub struct BotMetrics {
 }
 
 impl BotMetrics {
-    pub fn new(
-        osu_metrics: IntCounterVec,
-        bot_metrics: BotStats,
-    ) -> Self {
+    pub fn new(osu_metrics: IntCounterVec, bot_metrics: BotStats) -> Self {
         let registry =
             Registry::new_custom(Some(String::from("fumo_potato")), None)
                 .unwrap();
 
         registry.register(Box::new(osu_metrics.clone())).unwrap();
-        registry.register(Box::new(bot_metrics.cmd.clone())).unwrap();
-        registry.register(Box::new(bot_metrics.cache.clone())).unwrap();
-        registry.register(Box::new(bot_metrics.discord_events.clone())).unwrap();
+        registry
+            .register(Box::new(bot_metrics.cmd.clone()))
+            .unwrap();
+        registry
+            .register(Box::new(bot_metrics.cache.clone()))
+            .unwrap();
+        registry
+            .register(Box::new(bot_metrics.discord_events.clone()))
+            .unwrap();
 
         Self {
             registry,

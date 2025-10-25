@@ -45,7 +45,7 @@ impl OsuModsLazer {
     pub fn contains(&self, acronym: &str) -> bool {
         for osu_mod in &self.mods {
             if osu_mod.acronym == acronym {
-                return true
+                return true;
             }
         }
 
@@ -66,7 +66,10 @@ impl FromStr for OsuModsLazer {
             // TODO refactor
             let chunk: String = ch.by_ref().take(2).collect();
 
-            mods.push(OsuModLazer { acronym: chunk, settings: None })
+            mods.push(OsuModLazer {
+                acronym: chunk,
+                settings: None,
+            })
         }
 
         Ok(Self { mods })
@@ -86,7 +89,10 @@ impl Display for OsuModsLazer {
 impl Default for OsuModsLazer {
     fn default() -> Self {
         Self {
-            mods: vec![OsuModLazer { acronym: "NM".to_string(), settings: None }],
+            mods: vec![OsuModLazer {
+                acronym: "NM".to_string(),
+                settings: None,
+            }],
         }
     }
 }

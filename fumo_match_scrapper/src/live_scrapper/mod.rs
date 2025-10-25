@@ -11,11 +11,9 @@ static CHECK_INTERVAL_OVERALL: u64 = 30;
 mod matches_worker;
 mod queue_worker;
 
-
 // Live scrapper consists of two workers
 //  1. Reguarly checks for a new matches
 //  2. Reguarly checks for matches to end
-
 
 pub async fn run(
     osu_api: Arc<OsuApi>,
@@ -31,13 +29,13 @@ pub async fn run(
         db_sender.clone(),
         osu_api.clone(),
         arc_end_queue.clone(),
-        db.clone()
+        db.clone(),
     ));
 
     tokio::spawn(queue_worker::run(
         cancel_token.clone(),
         db_sender.clone(),
         osu_api.clone(),
-        arc_end_queue.clone()
+        arc_end_queue.clone(),
     ));
 }

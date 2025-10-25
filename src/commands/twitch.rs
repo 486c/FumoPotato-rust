@@ -15,7 +15,8 @@ use rand::distributions::{Alphanumeric, DistString};
 
 use crate::{
     fumo_context::FumoContext,
-    twitch_api::{StreamType, TwitchStream}, utils::interaction::InteractionCommand,
+    twitch_api::{StreamType, TwitchStream},
+    utils::interaction::InteractionCommand,
 };
 
 use crate::random_string;
@@ -29,10 +30,7 @@ pub async fn twitch_worker(ctx: Arc<FumoContext>) {
     tracing::info!("Starting twitch checker loop!");
     loop {
         if let Err(e) = twitch_checker(&ctx).await {
-            tracing::error!(
-                "Error inside twitch tracking loop: {}", 
-                e
-            );
+            tracing::error!("Error inside twitch tracking loop: {}", e);
         }
         tokio::time::sleep(Duration::from_secs(120)).await;
     }
@@ -168,7 +166,9 @@ pub async fn twitch_checker(ctx: &FumoContext) -> Result<()> {
                                 .await;
 
                         if let Err(e) = res {
-                            tracing::error!("Error happened twitch announce_channel: {e}");
+                            tracing::error!(
+                                "Error happened twitch announce_channel: {e}"
+                            );
                         }
                     }
                 }

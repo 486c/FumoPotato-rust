@@ -66,12 +66,10 @@ impl Visitor<'_> for RankStatusVisitor {
             2 => Ok(RankStatus::Approved),
             3 => Ok(RankStatus::Qualified),
             4 => Ok(RankStatus::Loved),
-            _ => {
-                Err(Error::invalid_value(
-                    Unexpected::Unsigned(v),
-                    &r#"0, 1, 2, 3 or 4"#,
-                ))
-            }
+            _ => Err(Error::invalid_value(
+                Unexpected::Unsigned(v),
+                &r#"0, 1, 2, 3 or 4"#,
+            )),
         }
     }
 
@@ -84,12 +82,10 @@ impl Visitor<'_> for RankStatusVisitor {
             2 => Ok(RankStatus::Approved),
             3 => Ok(RankStatus::Qualified),
             4 => Ok(RankStatus::Loved),
-            _ => {
-                Err(Error::invalid_value(
-                    Unexpected::Signed(v),
-                    &r#"-2, -1, 0, 1, 2, 3 or 4"#,
-                ))
-            }
+            _ => Err(Error::invalid_value(
+                Unexpected::Signed(v),
+                &r#"-2, -1, 0, 1, 2, 3 or 4"#,
+            )),
         }
     }
 
@@ -102,12 +98,10 @@ impl Visitor<'_> for RankStatusVisitor {
             "approved" => Ok(RankStatus::Approved),
             "qualified" => Ok(RankStatus::Qualified),
             "loved" => Ok(RankStatus::Loved),
-            _ => {
-                Err(Error::invalid_value(
-                    Unexpected::Str(v),
-                    &r#"ranked, graveyard, wip and other"#,
-                ))
-            }
+            _ => Err(Error::invalid_value(
+                Unexpected::Str(v),
+                &r#"ranked, graveyard, wip and other"#,
+            )),
         }
     }
 }
@@ -467,6 +461,15 @@ impl OsuGameMode {
         }
     }
 
+    pub fn as_u8(&self) -> u8 {
+        match self {
+            OsuGameMode::Osu => 0,
+            OsuGameMode::Taiko => 1,
+            OsuGameMode::Fruits => 2,
+            OsuGameMode::Mania => 3,
+        }
+    }
+
     pub fn to_emoji(&self) -> &'static str {
         match self {
             OsuGameMode::Fruits => "<:mode_fruits:1332838034839699549>",
@@ -493,7 +496,10 @@ impl Visitor<'_> for OsuGameModeVisitor {
             1 => Ok(OsuGameMode::Taiko),
             2 => Ok(OsuGameMode::Fruits),
             3 => Ok(OsuGameMode::Mania),
-            _ => Err(Error::invalid_value(Unexpected::Unsigned(v), &"0, 1, 2, 3")),
+            _ => Err(Error::invalid_value(
+                Unexpected::Unsigned(v),
+                &"0, 1, 2, 3",
+            )),
         }
     }
 
@@ -576,35 +582,33 @@ pub struct OsuBeatmapAttributesContainer {
     pub star_rating: f32,
 }
 
-/*
-TODO look at it after rebalance
-#[derive(Deserialize, Clone, Debug)]
-#[serde(untagged)]
-pub enum OsuBeatmapAttributesKind {
-    Osu {
-        aim_difficulty: f32,
-        approach_rate: f32,
-        flashlight_difficulty: f32,
-        overall_difficulty: f32,
-        slider_factor: f32,
-        speed_difficulty: f32,
-    },
-    Taiko {
-        stamina_difficulty: f32,
-        rhythm_difficulty: f32,
-        colour_difficulty: f32,
-        approach_rate: f32,
-        great_hit_window: f32,
-    },
-    Fruits {
-        approach_rate: f32,
-    },
-    Mania {
-        great_hit_window: f32,
-        score_multiplier: Option<f32>,
-    },
-}
-*/
+// TODO look at it after rebalance
+// #[derive(Deserialize, Clone, Debug)]
+// #[serde(untagged)]
+// pub enum OsuBeatmapAttributesKind {
+// Osu {
+// aim_difficulty: f32,
+// approach_rate: f32,
+// flashlight_difficulty: f32,
+// overall_difficulty: f32,
+// slider_factor: f32,
+// speed_difficulty: f32,
+// },
+// Taiko {
+// stamina_difficulty: f32,
+// rhythm_difficulty: f32,
+// colour_difficulty: f32,
+// approach_rate: f32,
+// great_hit_window: f32,
+// },
+// Fruits {
+// approach_rate: f32,
+// },
+// Mania {
+// great_hit_window: f32,
+// score_multiplier: Option<f32>,
+// },
+// }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct OsuBeatmap {
@@ -612,7 +616,7 @@ pub struct OsuBeatmap {
     pub id: i32,
     pub mode: String,
     pub bpm: Option<f32>,
-    
+
     pub ar: Option<f32>,
     pub cs: Option<f32>,
     pub drain: Option<f32>,
@@ -663,38 +667,35 @@ pub enum OsuScoreMatchTeam {
     Blue = 2,
 }
 
-/*
-impl<'r> Decode<'r, Postgres> for OsuScoreMatchTeam {
-    fn decode(value: <Postgres as sqlx::Database>::ValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
-        let value = <i16 as Decode<'r, Postgres>>::decode(value)?;
-
-        Self::try_from(value)
-            .map_err(|_| format!("invalid value {value} for OsuScoreMatchTeam").into())
-    }
-}
-
-impl Type<Postgres> for OsuScoreMatchTeam {
-    #[inline]
-    fn type_info() -> PgTypeInfo {
-        PgTypeInfo::with_name("INT2")
-    }
-}
-
-impl TryFrom<i16> for OsuScoreMatchTeam {
-    type Error = OsuApiError;
-
-    fn try_from(value: i16) -> Result<Self, OsuApiError> {
-        match value {
-            0 => Ok(Self::None),
-            1 => Ok(Self::Red),
-            2 => Ok(Self::Blue),
-            _ => Err(OsuApiError::Casting)
-        }
-    }
-
-}
-*/
-
+// impl<'r> Decode<'r, Postgres> for OsuScoreMatchTeam {
+// fn decode(value: <Postgres as sqlx::Database>::ValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+// let value = <i16 as Decode<'r, Postgres>>::decode(value)?;
+//
+// Self::try_from(value)
+// .map_err(|_| format!("invalid value {value} for OsuScoreMatchTeam").into())
+// }
+// }
+//
+// impl Type<Postgres> for OsuScoreMatchTeam {
+// #[inline]
+// fn type_info() -> PgTypeInfo {
+// PgTypeInfo::with_name("INT2")
+// }
+// }
+//
+// impl TryFrom<i16> for OsuScoreMatchTeam {
+// type Error = OsuApiError;
+//
+// fn try_from(value: i16) -> Result<Self, OsuApiError> {
+// match value {
+// 0 => Ok(Self::None),
+// 1 => Ok(Self::Red),
+// 2 => Ok(Self::Blue),
+// _ => Err(OsuApiError::Casting)
+// }
+// }
+//
+// }
 
 impl From<i16> for OsuScoreMatchTeam {
     fn from(value: i16) -> Self {
@@ -702,7 +703,7 @@ impl From<i16> for OsuScoreMatchTeam {
             0 => Self::None,
             1 => Self::Red,
             2 => Self::Blue,
-            _ => Self::None
+            _ => Self::None,
         }
     }
 }
@@ -724,7 +725,10 @@ impl de::Visitor<'_> for OsuScoreMatchTeamVisitor {
             "none" => Ok(OsuScoreMatchTeam::None),
             "red" => Ok(OsuScoreMatchTeam::Red),
             "blue" => Ok(OsuScoreMatchTeam::Blue),
-            _ => Err(E::custom(format!("Failed to parse {} as match team", value)))
+            _ => Err(E::custom(format!(
+                "Failed to parse {} as match team",
+                value
+            ))),
         }
     }
 }
@@ -1013,10 +1017,10 @@ pub struct GetRanking {
     pub kind: RankingKind,
     pub filter: RankingFilter,
     pub country: Option<String>,
-    pub page: Option<u32>, 
-    /* Cursor
-     * Country
-     * Variant */
+    pub page: Option<u32>,
+    // Cursor
+    // Country
+    // Variant
 }
 
 #[derive(Deserialize, Debug)]
@@ -1039,7 +1043,7 @@ pub struct ScoresBatchCursor {
 pub struct ScoresBatch {
     pub scores: Vec<OsuScoreLazer>,
     pub cursor_string: String,
-    //pub cursor: ScoresBatchCursor,
+    // pub cursor: ScoresBatchCursor,
 }
 
 #[test]
@@ -1047,5 +1051,8 @@ fn test_userid_conversion() {
     assert_eq!(UserId::from("486c"), UserId::Username("486c".to_owned()));
     assert_eq!(UserId::from("486"), UserId::Id(486));
     assert_eq!(UserId::from("1234567"), UserId::Id(1234567));
-    assert_eq!(UserId::from("32178318LoPiJ"), UserId::Username("32178318LoPiJ".to_owned()));
+    assert_eq!(
+        UserId::from("32178318LoPiJ"),
+        UserId::Username("32178318LoPiJ".to_owned())
+    );
 }

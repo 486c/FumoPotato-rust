@@ -2,17 +2,16 @@ use compare::MultiplayerCompare;
 use eyre::Result;
 use leaderboard::MultiplayerLeaderboard;
 use twilight_interactions::command::{
-    CommandModel, CommandOption, CreateCommand, CreateOption
+    CommandModel, CommandOption, CreateCommand, CreateOption,
 };
 
 use crate::{
-    fumo_context::FumoContext,
-    utils::interaction::InteractionCommand,
+    fumo_context::FumoContext, utils::interaction::InteractionCommand,
 };
 
-mod list;
 mod compare;
 mod leaderboard;
+mod list;
 
 use list::MultiplayerList;
 
@@ -42,7 +41,7 @@ pub enum MultiplayerCommands {
     #[command(name = "compare")]
     Compare(MultiplayerCompare),
     #[command(name = "leaderboard")]
-    Leaderboard(MultiplayerLeaderboard)
+    Leaderboard(MultiplayerLeaderboard),
 }
 
 impl MultiplayerCommands {
@@ -54,18 +53,29 @@ impl MultiplayerCommands {
 
         match command {
             MultiplayerCommands::List(command) => {
-                ctx.stats.bot.cmd.with_label_values(&["multiplayer_list"]).inc();
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["multiplayer_list"])
+                    .inc();
                 command.run(ctx, cmd).await
-            },
+            }
             MultiplayerCommands::Compare(command) => {
-                ctx.stats.bot.cmd.with_label_values(&["multiplayer_compare"]).inc();
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["multiplayer_compare"])
+                    .inc();
                 command.run(ctx, cmd).await
-            },
+            }
             MultiplayerCommands::Leaderboard(command) => {
-                ctx.stats.bot.cmd.with_label_values(&["multiplayer_leaderboard"]).inc();
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["multiplayer_leaderboard"])
+                    .inc();
                 command.run(ctx, cmd).await
             }
         }
     }
 }
-
