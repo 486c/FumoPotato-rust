@@ -29,8 +29,8 @@ pub struct FumoContextState {
     pub osu_checker_last_cursor: Option<i64>,
 }
 
-impl Drop for FumoContextState {
-    fn drop(&mut self) {
+impl FumoContextState {
+    pub fn sync_to_disk(&self) {
         let mut file =
             File::create(STATE_FILE).expect("failed to open state file");
 
@@ -38,6 +38,8 @@ impl Drop for FumoContextState {
             serde_json::to_string(&self).expect("failed to serialize state");
 
         let _ = file.write_all(json_string.as_bytes());
+
+        tracing::info!("Synced fumo_state to the file")
     }
 }
 

@@ -162,6 +162,8 @@ async fn main() -> Result<()> {
     // Wait for all threads complete peacefully
     tokio::time::sleep(Duration::from_secs(5)).await;
 
+    ctx.state.lock().await.sync_to_disk();
+
     tracing::info!("Bye!!!");
 
     Ok(())
