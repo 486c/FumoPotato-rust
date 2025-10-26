@@ -1,2 +1,6 @@
 /target
 .env
+**/fumo_match_not_found/**
+**/match_not_found/**
+match_not_found
+**/\.fumo_state/**
