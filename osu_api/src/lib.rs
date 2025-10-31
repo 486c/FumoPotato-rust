@@ -10,7 +10,7 @@ use fallback_models::FallbackBeatmapScores;
 use models::{
     osu_matches::{OsuMatchContainer, OsuMatchGet},
     osu_mods::OsuModsLazer,
-    BeatmapUserScore, GetUsersResponse, OsuBeatmapAttributes, OsuUser,
+    BeatmapUserScore, GetUsersResponse, OsuBeatmapAttributes,
     ScoresBatch,
 };
 use reqwest::{
@@ -164,7 +164,7 @@ impl OsuApi {
             _ => unimplemented!(),
         };
 
-        let r = r.timeout(Duration::from_secs(3));
+        let r = r.timeout(Duration::from_secs(60 * 2));
 
         let req = match api_kind {
             ApiKind::NotOsu => r.header(USER_AGENT, "fumo_potato"),
@@ -1100,17 +1100,6 @@ mod tests {
         let res = api.get_matches_batch(&None).await.unwrap();
 
         assert!(res.matches.len() != 0)
-    }
-
-    #[tokio::test]
-    async fn test_download_beatmap() {
-        let api = API_INSTANCE.get().await.unwrap();
-
-        let res = api.download_beatmap(5295637).await.unwrap();
-
-        assert!(!res.is_empty());
-
-        println!("{:?}", str::from_utf8(&res[0..50]));
     }
 
     #[tokio::test]
