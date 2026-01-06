@@ -124,7 +124,7 @@ impl OsuApi {
         };
 
         // Force timeout
-        let r = r.timeout(Duration::from_secs(3));
+        let r = r.timeout(Duration::from_secs(5));
 
         let mut req = match api_kind {
             ApiKind::General => r
@@ -334,9 +334,9 @@ impl OsuApi {
         &self,
         beatmap_id: i64,
         user_id: UserId,
-    ) -> ApiResult<BeatmapUserScore> {
+    ) -> ApiResult<Vec<BeatmapUserScore>> {
         let link = format!(
-            "{OSU_API_BASE}/beatmaps/{}/scores/users/{}",
+            "{OSU_API_BASE}/beatmaps/{}/scores/users/{}/all",
             beatmap_id, user_id
         );
 
@@ -1082,6 +1082,16 @@ mod tests {
         assert_eq!(res.users.len(), 3);
 
         dbg!(res);
+    }
+
+
+
+    #[tokio::test]
+    async fn valera_get_scores() {
+        let api = API_INSTANCE.get().await.unwrap();
+        let scores = api.get_user_beatmap_scores(5192354, UserId::Id(4915980)).await.unwrap();
+
+        println!("{:?}", &scores);
     }
 
     #[tokio::test]

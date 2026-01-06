@@ -305,6 +305,7 @@ async fn osu_track_checker(
                     Err(e) => {
                         tracing::error!(
                             user_id = score.user_id,
+                            score_id = score.id,
                             "Failed to fetch user top scores inside tracking loop: {e}",
                         );
 
@@ -332,6 +333,7 @@ async fn osu_track_checker(
                 None => {
                     tracing::error!(
                         user_id = score.user_id,
+                        score_id = score.id,
                         "Cannot fetch user from get_scores_batch fetch"
                     );
                     continue;
@@ -350,6 +352,7 @@ async fn osu_track_checker(
                     if let Err(err) = beatmap.check_suspicion() {
                         tracing::error!(
                             beatmap_id = score.beatmap_id,
+                            score_id = score.id,
                             "Attempt to calculate suspicious beatmap: {err}"
                         );
 
@@ -444,7 +447,8 @@ async fn osu_track_checker(
                     Err(e) => {
                         tracing::error!(
                             user_id = score.user_id,
-                            "Failed to fetch user top scores inside tracking loop: {e}",
+                            score_id = score.id,
+                            "failed to fetch user top scores inside tracking loop: {e}",
                         );
                         continue;
                     }

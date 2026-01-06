@@ -8,7 +8,7 @@ use super::models::ApiError;
 pub enum OsuApiError {
     #[error("failed to parse to str")]
     FromStrError,
-    #[error(transparent)]
+    #[error("{}, status: {:?}", .0, .0.status())]
     ReqwestError(#[from] reqwest::Error),
     #[error("unhandled status code: `{code}` at `{url}`")]
     UnhandledStatusCode { code: u16, url: String },
