@@ -10,8 +10,7 @@ use fallback_models::FallbackBeatmapScores;
 use models::{
     osu_matches::{OsuMatchContainer, OsuMatchGet},
     osu_mods::OsuModsLazer,
-    BeatmapUserScore, GetUsersResponse, OsuBeatmapAttributes,
-    ScoresBatch,
+    BeatmapUserScore, GetUsersResponse, OsuBeatmapAttributes, ScoresBatch,
 };
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, COOKIE, USER_AGENT},
@@ -39,7 +38,7 @@ use crate::{error::OsuApiError, models::OsuUserStatistics};
 use serde::de::DeserializeOwned;
 
 static OSU_BASE: &str = "https://osu.ppy.sh";
-static CATBOY_BASE: &str = "https://catboy.best";
+static CATBOY_BASE: &str = "https://osu.ppy.sh";
 static OSU_API_BASE: &str = "https://osu.ppy.sh/api/v2";
 
 type ApiResult<T> = Result<T, OsuApiError>;
@@ -85,7 +84,7 @@ impl OsuToken {
             "client_id":"{}",
             "client_secret":"{}",
             "grant_type":"client_credentials",
-            "scope":"public" 
+            "scope":"public"
         }}"#,
             &self.client_id, &self.secret
         );
@@ -1084,12 +1083,13 @@ mod tests {
         dbg!(res);
     }
 
-
-
     #[tokio::test]
     async fn valera_get_scores() {
         let api = API_INSTANCE.get().await.unwrap();
-        let scores = api.get_user_beatmap_scores(5192354, UserId::Id(4915980)).await.unwrap();
+        let scores = api
+            .get_user_beatmap_scores(5192354, UserId::Id(4915980))
+            .await
+            .unwrap();
 
         println!("{:?}", &scores);
     }

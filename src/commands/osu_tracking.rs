@@ -467,25 +467,13 @@ async fn osu_track_checker(
                 continue;
             };
 
-            let (osu_beatmap_res, osu_beatmap_attributes_res) = tokio::join!(
+            let (osu_beatmap, osu_beatmap_attributes) = tokio::try_join!(
                 ctx.osu_api.get_beatmap(score.beatmap_id),
                 ctx.osu_api.get_beatmap_attributes(
                     score.beatmap_id,
                     Some(&score.mods)
                 )
-            );
-
-            let osu_beatmap = osu_beatmap_res?;
-            let osu_beatmap_attributes = match osu_beatmap_attributes_res {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to fetch beatmap attributes: {}",
-                        e
-                    );
-                    return Err(e.into());
-                }
-            };
+            )?;
 
             let top_score_position = user_top_scores
                 .iter()
@@ -747,7 +735,7 @@ impl OsuTrackingAdd {
 #[command(
     name = "add-bulk",
     desc = "
-    Add multiple users to the tracking, either based on country 
+    Add multiple users to the tracking, either based on country
     or global leaderboards
 "
 )]

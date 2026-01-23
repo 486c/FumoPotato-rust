@@ -93,11 +93,11 @@ impl Database {
     ) -> Result<Vec<OsuDbMatch>> {
         Ok(sqlx::query_as!(
             OsuDbMatch,
-            "select 
+            "select
                 id, name, start_time, end_time
-            from osu_match_game_scores 
-            JOIN osu_matches ON osu_match_game_scores.match_id = osu_matches.id 
-            WHERE user_id = $1 
+            from osu_match_game_scores
+            JOIN osu_matches ON osu_match_game_scores.match_id = osu_matches.id
+            WHERE user_id = $1
             group by osu_matches.id
             ORDER BY start_time DESC",
             user_id
@@ -113,11 +113,11 @@ impl Database {
         // TODO move regex to const?
         Ok(sqlx::query_as!(
             OsuDbMatch,
-            r#"select 
+            r#"select
                 id, name, start_time, end_time
-            from osu_match_game_scores 
-            JOIN osu_matches ON osu_match_game_scores.match_id = osu_matches.id 
-            WHERE user_id = $1 
+            from osu_match_game_scores
+            JOIN osu_matches ON osu_match_game_scores.match_id = osu_matches.id
+            WHERE user_id = $1
 			AND osu_matches.name ~ '(.+):\s*(\(*.+\)*)\s*vs\s*(\(*.+\)*)'
             group by osu_matches.id
             ORDER BY start_time DESC
@@ -147,7 +147,7 @@ impl Database {
         username: &str,
     ) -> Result<()> {
         sqlx::query!(
-            "INSERT INTO osu_players VALUES($1, $2) 
+            "INSERT INTO osu_players VALUES($1, $2)
             ON CONFLICT DO NOTHING",
             osu_id,
             username
@@ -165,8 +165,8 @@ impl Database {
         Ok(sqlx::query_as!(
             OsuLinkedTrackedUser,
             "select ot.osu_id, ot.channel_id, op.osu_username
-            from osu_tracking ot 
-            inner join osu_players op 
+            from osu_tracking ot
+            inner join osu_players op
             on ot.osu_id = op.osu_id where channel_id = $1",
             channel_id
         )
@@ -186,9 +186,9 @@ impl Database {
         Ok(sqlx::query_as!(
             OsuLinkedTrackedUser,
             "select ot.osu_id, ot.channel_id, op.osu_username
-            from osu_tracking ot 
-            inner join osu_players op 
-            on ot.osu_id = op.osu_id 
+            from osu_tracking ot
+            inner join osu_players op
+            on ot.osu_id = op.osu_id
             where channel_id = $1
             AND ot.osu_id = $2",
             channel_id,
@@ -205,8 +205,8 @@ impl Database {
         Ok(sqlx::query_as!(
             OsuLinkedTrackedUser,
             "select ot.osu_id, ot.channel_id, op.osu_username
-            from osu_tracking ot 
-            inner join osu_players op 
+            from osu_tracking ot
+            inner join osu_players op
             on ot.osu_id = op.osu_id where ot.osu_id = $1",
             osu_id
         )
@@ -226,9 +226,9 @@ impl Database {
             "
         select osu_id, osu_username, array_agg(channel_id) as channel_ids from (
         select ot.osu_id as osu_id, ot.channel_id as channel_id, op.osu_username as osu_username
-        from osu_tracking ot 
-        inner join osu_players op 
-        on ot.osu_id = op.osu_id where ot.osu_id = ANY($1::INT8[]) 
+        from osu_tracking ot
+        inner join osu_players op
+        on ot.osu_id = op.osu_id where ot.osu_id = ANY($1::INT8[])
         ) as t group by osu_id, osu_username
             ",
             users
@@ -363,17 +363,17 @@ impl Database {
         WITH ids AS (
             SELECT unnest($1::int8[]) AS id
         )
-        SELECT 
+        SELECT
             ids.id,
-            CASE 
-                WHEN m.id IS NOT NULL THEN TRUE 
-                ELSE FALSE 
+            CASE
+                WHEN m.id IS NOT NULL THEN TRUE
+                ELSE FALSE
             END AS match_exists,
-            CASE 
-                WHEN n.id IS NOT NULL THEN TRUE 
-                ELSE FALSE 
-            END AS match_not_found 
-        FROM 
+            CASE
+                WHEN n.id IS NOT NULL THEN TRUE
+                ELSE FALSE
+            END AS match_not_found
+        FROM
             ids
         LEFT JOIN osu_matches m ON ids.id = m.id
         LEFT JOIN osu_match_not_found n ON ids.id = n.id;
@@ -417,7 +417,7 @@ impl Database {
         end_time: DateTime<Utc>,
     ) -> Result<()> {
         sqlx::query!(
-            "INSERT INTO osu_matches 
+            "INSERT INTO osu_matches
             (id, name, start_time, end_time)
             VALUES($1, $2, $3, $4)
             ",
@@ -476,7 +476,7 @@ impl Database {
         sqlx::query!(
             "INSERT INTO osu_match_game_scores
             (
-                game_id, match_id, beatmap_id, user_id, accuracy, mods, score, 
+                game_id, match_id, beatmap_id, user_id, accuracy, mods, score,
                 count50, count100, count300, countgeki, countkatu, countmiss, max_combo,
                 slot, team, pass, pp
             )
@@ -514,9 +514,9 @@ impl Database {
         let res = sqlx::query_as!(
             OsuDbMatchGame,
             r#"
-                SELECT 
+                SELECT
                     id,
-                    match_id as "match_id!", 
+                    match_id as "match_id!",
                     beatmap_id,
                     mods,
                     mode,
@@ -585,23 +585,23 @@ impl Database {
             OsuDbMatchScore,
             r#"
             select * from(
-                select 
-                game_id as "game_id!", osu_matches.id as "match_id!", 
-                osu_match_game_scores.beatmap_id, user_id, accuracy, 
-                osu_match_game_scores.mods, 
-                score, count50, count100, count300, countgeki, countkatu, countmiss, 
-                max_combo, slot, pass, pp, team, osu_match_games.start_time, 
+                select
+                game_id as "game_id!", osu_matches.id as "match_id!",
+                osu_match_game_scores.beatmap_id, user_id, accuracy,
+                osu_match_game_scores.mods,
+                score, count50, count100, count300, countgeki, countkatu, countmiss,
+                max_combo, slot, pass, pp, team, osu_match_games.start_time,
                 osu_match_games.end_time, osu_matches."name" as match_name,
                 osu_username as "osu_username?"
-            from osu_match_game_scores 
-            left join osu_match_games 
+            from osu_match_game_scores
+            left join osu_match_games
                 on osu_match_game_scores.game_id = osu_match_games.id
             left join osu_matches
                 on osu_match_game_scores.match_id = osu_matches.id
             left join osu_username_kv
             	on osu_match_game_scores.user_id = osu_username_kv.osu_id
             where osu_match_game_scores.beatmap_id = $1) as t1
-            WHERE match_name ~ $2 
+            WHERE match_name ~ $2
             "#,
             beatmap_id, &name_filter
         ).fetch_all(&self.pool).await?;
@@ -625,16 +625,16 @@ impl Database {
             OsuDbMatchScore,
             r#"
             select * from(
-                select 
-                game_id as "game_id!", osu_matches.id as "match_id!", 
-                osu_match_game_scores.beatmap_id, user_id, accuracy, 
-                osu_match_game_scores.mods, 
-                score, count50, count100, count300, countgeki, countkatu, countmiss, 
-                max_combo, slot, pass, pp, team, osu_match_games.start_time, 
-                osu_match_games.end_time, osu_matches."name" as match_name, 
+                select
+                game_id as "game_id!", osu_matches.id as "match_id!",
+                osu_match_game_scores.beatmap_id, user_id, accuracy,
+                osu_match_game_scores.mods,
+                score, count50, count100, count300, countgeki, countkatu, countmiss,
+                max_combo, slot, pass, pp, team, osu_match_games.start_time,
+                osu_match_games.end_time, osu_matches."name" as match_name,
                 NULL as osu_username
-            from osu_match_game_scores 
-            left join osu_match_games 
+            from osu_match_game_scores
+            left join osu_match_games
                 on osu_match_game_scores.game_id = osu_match_games.id
             left join osu_matches
                 on osu_match_game_scores.match_id = osu_matches.id
