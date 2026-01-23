@@ -13,7 +13,6 @@ use serde::{
     de::{self, Deserializer, Error, SeqAccess, Unexpected, Visitor},
     Deserialize,
 };
-use sqlx::{postgres::PgTypeInfo, prelude::Type, Decode, Postgres};
 use thiserror::Error;
 
 use std::{

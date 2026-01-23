@@ -1007,12 +1007,12 @@ mod tests {
     async fn test_get_beatmap_attributes() {
         let api = API_INSTANCE.get().await.unwrap();
 
-        let res1 = api.get_beatmap_attributes(2025942, None).await.unwrap();
+        let _res1 = api.get_beatmap_attributes(2025942, None).await.unwrap();
 
         // assert!(matches!(res1.attributes, OsuBeatmapAttributesKind::Osu{ .. }));
 
         let mods_dt = OsuModsLazer::from_str("DTHD").unwrap();
-        let res2 = api
+        let _res2 = api
             .get_beatmap_attributes(2025942, Some(&mods_dt))
             .await
             .unwrap();
@@ -1027,7 +1027,7 @@ mod tests {
         // }
 
         // Edge cases
-        let res1 = api.get_beatmap_attributes(4878596, None).await.unwrap();
+        let _res1 = api.get_beatmap_attributes(4878596, None).await.unwrap();
     }
 
     #[tokio::test]

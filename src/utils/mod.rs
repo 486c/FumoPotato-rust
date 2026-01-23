@@ -86,11 +86,6 @@ impl ops::Div<f64> for HitWindow {
     }
 }
 
-#[inline]
-pub fn hit_windows_circle_std(od: f64) -> (f64, f64, f64) {
-    (80.0 - 6.0 * od, 140.0 - 8.0 * od, 200.0 - 10.0 * od)
-}
-
 // TODO to new function impl
 #[inline]
 pub fn hit_window(od: f64, mode: &OsuGameMode) -> HitWindow {

@@ -6,12 +6,10 @@ use crate::{
     },
 };
 use eyre::Result;
-use fumo_database::osu::{OsuDbMatchGame, OsuDbMatchScore};
+use fumo_database::osu::OsuDbMatchScore;
 use fumo_twilight::message::MessageBuilder;
 use num_format::{Locale, ToFormattedString};
-use osu_api::models::{
-    OsuBeatmap, OsuGameMode, OsuMods, OsuUserExtended, UserId,
-};
+use osu_api::models::{OsuBeatmap, OsuMods, OsuUserExtended, UserId};
 use std::fmt::Write;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::message::Embed;

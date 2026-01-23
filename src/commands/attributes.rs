@@ -1,13 +1,13 @@
 use crate::{
     fumo_context::FumoContext,
     utils::{
-        ar_to_ms, calc_ar, calc_od, hit_window, hit_windows_circle_std,
-        interaction::InteractionCommand, ms_to_ar, HitWindow,
+        ar_to_ms, calc_ar, calc_od, hit_window,
+        interaction::InteractionCommand, HitWindow,
     },
 };
 
 use fumo_twilight::message::MessageBuilder;
-use osu_api::models::{osu_mods::OsuModsLazer, OsuGameMode, OsuMods};
+use osu_api::models::{osu_mods::OsuModsLazer, OsuGameMode};
 
 use std::{fmt::Write, str::FromStr};
 

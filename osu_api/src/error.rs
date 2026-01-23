@@ -1,5 +1,4 @@
 use reqwest::StatusCode;
-use serde::Deserialize;
 use thiserror::Error;
 
 use super::models::ApiError;
