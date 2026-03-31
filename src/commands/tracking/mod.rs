@@ -599,7 +599,7 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
 /// Osu tracking commands
 #[derive(CommandModel, CreateCommand, Debug)]
 #[command(name = "tracking")]
-pub enum OsuTracking {
+pub enum OsuTrackingCommands {
     #[command(name = "add")]
     Add(OsuTrackingAdd),
     #[command(name = "remove")]
@@ -612,6 +612,58 @@ pub enum OsuTracking {
     List(OsuTrackingList),
 }
 
+impl OsuTrackingCommands {
+    pub async fn handle(
+        ctx: &FumoContext,
+        cmd: InteractionCommand,
+    ) -> Result<()> {
+        let command = Self::from_interaction(cmd.data.clone().into())?;
+
+        match command {
+            OsuTrackingCommands::Add(command) => {
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["osu_tracking_add"])
+                    .inc();
+                command.run(ctx, cmd).await
+            }
+            OsuTrackingCommands::Remove(command) => {
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["osu_tracking_remove"])
+                    .inc();
+                command.run(ctx, cmd).await
+            }
+            OsuTrackingCommands::AddBulk(command) => {
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["osu_tracking_addbulk"])
+                    .inc();
+                command.run(ctx, cmd).await
+            }
+            OsuTrackingCommands::RemoveAll(command) => {
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["osu_tracking_removeall"])
+                    .inc();
+                command.run(ctx, cmd).await
+            }
+            OsuTrackingCommands::List(command) => {
+                ctx.stats
+                    .bot
+                    .cmd
+                    .with_label_values(&["osu_tracking_list"])
+                    .inc();
+                command.run(ctx, cmd).await
+            }
+        }
+    }
+}
+
 /// Remove osu user from tracking
 #[derive(CommandModel, CreateCommand, Debug)]
 #[command(name = "remove")]
@@ -621,6 +673,7 @@ pub struct OsuTrackingRemove {
 }
 
 impl OsuTrackingRemove {
+
     pub async fn run(
         &self,
         ctx: &FumoContext,

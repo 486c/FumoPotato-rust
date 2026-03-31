@@ -56,6 +56,7 @@ pub struct FumoContext {
     pub stats: BotMetrics,
     pub http: Arc<Client>,
     pub standby: Standby,
+    pub regular_http: reqwest::Client,
 
     application_id: Id<ApplicationMarker>,
 
@@ -157,6 +158,7 @@ impl FumoContext {
             stats,
             twitch_checker_list: Mutex::new(HashMap::new()),
             state: Mutex::new(state),
+            regular_http: reqwest::Client::new(),
         };
 
         Ok((ctx, shards))

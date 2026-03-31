@@ -9,7 +9,7 @@ use crate::{
 
 use osu_api::models::UserId;
 
-use super::{attributes::OsuAttributes, osu_tracking::OsuTracking};
+use super::attributes::OsuAttributes;
 
 /// All osu! related commands
 #[derive(CommandModel, CreateCommand, Debug)]
@@ -21,8 +21,6 @@ pub enum OsuCommands {
     Unlink(OsuUnlink),
     #[command(name = "attributes")]
     Attributes(OsuAttributes),
-    #[command(name = "tracking")]
-    Tracking(OsuTracking),
 }
 
 impl OsuCommands {
@@ -55,48 +53,6 @@ impl OsuCommands {
                         .bot
                         .cmd
                         .with_label_values(&["osu_attributes_od"])
-                        .inc();
-                    command.run(ctx, cmd).await
-                }
-            },
-            OsuCommands::Tracking(command) => match command {
-                OsuTracking::Add(command) => {
-                    ctx.stats
-                        .bot
-                        .cmd
-                        .with_label_values(&["osu_tracking_ad"])
-                        .inc();
-                    command.run(ctx, cmd).await
-                }
-                OsuTracking::Remove(command) => {
-                    ctx.stats
-                        .bot
-                        .cmd
-                        .with_label_values(&["osu_tracking_remove"])
-                        .inc();
-                    command.run(ctx, cmd).await
-                }
-                OsuTracking::AddBulk(command) => {
-                    ctx.stats
-                        .bot
-                        .cmd
-                        .with_label_values(&["osu_tracking_addbulk"])
-                        .inc();
-                    command.run(ctx, cmd).await
-                }
-                OsuTracking::RemoveAll(command) => {
-                    ctx.stats
-                        .bot
-                        .cmd
-                        .with_label_values(&["osu_tracking_removeall"])
-                        .inc();
-                    command.run(ctx, cmd).await
-                }
-                OsuTracking::List(command) => {
-                    ctx.stats
-                        .bot
-                        .cmd
-                        .with_label_values(&["osu_tracking_list"])
                         .inc();
                     command.run(ctx, cmd).await
                 }

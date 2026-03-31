@@ -1,7 +1,7 @@
 use crate::{
     commands::{
         country_leaderboard::LeaderboardCommand,
-        multiplayer::MultiplayerCommands, osu::OsuCommands,
+        multiplayer::MultiplayerCommands, osu::OsuCommands, tracking::OsuTrackingCommands,
     },
     fumo_context::FumoContext,
 };
@@ -11,10 +11,10 @@ use twilight_gateway::stream::ShardEventStream;
 use std::sync::Arc;
 
 use twilight_gateway::{Event, Shard};
-use twilight_model::application::{
+use twilight_model::{application::{
     command::{Command, CommandType},
     interaction::{Interaction, InteractionData},
-};
+}, gateway::payload::incoming::MessageCreate};
 use twilight_util::builder::command::{
     CommandBuilder, StringBuilder, SubCommandBuilder,
 };
@@ -32,6 +32,7 @@ async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
         "twitch" => twitch::run(&ctx, cmd).await,
         "osu" => OsuCommands::handle(&ctx, cmd).await,
         "multiplayer" => MultiplayerCommands::handle(&ctx, cmd).await,
+        "tracking" => OsuTrackingCommands::handle(&ctx, cmd).await,
         _ => {
             return tracing::error!(
                 "Got unhandled interaction command: {}",
@@ -152,7 +153,8 @@ async fn handle_interactions(
 
             handle_commands(ctx, cmd).await;
         }
-        Some(InteractionData::MessageComponent(_)) => {}
+        Some(InteractionData::MessageComponent(_)) => {
+        },
         Some(InteractionData::ModalSubmit(_)) => {}
         _ => {}
     };

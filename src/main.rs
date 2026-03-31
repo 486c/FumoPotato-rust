@@ -46,7 +46,7 @@ async fn spawn_osu_worker(
 ) {
     tokio::spawn(async move {
         tokio::select! {
-            _ = commands::osu_tracking::osu_tracking_worker(
+            _ = commands::tracking::osu_tracking_worker(
                 ctx.clone()
             ) => {
                 tracing::error!("Osu tracking checker loop sudenly ended!");
@@ -81,7 +81,9 @@ async fn main() -> Result<()> {
     // and twilight-interactions created commands :)
     let mut commands = global_commands();
 
-    commands.push(commands::osu::OsuCommands::create_command().into());
+    commands.push(
+        commands::osu::OsuCommands::create_command().into()
+    );
 
     commands.push(
         commands::multiplayer::MultiplayerCommands::create_command().into(),
@@ -90,6 +92,11 @@ async fn main() -> Result<()> {
     commands.push(
         commands::country_leaderboard::LeaderboardCommand::create_command()
             .into(),
+    );
+
+    commands.push(
+        commands::tracking::OsuTrackingCommands::create_command()
+            .into()
     );
 
     // Set global commands

@@ -79,5 +79,5 @@ pub mod attributes;
 pub mod country_leaderboard;
 pub mod multiplayer;
 pub mod osu;
-pub mod osu_tracking;
+pub mod tracking;
 pub mod twitch;
