@@ -24,14 +24,13 @@ impl MessageBuilder {
         self
     }
 
-    // TODO uncomment if ever gonna be used
-    // pub fn attachments(
-    // mut self,
-    // attachments: impl Into<Vec<Attachment>>
-    // ) -> Self {
-    // self.attachments = Some(attachments.into());
-    // self
-    // }
+    pub fn attachments(
+        mut self,
+        attachments: impl Into<Vec<Attachment>>
+    ) -> Self {
+        self.attachments = Some(attachments.into());
+        self
+    }
 
     pub fn content(mut self, s: impl Into<String>) -> Self {
         self.content = Some(s.into());

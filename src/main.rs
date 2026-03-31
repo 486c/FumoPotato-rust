@@ -99,6 +99,11 @@ async fn main() -> Result<()> {
             .into()
     );
 
+    commands.push(
+        commands::valera::ValeraCommand::create_command()
+            .into()
+    );
+
     // Set global commands
     ctx.http
         .interaction(application_id)

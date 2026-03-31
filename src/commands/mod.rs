@@ -81,3 +81,4 @@ pub mod multiplayer;
 pub mod osu;
 pub mod tracking;
 pub mod twitch;
+pub mod valera;

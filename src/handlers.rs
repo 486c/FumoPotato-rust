@@ -1,7 +1,7 @@
 use crate::{
     commands::{
         country_leaderboard::LeaderboardCommand,
-        multiplayer::MultiplayerCommands, osu::OsuCommands, tracking::OsuTrackingCommands,
+        multiplayer::MultiplayerCommands, osu::OsuCommands, tracking::OsuTrackingCommands, valera::ValeraCommand,
     },
     fumo_context::FumoContext,
 };
@@ -33,6 +33,7 @@ async fn handle_commands(ctx: Arc<FumoContext>, cmd: InteractionCommand) {
         "osu" => OsuCommands::handle(&ctx, cmd).await,
         "multiplayer" => MultiplayerCommands::handle(&ctx, cmd).await,
         "tracking" => OsuTrackingCommands::handle(&ctx, cmd).await,
+        "valera456" => ValeraCommand::handle(&ctx, cmd).await,
         _ => {
             return tracing::error!(
                 "Got unhandled interaction command: {}",
