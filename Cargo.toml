@@ -13,7 +13,7 @@ members = [
 	"osu_api",
 	"fumo_database",
 	"fumo_match_scrapper",
- 	"fumo_twilight", 
+ 	"fumo_twilight",
 	"fumo_macro"
 ]
 
@@ -31,7 +31,7 @@ fumo_database = { workspace = true }
 fumo_twilight = { workspace = true }
 fumo_macro = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true } 
+tracing-subscriber = { workspace = true }
 bytes = "1.5.0"
 chrono = "0.4.38"
 dotenv = "0.15.0"
@@ -56,7 +56,7 @@ twilight-model = "0.15.2"
 twilight-standby = "0.15.2"
 twilight-util = { version = "0.15.2", features = ["builder"] }
 time = "0.3.36"
-rosu-pp = "3.1.0"
+rosu-pp = "4.0.1"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3
