@@ -11,7 +11,7 @@ use twilight_util::builder::embed::{EmbedBuilder, ImageSource};
 use crate::{fumo_context::FumoContext, random_string, utils::interaction::InteractionCommand};
 use eyre::Result;
 
-const IMAGE_MAX: usize = 245;
+const IMAGE_MAX: usize = 267;
 
 /// Random quote of valera456
 #[derive(CommandModel, CreateCommand, Debug)]
