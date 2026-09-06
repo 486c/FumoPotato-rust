@@ -3,7 +3,7 @@ mod live_scrapper;
 mod match_not_found;
 mod scrap_worker;
 
-use clap::{command, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use fumo_database::Database;
 use match_not_found::MatchNotFoundList;
 use osu_api::OsuApi;
