@@ -14,24 +14,29 @@ members = [
 	"fumo_database",
 	"fumo_match_scrapper",
  	"fumo_twilight",
-	"fumo_macro"
+	"fumo_macro",
+	"fumo_beatmap_cache"
 ]
 
 [workspace.dependencies]
+fumo_beatmap_cache = { path = "./fumo_beatmap_cache" }
 osu_api = { path = "./osu_api" }
 fumo_database = { path = "./fumo_database" }
 fumo_twilight = { path = "./fumo_twilight" }
 fumo_macro = { path = "./fumo_macro" }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+metrics = "0.24.6"
 
 [dependencies]
+fumo_beatmap_cache = { workspace = true }
 osu_api = { workspace = true }
 fumo_database = { workspace = true }
 fumo_twilight = { workspace = true }
 fumo_macro = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+metrics = { workspace = true }
 bytes = "1.5.0"
 chrono = "0.4.38"
 dotenv = "0.15.0"
@@ -56,8 +61,8 @@ twilight-standby = "0.15.2"
 twilight-util = { version = "0.15.2", features = ["builder"] }
 time = "0.3.36"
 rosu-pp = "4.0.1"
-metrics = "0.24.6"
 metrics-exporter-prometheus = "0.18.3"
+rosu-map = "0.2.1"
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

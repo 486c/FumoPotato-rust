@@ -1,6 +1,7 @@
 use crate::{
     twitch_api::TwitchApi,
 };
+use fumo_beatmap_cache::FumoBeatmapCache;
 use fumo_database::Database;
 use osu_api::OsuApi;
 use std::io::Write;
@@ -43,8 +44,9 @@ impl FumoContextState {
 }
 
 pub struct FumoContext {
-    pub osu_api: OsuApi,
+    pub osu_api: Arc<OsuApi>,
     pub twitch_api: TwitchApi,
+    pub beatmap_cache: FumoBeatmapCache,
 
     /// Checker list for all twitch users
     /// where key is twitch id
@@ -78,7 +80,7 @@ impl FumoContext {
         .await?;
 
         // Init osu api
-        let osu_api = OsuApi::new(
+        let osu_api = Arc::new(OsuApi::new(
             env::var("CLIENT_ID")?.parse()?,
             env::var("CLIENT_SECRET")?.as_str(),
             env::var("OSU_SESSION")?.as_str(),
@@ -86,7 +88,7 @@ impl FumoContext {
             env::var("FALLBACK_API_KEY")?.as_str(),
             true,
         )
-        .await?;
+        .await?);
 
         let db = Database::init(env::var("DATABASE_URL")?.as_str()).await?;
 
@@ -142,6 +144,11 @@ impl FumoContext {
             }
         };
 
+        let beatmap_cache = FumoBeatmapCache::new(
+            env::var("DATABASE_URL2")?.as_str(),
+            osu_api.clone(),
+        ).await?;
+
         let ctx = FumoContext {
             osu_api,
             twitch_api,
@@ -152,6 +159,7 @@ impl FumoContext {
             twitch_checker_list: Mutex::new(HashMap::new()),
             state: Mutex::new(state),
             regular_http: reqwest::Client::new(),
+            beatmap_cache,
         };
 
         Ok((ctx, shards))

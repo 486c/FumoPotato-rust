@@ -2,9 +2,9 @@ mod settings;
 
 use fumo_twilight::message::MessageBuilder;
 use metrics::counter;
+use rosu_map::Beatmap;
 use rosu_pp::{
-    model::mods::rosu_mods::{GameMod, GameMods},
-    Performance,
+    Beatmap as BeatmapPp, Difficulty, Performance, any::DifficultyAttributes, model::mods::rosu_mods::{GameMod, GameMods}
 };
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use twilight_util::builder::embed::EmbedAuthorBuilder;
@@ -47,8 +47,8 @@ const OSU_TRACKING_BATCH_SIZE: usize = 850;
 fn create_tracking_embed(
     score: &OsuScoreLazer,
     user: &OsuUserExtended,
-    beatmap: &OsuBeatmap,
-    beatmap_attrs: &OsuBeatmapAttributesContainer,
+    beatmap_meta: &Beatmap,
+    beatmap_diff: &DifficultyAttributes,
     top_score_pos: Option<usize>,
 ) -> eyre::Result<Embed> {
     let mut description_text = String::with_capacity(100);
@@ -57,14 +57,14 @@ fn create_tracking_embed(
         description_text,
         "{} [**{} - {} [{}]**](https://osu.ppy.sh/b/{}) ",
         score.ruleset_id.to_emoji(),
-        beatmap.beatmapset.artist,
-        beatmap.beatmapset.title,
-        beatmap.version,
-        beatmap.id
+        beatmap_meta.artist,
+        beatmap_meta.title,
+        beatmap_meta.version,
+        beatmap_meta.beatmap_id
     );
 
     let (star_rating, max_combo) =
-        (beatmap_attrs.star_rating, beatmap.max_combo.unwrap_or(0));
+        (beatmap_diff.stars(), beatmap_diff.max_combo());
 
     let _ = writeln!(description_text, "[{:.2}★]", star_rating);
 
@@ -140,31 +140,37 @@ fn create_tracking_embed(
             );
         }
     }
+    
+    let bpm = beatmap_meta
+        .control_points
+        .timing_points
+        .first()
+        .map(|tp| 60_000.0 / tp.beat_len)
+        .map(|x| {
+            if let Some(speed_change) = score.mods.speed_changes() {
+                return x * speed_change as f64;
+            };
 
-    let bpm = beatmap.bpm.map(|x| {
-        if let Some(speed_change) = score.mods.speed_changes() {
-            return x * speed_change;
-        };
+            if score.mods.contains("DT") {
+                return x * 1.5;
+            }
 
-        if score.mods.contains("DT") {
-            return x * 1.5;
-        }
+            if score.mods.contains("HT") {
+                return x * 0.75;
+            }
 
-        if score.mods.contains("HT") {
-            return x * 0.75;
-        }
+            x
+        });
 
-        x
-    });
-
-    let beatmap_ar = beatmap.ar.ok_or(eyre::eyre!("beatmap ar is empty"))?;
+    let beatmap_ar = 
+        beatmap_meta.approach_rate;
 
     let beatmap_od =
-        beatmap.accuracy.ok_or(eyre::eyre!("beatmap od is empty"))?;
+        beatmap_meta.overall_difficulty;
 
-    let beatmap_cs = beatmap.cs.ok_or(eyre::eyre!("beatmap cs is empty"))?;
+    let beatmap_cs = beatmap_meta.circle_size;
 
-    let beatmap_hp = beatmap.drain.ok_or(eyre::eyre!("beatmap hp is empty"))?;
+    let beatmap_hp = beatmap_meta.hp_drain_rate;
 
     // AR
     let approach_rate = calc_ar(beatmap_ar, &score.mods);
@@ -227,11 +233,11 @@ fn create_tracking_embed(
     let _ = writeln!(description_text, " BPM: {:.2}`", bpm.unwrap_or(0.0));
 
     let thumb_url =
-        format!("https://b.ppy.sh/thumb/{}l.jpg", beatmap.beatmapset_id);
+        format!("https://b.ppy.sh/thumb/{}l.jpg", beatmap_meta.beatmap_set_id);
 
     let footer = EmbedFooterBuilder::new(format!(
         "Mapper {}",
-        beatmap.beatmapset.creator
+        beatmap_meta.creator
     ));
 
     let author = EmbedAuthorBuilder::new(format!(
@@ -340,7 +346,7 @@ async fn osu_track_checker(
             'blk: {
                 if score.pp.is_none() {
                     let beatmap_bytes =
-                        ctx.osu_api.download_beatmap(score.beatmap_id).await?;
+                        ctx.beatmap_cache.get(score.beatmap_id).await?;
 
                     let beatmap = rosu_pp::Beatmap::from_bytes(&beatmap_bytes)?;
 
@@ -457,14 +463,21 @@ async fn osu_track_checker(
             } else {
                 continue;
             };
+            
+            let beatmap_bytes = ctx.beatmap_cache.get(
+                score.beatmap_id
+            ).await?;
 
-            let (osu_beatmap, osu_beatmap_attributes) = tokio::try_join!(
-                ctx.osu_api.get_beatmap(score.beatmap_id),
-                ctx.osu_api.get_beatmap_attributes(
-                    score.beatmap_id,
-                    Some(&score.mods)
-                )
-            )?;
+            let beatmap_map = Beatmap::from_bytes(&beatmap_bytes)?;
+            let beatmap_pp = BeatmapPp::from_bytes(&beatmap_bytes)?;
+            let mut diff = Difficulty::new()
+                .mods(score.mods.into_rosu_mods(score.ruleset_id));
+
+            if let Some(speed) = score.mods.speed_changes() {
+                diff = diff.clock_rate(speed as f64)
+            }
+
+            let diff_attrs = diff.calculate(&beatmap_pp);
 
             let top_score_position = user_top_scores
                 .iter()
@@ -479,8 +492,8 @@ async fn osu_track_checker(
             let embed = create_tracking_embed(
                 score,
                 &osu_user,
-                &osu_beatmap,
-                &osu_beatmap_attributes.attributes,
+                &beatmap_map,
+                &diff_attrs,
                 top_score_position,
             )?;
 
