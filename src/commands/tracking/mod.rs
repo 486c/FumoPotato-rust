@@ -557,6 +557,8 @@ pub async fn osu_tracking_worker(ctx: Arc<FumoContext>) {
                     "Error happened during get_scores_batch inside tracking loop: {e}"
                 );
 
+                tokio::time::sleep(OSU_TRACKING_INTERVAL).await;
+
                 continue;
             }
         };
