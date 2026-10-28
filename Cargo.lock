@@ -849,7 +849,7 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "fumo_beatmap_cache"
-version = "7.1.0"
+version = "7.1.1"
 dependencies = [
  "eyre",
  "metrics",
@@ -860,7 +860,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_database"
-version = "7.1.0"
+version = "7.1.1"
 dependencies = [
  "chrono",
  "eyre",
@@ -870,7 +870,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_macro"
-version = "7.1.0"
+version = "7.1.1"
 dependencies = [
  "fumo_twilight",
  "proc-macro2",
@@ -881,7 +881,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_potato"
-version = "7.1.0"
+version = "7.1.1"
 dependencies = [
  "async-once-cell",
  "bytes",
@@ -922,7 +922,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_potato_scrapper"
-version = "7.1.0"
+version = "7.1.1"
 dependencies = [
  "clap",
  "dotenv",
@@ -935,7 +935,7 @@ dependencies = [
 
 [[package]]
 name = "fumo_twilight"
-version = "7.1.0"
+version = "7.1.1"
 dependencies = [
  "twilight-model",
 ]
@@ -1904,7 +1904,7 @@ dependencies = [
 
 [[package]]
 name = "osu_api"
-version = "7.1.0"
+version = "7.1.1"
 dependencies = [
  "bitflags 2.6.0",
  "chrono",
