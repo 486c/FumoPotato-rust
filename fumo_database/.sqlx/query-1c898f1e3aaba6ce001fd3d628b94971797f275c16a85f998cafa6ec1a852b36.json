@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    id,\n                    match_id as \"match_id!\",\n                    beatmap_id,\n                    mods,\n                    mode,\n                    scoring_kind,\n                    team_kind,\n                    start_time, end_time\n                FROM osu_match_games WHERE id = ANY($1::INT8[])\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "match_id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "match_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "beatmap_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "beatmap_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "mods",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "mods"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "mode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "scoring_kind",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "scoring_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "team_kind",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "team_kind"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "start_time",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "start_time"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "end_time",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "end_time"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1c898f1e3aaba6ce001fd3d628b94971797f275c16a85f998cafa6ec1a852b36"
+}

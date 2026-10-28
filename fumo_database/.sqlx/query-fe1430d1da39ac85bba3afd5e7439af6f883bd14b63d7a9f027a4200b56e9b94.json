@@ -1,0 +1,277 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select * from(\n                select\n                game_id as \"game_id!\", osu_matches.id as \"match_id!\",\n                osu_match_game_scores.beatmap_id, user_id, accuracy,\n                osu_match_game_scores.mods,\n                score, count50, count100, count300, countgeki, countkatu, countmiss,\n                max_combo, slot, pass, pp, team, osu_match_games.start_time as \"start_time!\",\n                osu_match_games.end_time as \"end_time!\", osu_matches.\"name\" as match_name,\n                NULL as osu_username\n            from osu_match_game_scores\n            left join osu_match_games\n                on osu_match_game_scores.game_id = osu_match_games.id\n            left join osu_matches\n                on osu_match_game_scores.match_id = osu_matches.id\n            where osu_match_game_scores.beatmap_id = $1 and osu_match_game_scores.user_id = $2) as t1\n            WHERE match_name ~ $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "game_id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "game_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "match_id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_matches",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "beatmap_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "beatmap_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "user_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "accuracy",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "accuracy"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "mods",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "mods"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "score",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "score"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "count50",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "count50"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "count100",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "count100"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "count300",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "count300"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "countgeki",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "countgeki"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "countkatu",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "countkatu"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "countmiss",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "countmiss"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "max_combo",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "max_combo"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "slot",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "slot"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "pass",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "pass"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "pp",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "pp"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "team",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "osu_match_game_scores",
+            "name": "team"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "start_time!",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "start_time"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "end_time!",
+        "type_info": "Timestamp",
+        "origin": {
+          "Table": {
+            "table": "osu_match_games",
+            "name": "end_time"
+          }
+        }
+      },
+      {
+        "ordinal": 20,
+        "name": "match_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "osu_matches",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 21,
+        "name": "osu_username",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "fe1430d1da39ac85bba3afd5e7439af6f883bd14b63d7a9f027a4200b56e9b94"
+}

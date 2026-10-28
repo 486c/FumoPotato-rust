@@ -6,12 +6,24 @@
       {
         "ordinal": 0,
         "name": "osu_id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_users",
+            "name": "osu_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "discord_id",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_users",
+            "name": "discord_id"
+          }
+        }
       }
     ],
     "parameters": {

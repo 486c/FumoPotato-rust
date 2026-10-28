@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select osu_id, osu_username, array_agg(channel_id) as channel_ids from (\n        select ot.osu_id as osu_id, ot.channel_id as channel_id, op.osu_username as osu_username\n        from osu_tracking ot\n        inner join osu_players op\n        on ot.osu_id = op.osu_id where ot.osu_id = ANY($1::INT8[])\n        ) as t group by osu_id, osu_username\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "osu_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_tracking",
+            "name": "osu_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "osu_username",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "osu_players",
+            "name": "osu_username"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "channel_ids",
+        "type_info": "Int8Array",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "0e88e5b87e55bf030183527aaf3d4217e8b5043f129ecb8ae2e074046834e6b0"
+}

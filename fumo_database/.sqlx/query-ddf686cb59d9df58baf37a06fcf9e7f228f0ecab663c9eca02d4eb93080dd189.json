@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    id_list.id as \"id!\",\n                    CASE\n                        WHEN osu_matches.id IS NOT NULL THEN TRUE\n                        ELSE FALSE\n                    END AS \"exists!\"\n                FROM\n                    unnest($1::int8[]) AS id_list(id)\n                LEFT JOIN\n                    osu_matches ON id_list.id = osu_matches.id;\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      true,
+      null
+    ]
+  },
+  "hash": "ddf686cb59d9df58baf37a06fcf9e7f228f0ecab663c9eca02d4eb93080dd189"
+}

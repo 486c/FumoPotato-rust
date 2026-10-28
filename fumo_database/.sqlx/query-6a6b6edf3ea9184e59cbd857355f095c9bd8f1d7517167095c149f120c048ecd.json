@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM osu_username_kv WHERE osu_id = ANY($1::INT8[])",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "osu_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "osu_username_kv",
+            "name": "osu_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "osu_username",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "osu_username_kv",
+            "name": "osu_username"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "6a6b6edf3ea9184e59cbd857355f095c9bd8f1d7517167095c149f120c048ecd"
+}
