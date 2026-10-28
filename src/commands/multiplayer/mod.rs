@@ -1,6 +1,7 @@
 use compare::MultiplayerCompare;
 use eyre::Result;
 use leaderboard::MultiplayerLeaderboard;
+use metrics::counter;
 use twilight_interactions::command::{
     CommandModel, CommandOption, CreateCommand, CreateOption,
 };
@@ -53,27 +54,15 @@ impl MultiplayerCommands {
 
         match command {
             MultiplayerCommands::List(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["multiplayer_list"])
-                    .inc();
+                counter!("commands", "kind" => "multiplayer_list").increment(1);
                 command.run(ctx, cmd).await
             }
             MultiplayerCommands::Compare(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["multiplayer_compare"])
-                    .inc();
+                counter!("commands", "kind" => "multiplayer_compare").increment(1);
                 command.run(ctx, cmd).await
             }
             MultiplayerCommands::Leaderboard(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["multiplayer_leaderboard"])
-                    .inc();
+                counter!("commands", "kind" => "multiplayer_leaderboard").increment(1);
                 command.run(ctx, cmd).await
             }
         }

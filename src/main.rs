@@ -2,22 +2,20 @@ mod commands;
 mod components;
 pub mod fumo_context;
 mod handlers;
-mod server;
-mod stats;
 pub mod twitch_api;
 mod utils;
 
 use dotenv::dotenv;
 
 use eyre::Result;
+use metrics_exporter_prometheus::PrometheusBuilder;
 use twilight_gateway::CloseFrame;
 
-use std::{env, sync::Arc, time::Duration};
+use std::{env, net::SocketAddr, sync::Arc, time::Duration};
 
 use crate::{
     fumo_context::FumoContext,
-    handlers::{event_loop, global_commands},
-    server::run_server,
+    handlers::{event_loop, global_commands}
 };
 use twilight_interactions::command::CreateCommand;
 
@@ -121,13 +119,13 @@ async fn main() -> Result<()> {
     spawn_osu_worker(osu_tracker_ctx, rx).await;
 
     // Spawn http server
-    let server_tx = {
-        let server_ctx = Arc::clone(&ctx);
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(run_server(server_ctx, rx));
-
-        tx
-    };
+    let builder = PrometheusBuilder::new();
+    builder
+        .with_http_listener(
+            SocketAddr::from(([127, 0, 0, 1],5001))
+        )
+        .install()
+        .expect("failed to install recorder/exporter");
 
     // Run discord event loop
     let event_ctx = Arc::clone(&ctx);
@@ -156,12 +154,6 @@ async fn main() -> Result<()> {
     }
 
     tracing::info!("Closed twitch loop!");
-
-    if server_tx.send(()).is_err() {
-        tracing::error!("Failed to close http server!");
-    }
-
-    tracing::info!("Closed http server!");
 
     if osu_tx.send(()).is_err() {
         tracing::error!("Failed to close osu tracking loop!");

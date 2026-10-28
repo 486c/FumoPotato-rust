@@ -1,6 +1,7 @@
 mod settings;
 
 use fumo_twilight::message::MessageBuilder;
+use metrics::counter;
 use rosu_pp::{
     model::mods::rosu_mods::{GameMod, GameMods},
     Performance,
@@ -275,19 +276,11 @@ async fn osu_track_checker(
                 top_scores_hash.get(&(score.user_id, score.ruleset_id))
             {
                 // Cache hit
-                ctx.stats
-                    .bot
-                    .cache
-                    .with_label_values(&["osu_tracking_top_scores_hash_hit"])
-                    .inc();
+                counter!("top_scores_cache", "kind" => "hit").increment(1);
                 *min_top_score
             } else {
                 // Cache miss
-                ctx.stats
-                    .bot
-                    .cache
-                    .with_label_values(&["osu_tracking_top_scores_hash_miss"])
-                    .inc();
+                counter!("top_scores_cache", "kind" => "miss").increment(1);
 
                 let get_user_scores = GetUserScores {
                     user_id: score.user_id,
@@ -425,11 +418,7 @@ async fn osu_track_checker(
 
             let user_top_scores = if score.pp.unwrap_or(0.0) > min_top_score {
                 // Update cache
-                ctx.stats
-                    .bot
-                    .cache
-                    .with_label_values(&["osu_tracking_top_scores_hash_force"])
-                    .inc();
+                counter!("top_scores_cache", "kind" => "force").increment(1);
 
                 let get_user_scores = GetUserScores {
                     user_id: score.user_id,
@@ -619,43 +608,23 @@ impl OsuTrackingCommands {
 
         match command {
             OsuTrackingCommands::Add(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["osu_tracking_add"])
-                    .inc();
+                counter!("commands", "kind" => "osu_tracking_add").increment(1);
                 command.run(ctx, cmd).await
             }
             OsuTrackingCommands::Remove(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["osu_tracking_remove"])
-                    .inc();
+                counter!("commands", "kind" => "osu_tracking_remove").increment(1);
                 command.run(ctx, cmd).await
             }
             OsuTrackingCommands::AddBulk(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["osu_tracking_addbulk"])
-                    .inc();
+                counter!("commands", "kind" => "osu_tracking_addbulk").increment(1);
                 command.run(ctx, cmd).await
             }
             OsuTrackingCommands::RemoveAll(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["osu_tracking_removeall"])
-                    .inc();
+                counter!("commands", "kind" => "osu_tracking_removeall").increment(1);
                 command.run(ctx, cmd).await
             }
             OsuTrackingCommands::List(command) => {
-                ctx.stats
-                    .bot
-                    .cmd
-                    .with_label_values(&["osu_tracking_list"])
-                    .inc();
+                counter!("commands", "kind" => "osu_tracking_list").increment(1);
                 command.run(ctx, cmd).await
             }
         }

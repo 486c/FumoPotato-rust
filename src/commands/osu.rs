@@ -1,5 +1,6 @@
 use eyre::Result;
 use fumo_twilight::message::MessageBuilder;
+use metrics::counter;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::channel::message::MessageFlags;
 
@@ -32,28 +33,20 @@ impl OsuCommands {
 
         match command {
             OsuCommands::Link(command) => {
-                ctx.stats.bot.cmd.with_label_values(&["osu_link"]).inc();
+                counter!("commands", "kind" => "osu_link").increment(1);
                 command.run(ctx, cmd).await
             }
             OsuCommands::Unlink(command) => {
-                ctx.stats.bot.cmd.with_label_values(&["osu_unlink"]).inc();
+                counter!("commands", "kind" => "osu_unlink").increment(1);
                 command.run(ctx, cmd).await
             }
             OsuCommands::Attributes(attrs) => match attrs {
                 OsuAttributes::Ar(command) => {
-                    ctx.stats
-                        .bot
-                        .cmd
-                        .with_label_values(&["osu_attributes_ar"])
-                        .inc();
+                    counter!("commands", "kind" => "osu_attributes_ar").increment(1);
                     command.run(ctx, cmd).await
                 }
                 OsuAttributes::Od(command) => {
-                    ctx.stats
-                        .bot
-                        .cmd
-                        .with_label_values(&["osu_attributes_od"])
-                        .inc();
+                    counter!("commands", "kind" => "osu_attributes_od").increment(1);
                     command.run(ctx, cmd).await
                 }
             },

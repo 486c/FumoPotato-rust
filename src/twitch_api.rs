@@ -138,7 +138,7 @@ impl TwitchApi {
     pub async fn new(client_id: &str, client_secret: &str) -> Result<Self> {
         let client = Client::builder()
             .https_only(true)
-            .use_native_tls()
+            .use_rustls_tls()
             .build()?;
 
         let inner = TwitchToken {

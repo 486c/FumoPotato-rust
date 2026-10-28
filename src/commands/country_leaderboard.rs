@@ -9,6 +9,7 @@ use crate::{
 };
 use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
+use metrics::counter;
 use osu_api::{
     fallback_models::FallbackBeatmapScores,
     models::{OsuBeatmap, RankStatus},
@@ -67,7 +68,7 @@ impl LeaderboardCommand {
     ) -> Result<()> {
         let command = Self::from_interaction(cmd.data.clone().into())?;
 
-        ctx.stats.bot.cmd.with_label_values(&["leaderboard"]).inc();
+        counter!("commands", "kind" => "country_leaderboard").increment(1);
 
         command.run(ctx, cmd).await
     }
@@ -420,11 +421,7 @@ pub async fn run(ctx: &FumoContext, command: InteractionCommand) -> Result<()> {
 
     let mut builder = MessageBuilder::new();
 
-    ctx.stats
-        .bot
-        .cmd
-        .with_label_values(&["leaderboard_app_interaction"])
-        .inc();
+    counter!("commands", "kind" => "country_leaderboard", "cmd" => "interaction").increment(1);
 
     // If we got app interaction
     if let Some(id) = command.data.target_id {

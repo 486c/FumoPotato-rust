@@ -590,8 +590,8 @@ impl Database {
                 osu_match_game_scores.beatmap_id, user_id, accuracy,
                 osu_match_game_scores.mods,
                 score, count50, count100, count300, countgeki, countkatu, countmiss,
-                max_combo, slot, pass, pp, team, osu_match_games.start_time,
-                osu_match_games.end_time, osu_matches."name" as match_name,
+                max_combo, slot, pass, pp, team, osu_match_games.start_time as "start_time!",
+                osu_match_games.end_time as "end_time!", osu_matches."name" as match_name,
                 osu_username as "osu_username?"
             from osu_match_game_scores
             left join osu_match_games
@@ -630,8 +630,8 @@ impl Database {
                 osu_match_game_scores.beatmap_id, user_id, accuracy,
                 osu_match_game_scores.mods,
                 score, count50, count100, count300, countgeki, countkatu, countmiss,
-                max_combo, slot, pass, pp, team, osu_match_games.start_time,
-                osu_match_games.end_time, osu_matches."name" as match_name,
+                max_combo, slot, pass, pp, team, osu_match_games.start_time as "start_time!",
+                osu_match_games.end_time as "end_time!", osu_matches."name" as match_name,
                 NULL as osu_username
             from osu_match_game_scores
             left join osu_match_games

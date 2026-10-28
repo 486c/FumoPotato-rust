@@ -1,5 +1,4 @@
 use crate::{
-    stats::{BotMetrics, BotStats},
     twitch_api::TwitchApi,
 };
 use fumo_database::Database;
@@ -53,7 +52,7 @@ pub struct FumoContext {
     pub twitch_checker_list: Mutex<HashMap<i64, bool>>,
 
     pub db: Database,
-    pub stats: BotMetrics,
+    //pub stats: BotMetrics,
     pub http: Arc<Client>,
     pub standby: Standby,
     pub regular_http: reqwest::Client,
@@ -127,11 +126,6 @@ impl FumoContext {
 
         let standby = Standby::new();
 
-        let bot_metrics = BotStats::default();
-
-        let stats =
-            BotMetrics::new(osu_api.stats.counters.clone(), bot_metrics);
-
         // Trying to load state from file
         let state_path = PathBuf::from(STATE_FILE);
 
@@ -155,7 +149,6 @@ impl FumoContext {
             http,
             application_id,
             standby,
-            stats,
             twitch_checker_list: Mutex::new(HashMap::new()),
             state: Mutex::new(state),
             regular_http: reqwest::Client::new(),
