@@ -11,8 +11,7 @@ use fumo_macro::listing;
 use fumo_twilight::message::MessageBuilder;
 use metrics::counter;
 use osu_api::{
-    fallback_models::FallbackBeatmapScores,
-    models::{OsuBeatmap, RankStatus},
+    models::{OsuBeatmap, RankStatus, osu_leaderboard::OsuLeaderboardLazer},
 };
 
 use twilight_interactions::command::{
@@ -135,7 +134,7 @@ impl LeaderboardCommand {
 
 #[listing]
 struct LeaderboardListing {
-    scores: FallbackBeatmapScores,
+    scores: OsuLeaderboardLazer,
     beatmap: OsuBeatmap,
     user_position: Option<usize>,
     is_legacy: bool,
@@ -165,7 +164,7 @@ impl ListingTrait for LeaderboardListing {
             text.push_str(&format!(
                 " • Your position: {}/{}",
                 pos,
-                self.scores.items.len()
+                self.scores.scores.len()
             ));
         }
 
@@ -181,24 +180,13 @@ impl ListingTrait for LeaderboardListing {
 
         let scores_iter = self
             .scores
-            .items
+            .scores
             .iter()
             .skip(start_at)
             .take(self.entries_per_page);
 
         for (index, score) in scores_iter.enumerate() {
-            let mut mods_string = String::new();
-
-            if score.stats.mods.difficulty.is_empty() {
-                mods_string.push_str("NM");
-            } else {
-                score
-                    .stats
-                    .mods
-                    .difficulty
-                    .iter()
-                    .for_each(|x| mods_string.push_str(&x.acronym))
-            };
+            let mods_string = format!("{}", score.mods);
 
             let mut score_row = String::with_capacity(100);
 
@@ -206,27 +194,17 @@ impl ListingTrait for LeaderboardListing {
                 score_row,
                 "{}. [{}](https://osu.ppy.sh/u/{}) +**{}",
                 index + 1 + start_at,
-                score.player.username,
-                score.player.id,
+                score.user.as_ref().and_then(|u| Some(u.username.as_ref())).unwrap_or("NO USER"),
+                score.user_id,
                 mods_string
             );
 
             let mode_with_speed_change = score
-                .stats
                 .mods
-                .difficulty
-                .iter()
-                .find(|x| x.speed.is_some());
+                .speed_changes();
 
-            if let Some(mode) = mode_with_speed_change {
-                match mode.speed {
-                    Some(speed) => {
-                        let _ = write!(score_row, " (x{})**", speed);
-                    }
-                    None => {
-                        let _ = write!(score_row, "**");
-                    }
-                }
+            if let Some(speed) = mode_with_speed_change {
+                let _ = write!(score_row, " (x{})**", speed);
             } else {
                 let _ = write!(score_row, "**");
             };
@@ -235,20 +213,20 @@ impl ListingTrait for LeaderboardListing {
 
             let pp = match self.beatmap.status {
                 RankStatus::Loved => "\\❤️".to_owned(),
-                _ => format!("{:.2}pp", score.stats.performance),
+                _ => format!("{:.2}pp", score.pp.unwrap_or(0.0)),
             };
 
             let osu_score = if self.is_legacy {
-                score.stats.score.legacy.to_formatted_string(&Locale::en)
+                score.legacy_total_score.to_formatted_string(&Locale::en)
             } else {
-                score.stats.score.lazer.to_formatted_string(&Locale::en)
+                score.total_score.to_formatted_string(&Locale::en)
             };
 
             let _ = writeln!(
                 description,
                 "{} • {:.2}% • {} • {}",
-                score.stats.rank.to_emoji(),
-                score.stats.accuracy,
+                score.rank.to_emoji(),
+                score.accuracy * 100.0,
                 pp,
                 osu_score
             );
@@ -256,15 +234,15 @@ impl ListingTrait for LeaderboardListing {
             let _ = writeln!(
                 description,
                 "[{}x/{}x] [{}/{}/{}/{}]",
-                score.stats.combo,
+                score.max_combo,
                 self.beatmap.max_combo.unwrap_or(0),
-                score.counts.x300,
-                score.counts.x100,
-                score.counts.x50,
-                score.counts.xmiss,
+                score.stats.great.unwrap_or(0),
+                score.stats.ok.unwrap_or(0),
+                score.stats.meh.unwrap_or(0),
+                score.stats.miss.unwrap_or(0),
             );
 
-            let _ = writeln!(description, "<t:{}:R>", score.date.timestamp());
+            let _ = writeln!(description, "<t:{}:R>", score.ended_at.timestamp());
         }
 
         let author = EmbedAuthorBuilder::new(self.beatmap.metadata())
@@ -302,7 +280,8 @@ pub async fn country_leaderboard(
     let osu_user = osu_user!(ctx, cmd);
 
     let (clb_res, b_res) = tokio::join!(
-        ctx.osu_api.get_countryleaderboard_fallback(bid, mods),
+        //ctx.osu_api.get_countryleaderboard_fallback(bid, mods),
+        ctx.osu_api.get_leaderboard_hidden(bid, true),
         ctx.osu_api.get_beatmap(bid as i64),
     );
 
@@ -325,32 +304,32 @@ pub async fn country_leaderboard(
         }
     };
 
-    let total_scores = clb.items.len();
+    let total_scores = clb.scores.len();
 
     match sorting {
         Some(LeaderboardSortingKind::Pp) => {
             if b.status != RankStatus::Loved {
-                clb.items.sort_by(|a, b| {
-                    b.stats
-                        .performance
-                        .partial_cmp(&a.stats.performance)
+                clb.scores.sort_by(|a, b| {
+                    b
+                        .pp
+                        .partial_cmp(&a.pp)
                         .unwrap_or(Ordering::Equal)
                 });
             }
         }
         Some(LeaderboardSortingKind::Score) => {
-            clb.items.sort_by(|a, b| match legacy {
-                Some(true) => b.stats.score.legacy.cmp(&a.stats.score.legacy),
+            clb.scores.sort_by(|a, b| match legacy {
+                Some(true) => b.legacy_total_score.cmp(&a.legacy_total_score),
                 None | Some(false) => {
-                    b.stats.score.lazer.cmp(&a.stats.score.lazer)
+                    b.total_score.cmp(&a.total_score)
                 }
             });
         }
         None => {
-            clb.items.sort_by(|a, b| match legacy {
-                Some(true) => b.stats.score.legacy.cmp(&a.stats.score.legacy),
+            clb.scores.sort_by(|a, b| match legacy {
+                Some(true) => b.legacy_total_score.cmp(&a.legacy_total_score),
                 None | Some(false) => {
-                    b.stats.score.lazer.cmp(&a.stats.score.lazer)
+                    b.total_score.cmp(&a.total_score)
                 }
             });
         }
@@ -359,10 +338,10 @@ pub async fn country_leaderboard(
     let user_position: Option<usize> = match osu_user {
         Some(osu_user) => {
             let pos = clb
-                .items
+                .scores
                 .iter()
                 .enumerate()
-                .find(|(_index, score)| score.player.id == osu_user.osu_id);
+                .find(|(_index, score)| score.user_id == osu_user.osu_id);
 
             if let Some((index, _score)) = pos {
                 Some(index + 1)

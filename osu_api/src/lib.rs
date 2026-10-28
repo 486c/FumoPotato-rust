@@ -177,6 +177,7 @@ impl OsuApi {
                 .header(AUTHORIZATION, format!("Bearer {token}")),
             ApiKind::Hidden => r
                 .header(USER_AGENT, "fumo_potato")
+                .header("x-api-version", "9999999999")
                 .header(COOKIE, format!("osu_session={}", self.osu_session)),
             ApiKind::Fallback => r
                 .header(USER_AGENT, "fumo_potato")

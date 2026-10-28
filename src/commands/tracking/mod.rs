@@ -26,8 +26,8 @@ use eyre::Result;
 use osu_api::{
     error::OsuApiError,
     models::{
-        osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, OsuBeatmap,
-        OsuBeatmapAttributesContainer, OsuGameMode, OsuUserExtended,
+        osu_leaderboard::OsuScoreLazer, GetRanking, GetUserScores, 
+        OsuGameMode, OsuUserExtended,
         RankingFilter, RankingKind, ScoresType, UserId,
     },
 };
@@ -345,6 +345,7 @@ async fn osu_track_checker(
             // Such as dt rates or +RX
             'blk: {
                 if score.pp.is_none() {
+                    // TODO: try to reuse already requested beatmaps bytes here
                     let beatmap_bytes =
                         ctx.beatmap_cache.get(score.beatmap_id).await?;
 
