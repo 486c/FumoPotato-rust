@@ -6,6 +6,8 @@ pub mod error;
 pub mod fallback_models;
 pub mod models;
 
+use ::metrics::counter;
+use leaky_bucket::RateLimiter;
 use fallback_models::FallbackBeatmapScores;
 use models::{
     osu_matches::{OsuMatchContainer, OsuMatchGet},
@@ -18,14 +20,11 @@ use reqwest::{
 };
 
 use self::models::{
-    osu_leaderboard::OsuLeaderboardLazer, ApiError, GetRanking, GetUserScores,
-    OauthResponse, OsuBeatmap, OsuGameMode, OsuScore, OsuUserExtended,
-    RankingKind, Rankings, UserId,
+    osu_leaderboard::OsuLeaderboardLazer, ApiError, GetRanking, GetUserScores, OauthResponse,
+    OsuBeatmap, OsuGameMode, OsuUserExtended, RankingKind, Rankings, UserId,
 };
 
 use std::{fmt::Write, time::Duration};
-
-use self::metrics::Metrics;
 
 use std::sync::Arc;
 
@@ -34,12 +33,24 @@ use tokio::sync::{
     RwLock,
 };
 
-use crate::{error::OsuApiError, models::OsuUserStatistics};
+use crate::{
+    error::OsuApiError,
+    models::{osu_leaderboard::OsuScoreLazer, OsuUserStatistics},
+};
 use serde::de::DeserializeOwned;
 
 static OSU_BASE: &str = "https://osu.ppy.sh";
 static CATBOY_BASE: &str = "https://osu.ppy.sh";
 static OSU_API_BASE: &str = "https://osu.ppy.sh/api/v2";
+
+// osu!api documented rate limit: no more than 60 requests per minute
+// (generally 1 request per second). Exceeding it may lead to API tokens
+// being revoked, so all requests are passed through a leaky bucket that
+// refills at 1 token/second with a small burst allowance.
+const OSU_REFILL_PER_INTERVAL: usize = 1;
+const OSU_REFILL_INTERVAL: Duration = Duration::from_secs(1);
+/// How many requests may be made in a single burst before throttling kicks in.
+const OSU_BUCKET_CAPACITY: usize = 30;
 
 type ApiResult<T> = Result<T, OsuApiError>;
 
@@ -57,7 +68,6 @@ pub struct OsuApi {
     fallback_token: String,
     loop_drop_tx: Option<Sender<()>>,
     osu_session: String,
-    pub stats: Metrics,
 }
 
 impl Drop for OsuApi {
@@ -68,13 +78,41 @@ impl Drop for OsuApi {
     }
 }
 
-#[derive(Debug)]
 pub struct OsuToken {
     client: Client,
 
     client_id: i32,
     secret: String,
     token: RwLock<String>,
+
+    /// Leaky bucket enforcing the documented osu!api rate limit
+    /// of 60 requests per minute (1 request/second sustained).
+    limiter: RateLimiter,
+}
+
+impl OsuToken {
+    fn new_rate_limiter() -> RateLimiter {
+        RateLimiter::builder()
+            .initial(OSU_BUCKET_CAPACITY)
+            .max(OSU_BUCKET_CAPACITY)
+            .refill(OSU_REFILL_PER_INTERVAL)
+            .interval(OSU_REFILL_INTERVAL)
+            .build()
+    }
+
+    /// Suspend the current task until a permit is available.
+    async fn acquire_permit(&self) {
+        self.limiter.acquire_one().await;
+    }
+}
+
+impl std::fmt::Debug for OsuToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OsuToken")
+            .field("client_id", &self.client_id)
+            .field("token_balance", &self.limiter.balance())
+            .finish_non_exhaustive()
+    }
 }
 
 impl OsuToken {
@@ -84,9 +122,9 @@ impl OsuToken {
             "client_id":"{}",
             "client_secret":"{}",
             "grant_type":"client_credentials",
-            "scope":"public"
+            "scope":"public" 
         }}"#,
-            &self.client_id, &self.secret
+            self.client_id, self.secret
         );
 
         let r = self
@@ -113,6 +151,12 @@ impl OsuApi {
         api_kind: ApiKind,
         body: Option<String>,
     ) -> ApiResult<T> {
+        // The fallback API is a third party service and is not subject
+        // to osu!api rate limiting.
+        if !matches!(api_kind, ApiKind::Fallback) {
+            self.inner.acquire_permit().await;
+        }
+
         let token = self.inner.token.read().await;
 
         let r = &self.inner.client;
@@ -129,6 +173,7 @@ impl OsuApi {
             ApiKind::General => r
                 .header(ACCEPT, "application/json")
                 .header(CONTENT_TYPE, "application/json")
+                .header("x-api-version", "9999999999")
                 .header(AUTHORIZATION, format!("Bearer {token}")),
             ApiKind::Hidden => r
                 .header(USER_AGENT, "fumo_potato")
@@ -156,6 +201,9 @@ impl OsuApi {
         method: Method,
         api_kind: ApiKind,
     ) -> ApiResult<Vec<u8>> {
+        // Always targets osu! (CATBOY_BASE), so it counts towards the limit.
+        self.inner.acquire_permit().await;
+
         let r = &self.inner.client;
         let r = match method {
             Method::GET => r.get(link),
@@ -178,9 +226,7 @@ impl OsuApi {
                     url: resp.url().to_string(),
                 })
             }
-            StatusCode::TOO_MANY_REQUESTS => {
-                return Err(OsuApiError::TooManyRequests)
-            }
+            StatusCode::TOO_MANY_REQUESTS => return Err(OsuApiError::TooManyRequests),
             StatusCode::UNAUTHORIZED => return Err(OsuApiError::Unauthorized),
             StatusCode::FORBIDDEN => return Err(OsuApiError::Forbidden),
             _ => {}
@@ -191,10 +237,7 @@ impl OsuApi {
         Ok(bytes.into())
     }
 
-    async fn handle_error<T: DeserializeOwned>(
-        &self,
-        r: Response,
-    ) -> ApiResult<T> {
+    async fn handle_error<T: DeserializeOwned>(&self, r: Response) -> ApiResult<T> {
         let response_url = r.url().as_str().to_owned();
         let response_code = r.status();
 
@@ -217,9 +260,7 @@ impl OsuApi {
                     url: r.url().to_string(),
                 })
             }
-            StatusCode::TOO_MANY_REQUESTS => {
-                return Err(OsuApiError::TooManyRequests)
-            }
+            StatusCode::TOO_MANY_REQUESTS => return Err(OsuApiError::TooManyRequests),
             StatusCode::UNAUTHORIZED => return Err(OsuApiError::Unauthorized),
             StatusCode::FORBIDDEN => return Err(OsuApiError::Forbidden),
             _ => (),
@@ -245,9 +286,8 @@ impl OsuApi {
 
         // Small matching for osu api strings
         if let Some(error_string) = &parsed.error {
-            match error_string.as_str() {
-                "cursor is too old" => return Err(OsuApiError::CursorTooOld),
-                _ => {}
+            if error_string.as_str() == "cursor is too old" {
+                return Err(OsuApiError::CursorTooOld);
             }
         };
 
@@ -257,7 +297,7 @@ impl OsuApi {
     pub async fn get_user_scores(
         &self,
         user_scores: GetUserScores,
-    ) -> ApiResult<Vec<OsuScore>> {
+    ) -> ApiResult<Vec<OsuScoreLazer>> {
         let mut link = format!(
             "{OSU_API_BASE}/users/{}/scores/{}?",
             user_scores.user_id, user_scores.kind
@@ -284,18 +324,10 @@ impl OsuApi {
         }
 
         let r = self
-            .make_request(
-                &link[..link.len() - 1],
-                Method::GET,
-                ApiKind::General,
-                None,
-            )
+            .make_request(&link[..link.len() - 1], Method::GET, ApiKind::General, None)
             .await?;
 
-        self.stats
-            .counters
-            .with_label_values(&["get_user_scores"])
-            .inc();
+        counter!("osu_api", "kind" => "get_user_scores").increment(1);
 
         Ok(r)
     }
@@ -318,7 +350,7 @@ impl OsuApi {
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await;
 
-        self.stats.counters.with_label_values(&["get_user"]).inc();
+        counter!("osu_api", "kind" => "get_user").increment(1);
 
         match r {
             Ok(v) => Ok(Some(v)),
@@ -333,7 +365,7 @@ impl OsuApi {
         &self,
         beatmap_id: i64,
         user_id: UserId,
-    ) -> ApiResult<Vec<BeatmapUserScore>> {
+    ) -> ApiResult<BeatmapUserScore> {
         let link = format!(
             "{OSU_API_BASE}/beatmaps/{}/scores/users/{}/all",
             beatmap_id, user_id
@@ -343,10 +375,7 @@ impl OsuApi {
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
 
-        self.stats
-            .counters
-            .with_label_values(&["get_user_beatmap_scores"])
-            .inc();
+        counter!("osu_api", "kind" => "get_user_beatmap_scores").increment(1);
 
         Ok(r)
     }
@@ -358,10 +387,7 @@ impl OsuApi {
             .make_request(&link, Method::GET, ApiKind::General, None)
             .await?;
 
-        self.stats
-            .counters
-            .with_label_values(&["get_beatmap"])
-            .inc();
+        counter!("osu_api", "kind" => "get_beatmap").increment(1);
 
         Ok(r)
     }
@@ -388,19 +414,12 @@ impl OsuApi {
             .make_request(&link, Method::POST, ApiKind::General, None)
             .await?;
 
-        self.stats
-            .counters
-            .with_label_values(&["get_beatmap_attributes"])
-            .inc();
+        counter!("osu_api", "kind" => "get_beatmap_attributes").increment(1);
 
         Ok(r)
     }
 
-    pub async fn get_rankings(
-        &self,
-        ranking: &GetRanking,
-        amount: usize,
-    ) -> ApiResult<Rankings> {
+    pub async fn get_rankings(&self, ranking: &GetRanking, amount: usize) -> ApiResult<Rankings> {
         let mut link = String::with_capacity(50);
         let mut buffer: Vec<OsuUserStatistics> = Vec::with_capacity(amount);
 
@@ -422,23 +441,17 @@ impl OsuApi {
                 ranking.mode, ranking.kind, ranking.filter, page
             );
 
-            if let (RankingKind::Performance, Some(country)) =
-                (&ranking.kind, &ranking.country)
-            {
-                let _ = write!(link, "&country={}", &country);
+            if let (RankingKind::Performance, Some(country)) = (&ranking.kind, &ranking.country) {
+                let _ = write!(link, "&country={}", country);
             };
 
             let res: Rankings = self
                 .make_request(&link, Method::GET, ApiKind::General, None)
                 .await?;
 
-            self.stats
-                .counters
-                .with_label_values(&["get_rankings"])
-                .inc();
+            counter!("osu_api", "kind" => "get_rankings").increment(1);
 
-            let amount_to_append =
-                (amount - buffer.len()).min(res.ranking.len());
+            let amount_to_append = (amount - buffer.len()).min(res.ranking.len());
 
             buffer.extend_from_slice(&res.ranking[0..amount_to_append])
         }
@@ -446,17 +459,12 @@ impl OsuApi {
         Ok(Rankings { ranking: buffer })
     }
 
-    pub async fn get_match_all_events(
-        &self,
-        match_id: i64,
-    ) -> ApiResult<OsuMatchGet> {
-        let mut initial: OsuMatchGet =
-            self.get_match(match_id, None, None, None).await?;
+    pub async fn get_match_all_events(&self, match_id: i64) -> ApiResult<OsuMatchGet> {
+        let mut initial: OsuMatchGet = self.get_match(match_id, None, None, None).await?;
 
         let mut last_id = initial.latest_event_id;
         loop {
-            let res =
-                self.get_match(match_id, None, Some(last_id), None).await?;
+            let res = self.get_match(match_id, None, Some(last_id), None).await?;
 
             if res.events.is_empty() || last_id == res.latest_event_id {
                 break;
@@ -491,16 +499,13 @@ impl OsuApi {
             let _ = write!(link, "&limit={}", limit);
         }
 
-        self.stats.counters.with_label_values(&["get_match"]).inc();
+        counter!("osu_api", "kind" => "get_match").increment(1);
 
         self.make_request(&link, Method::GET, ApiKind::General, None)
             .await
     }
 
-    pub async fn lookup_users(
-        &self,
-        user_ids: &[i64],
-    ) -> ApiResult<GetUsersResponse> {
+    pub async fn lookup_users(&self, user_ids: &[i64]) -> ApiResult<GetUsersResponse> {
         let link = format!("{OSU_API_BASE}/users/lookup");
         let mut result = Vec::with_capacity(user_ids.len());
 
@@ -515,7 +520,7 @@ impl OsuApi {
                 }
             }
 
-            self.stats.counters.with_label_values(&["get_users"]).inc();
+            counter!("osu_api", "kind" => "lookup_users").increment(1);
             let users_response: GetUsersResponse = self
                 .make_request(&link, Method::GET, ApiKind::General, None)
                 .await?;
@@ -525,17 +530,12 @@ impl OsuApi {
                 .users
                 .iter()
                 .for_each(|v| result.push(v.clone()));
-
-            tokio::time::sleep(Duration::from_millis(1200)).await;
         }
 
         Ok(GetUsersResponse { users: result })
     }
 
-    pub async fn get_users(
-        &self,
-        user_ids: &[i64],
-    ) -> ApiResult<GetUsersResponse> {
+    pub async fn get_users(&self, user_ids: &[i64]) -> ApiResult<GetUsersResponse> {
         let link = format!("{OSU_API_BASE}/users");
         let mut result = Vec::with_capacity(user_ids.len());
 
@@ -550,7 +550,8 @@ impl OsuApi {
                 }
             }
 
-            self.stats.counters.with_label_values(&["get_users"]).inc();
+            counter!("osu_api", "kind" => "get_users").increment(1);
+
             let users_response: GetUsersResponse = self
                 .make_request(&link, Method::GET, ApiKind::General, None)
                 .await?;
@@ -560,8 +561,6 @@ impl OsuApi {
                 .users
                 .iter()
                 .for_each(|v| result.push(v.clone()));
-
-            tokio::time::sleep(Duration::from_millis(1200)).await;
         }
 
         Ok(GetUsersResponse { users: result })
@@ -570,29 +569,20 @@ impl OsuApi {
     pub async fn download_beatmap(&self, bid: i64) -> ApiResult<Vec<u8>> {
         let link = format!("{CATBOY_BASE}/osu/{bid}");
 
-        self.stats
-            .counters
-            .with_label_values(&["download_beatmap"])
-            .inc();
+        counter!("osu_api", "kind" => "download_beatmap").increment(1);
 
         self.make_request_simple(&link, Method::GET, ApiKind::NotOsu)
             .await
     }
 
-    pub async fn get_scores_batch(
-        &self,
-        cursor_string: &Option<i64>,
-    ) -> ApiResult<ScoresBatch> {
+    pub async fn get_scores_batch(&self, cursor_string: &Option<i64>) -> ApiResult<ScoresBatch> {
         let mut link = format!("{OSU_API_BASE}/scores");
 
         if let Some(cursor) = cursor_string {
             let _ = write!(link, "?cursor[id]={}", cursor);
         }
 
-        self.stats
-            .counters
-            .with_label_values(&["get_scores_batch"])
-            .inc();
+        counter!("osu_api", "kind" => "get_scores_batch").increment(1);
 
         self.make_request(&link, Method::GET, ApiKind::General, None)
             .await
@@ -608,10 +598,7 @@ impl OsuApi {
             let _ = write!(link, "?cursor[id]={}", cursor);
         };
 
-        self.stats
-            .counters
-            .with_label_values(&["get_matches_batch"])
-            .inc();
+        counter!("osu_api", "kind" => "get_matches_batch").increment(1);
 
         self.make_request(&link, Method::GET, ApiKind::General, None)
             .await
@@ -628,10 +615,8 @@ impl OsuApi {
             link.push_str("type=country")
         }
 
-        self.stats
-            .counters
-            .with_label_values(&["get_leaderboard_hidden"])
-            .inc();
+        counter!("osu_api", "kind" => "get_leaderboard_hidden").increment(1);
+
         self.make_request(&link, Method::GET, ApiKind::Hidden, None)
             .await
     }
@@ -660,10 +645,7 @@ impl OsuApi {
                 .make_request(&link, Method::GET, ApiKind::Fallback, None)
                 .await;
 
-            self.stats
-                .counters
-                .with_label_values(&["get_countryleaderboard"])
-                .inc();
+            counter!("osu_api", "kind" => "get_countryleaderboard").increment(1);
 
             match resp {
                 Ok(r) => return Ok(r),
@@ -699,6 +681,7 @@ impl OsuApi {
             client_id,
             secret: secret.to_owned(),
             token: Default::default(),
+            limiter: OsuToken::new_rate_limiter(),
         });
 
         let response = inner.request_oauth().await?;
@@ -710,22 +693,14 @@ impl OsuApi {
         let (tx, rx) = channel::<()>();
 
         if run_loop {
-            OsuApi::update_token(
-                Arc::clone(&inner),
-                response.expires_in as u64,
-                rx,
-            )
-            .await;
+            OsuApi::update_token(Arc::clone(&inner), response.expires_in as u64, rx).await;
         }
-
-        let stats = Metrics::new();
 
         let api = OsuApi {
             loop_drop_tx: Some(tx),
             inner,
             fallback_url: fallback_url.to_owned(),
             osu_session: osu_session.to_owned(),
-            stats,
             fallback_token: fallback_token.to_string(),
         };
 
@@ -739,11 +714,7 @@ impl OsuApi {
         });
     }
 
-    async fn token_loop(
-        osu: Arc<OsuToken>,
-        mut expire: u64,
-        mut rx: Receiver<()>,
-    ) {
+    async fn token_loop(osu: Arc<OsuToken>, mut expire: u64, mut rx: Receiver<()>) {
         loop {
             expire /= 2;
             tracing::info!("osu! token update scheduled in {expire} seconds");
@@ -823,16 +794,36 @@ mod tests {
     static API_INSTANCE: OsuApiCell = OsuApiCell::new();
 
     #[tokio::test]
+    async fn test_rate_limiter_pacing() {
+        // 30 permits should be available immediately (burst),
+        // the remaining 5 must be throttled to ~1 request/second.
+        let limiter = OsuToken::new_rate_limiter();
+
+        let start = std::time::Instant::now();
+        for _ in 0..(OSU_BUCKET_CAPACITY + 5) {
+            limiter.acquire_one().await;
+        }
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed >= Duration::from_secs(4),
+            "rate limiter did not throttle: {elapsed:?}"
+        );
+        assert!(
+            elapsed < Duration::from_secs(8),
+            "throttling took too long: {elapsed:?}"
+        );
+    }
+
+    #[tokio::test]
     async fn test_get_leaderboard_hidden() {
         let api = API_INSTANCE.get().await.unwrap();
 
-        let leaderboard =
-            api.get_leaderboard_hidden(1804553, false).await.unwrap();
+        let leaderboard = api.get_leaderboard_hidden(1804553, false).await.unwrap();
 
         assert!(leaderboard.scores.len() == 50);
 
-        let leaderboard =
-            api.get_leaderboard_hidden(1804553, true).await.unwrap();
+        let leaderboard = api.get_leaderboard_hidden(1804553, true).await.unwrap();
 
         assert!(leaderboard.scores.len() > 2);
     }
@@ -854,6 +845,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn whatever_test() {
+        let api = API_INSTANCE.get().await.unwrap();
+
+        let req = GetUserScores::new(22274174, ScoresType::Recent).limit(10);
+        let resp = api.get_user_scores(req).await.unwrap();
+
+        for score in resp {
+            if score.beatmap_id == 5727651 {
+                println!("{:?}", score);
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_top_scores_correct_mode() {
         let api = API_INSTANCE.get().await.unwrap();
 
@@ -871,7 +876,7 @@ mod tests {
         let scores = api.get_user_scores(req).await.unwrap();
 
         for score in scores {
-            assert_eq!(score.mode, format!("{}", mode))
+            assert_eq!(format!("{}", score.ruleset_id), format!("{}", mode))
         }
     }
 
@@ -1007,12 +1012,12 @@ mod tests {
     async fn test_get_beatmap_attributes() {
         let api = API_INSTANCE.get().await.unwrap();
 
-        let _res1 = api.get_beatmap_attributes(2025942, None).await.unwrap();
+        let _ = api.get_beatmap_attributes(2025942, None).await.unwrap();
 
         // assert!(matches!(res1.attributes, OsuBeatmapAttributesKind::Osu{ .. }));
 
         let mods_dt = OsuModsLazer::from_str("DTHD").unwrap();
-        let _res2 = api
+        let _ = api
             .get_beatmap_attributes(2025942, Some(&mods_dt))
             .await
             .unwrap();
@@ -1027,7 +1032,7 @@ mod tests {
         // }
 
         // Edge cases
-        let _res1 = api.get_beatmap_attributes(4878596, None).await.unwrap();
+        let res1 = api.get_beatmap_attributes(4878596, None).await.unwrap();
     }
 
     #[tokio::test]
@@ -1071,6 +1076,8 @@ mod tests {
 
         let res = api.lookup_users(&[6892711]).await.unwrap();
 
+        println!("{:?}", &res);
+
         assert_eq!(res.users.len(), 1);
         assert_eq!(&res.users[0].username, "LoPij");
 
@@ -1084,21 +1091,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn valera_get_scores() {
-        let api = API_INSTANCE.get().await.unwrap();
-        let scores = api
-            .get_user_beatmap_scores(5192354, UserId::Id(4915980))
-            .await
-            .unwrap();
-
-        println!("{:?}", &scores);
-    }
-
-    #[tokio::test]
     async fn get_scores_batch() {
         let api = API_INSTANCE.get().await.unwrap();
 
         let res = api.get_scores_batch(&None).await.unwrap();
+
+        println!("{:?}", &res);
 
         assert!(res.scores.len() != 0)
     }

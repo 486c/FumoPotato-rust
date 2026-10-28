@@ -1,3 +1,4 @@
+/*
 use prometheus::{IntCounterVec, Opts};
 
 #[derive(Debug)]
@@ -19,3 +20,4 @@ impl Default for Metrics {
         Metrics::new()
     }
 }
+*/

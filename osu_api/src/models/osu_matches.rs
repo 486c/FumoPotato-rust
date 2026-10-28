@@ -98,9 +98,7 @@ impl OsuMatchGet {
             true
         } else {
             for i in (0..self.events.len()).rev() {
-                if self.events[i].detail.kind
-                    == OsuMatchEventKind::MatchDisbanded
-                {
+                if self.events[i].detail.kind == OsuMatchEventKind::MatchDisbanded {
                     return true;
                 }
             }

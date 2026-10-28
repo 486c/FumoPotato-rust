@@ -22,9 +22,11 @@ pub struct StatisticsLazer {
 pub struct OsuScoreLazer {
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
     pub ranked: bool,
+    pub passed: bool,
     #[serde(deserialize_with = "datetime::deserialize_bool::deserialize")]
     pub preserve: bool,
     pub beatmap_id: i64,
+    pub legacy_score_id: Option<i64>,
 
     pub mods: OsuModsLazer,
     pub best_id: Option<u32>,

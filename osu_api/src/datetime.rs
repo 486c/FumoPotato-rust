@@ -40,9 +40,7 @@ pub mod deserialize {
 
     use super::LocalDateTimeVisitor;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<DateTime<Utc>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
         d.deserialize_str(LocalDateTimeVisitor)
     }
 }
@@ -60,9 +58,7 @@ pub mod deserialize_option {
 
     struct OptionLocalDateTimeVisitor;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<Option<DateTime<Utc>>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<DateTime<Utc>>, D::Error> {
         d.deserialize_option(OptionLocalDateTimeVisitor)
     }
 
@@ -74,10 +70,7 @@ pub mod deserialize_option {
         }
 
         #[inline]
-        fn visit_some<D: Deserializer<'de>>(
-            self,
-            d: D,
-        ) -> Result<Self::Value, D::Error> {
+        fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
             d.deserialize_str(LocalDateTimeVisitor).map(Some)
         }
 
@@ -100,9 +93,7 @@ pub mod deserialize_bool {
 
     struct OsuBoolVisitor;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<bool, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<bool, D::Error> {
         d.deserialize_any(OsuBoolVisitor)
     }
 

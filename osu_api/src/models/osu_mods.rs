@@ -2,7 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use serde::Deserialize;
 
-use crate::error::OsuApiError;
+use crate::{error::OsuApiError, models::OsuGameMode};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct OsuModLazerSettings {
@@ -51,6 +51,18 @@ impl OsuModsLazer {
 
         false
     }
+
+    pub fn into_rosu_mods(&self, gamemode: OsuGameMode) -> rosu_mods::GameMods {
+        let mut result = rosu_mods::GameMods::new();
+
+        self.mods.iter().for_each(|x| {
+            let osu_mod = rosu_mods::GameMod::new(&x.acronym, gamemode.into());
+
+            result.insert(osu_mod)
+        });
+
+        result
+    }
 }
 
 impl FromStr for OsuModsLazer {
@@ -78,8 +90,16 @@ impl FromStr for OsuModsLazer {
 
 impl Display for OsuModsLazer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for mod_lazer in &self.mods {
-            write!(f, "{mod_lazer}")?
+        if !self.mods.is_empty() {
+            for mod_lazer in &self.mods {
+                write!(f, "{mod_lazer}")?
+            }
+
+            if let Some(speed) = self.speed_changes() {
+                write!(f, " (x{})", speed)?;
+            }
+        } else {
+            write!(f, "NM")?
         }
 
         Ok(())
@@ -95,4 +115,42 @@ impl Default for OsuModsLazer {
             }],
         }
     }
+}
+
+#[test]
+fn test_osu_mods_lazer_formatting() {
+    let t1 = OsuModsLazer::default();
+    assert_eq!(format!("{}", t1), "NM");
+
+    let t2 = OsuModsLazer {
+        mods: vec![
+            OsuModLazer {
+                acronym: "DT".to_string(),
+                settings: None,
+            },
+            OsuModLazer {
+                acronym: "HR".to_string(),
+                settings: None,
+            },
+            OsuModLazer {
+                acronym: "HD".to_string(),
+                settings: None,
+            },
+            OsuModLazer {
+                acronym: "NF".to_string(),
+                settings: None,
+            },
+        ],
+    };
+    assert_eq!(format!("{}", t2), "DTHRHDNF");
+
+    let t3 = OsuModsLazer {
+        mods: vec![OsuModLazer {
+            acronym: "DT".to_string(),
+            settings: Some(OsuModLazerSettings {
+                speed_change: Some(1.2),
+            }),
+        }],
+    };
+    assert_eq!(format!("{}", t3), "DT (x1.2)");
 }

@@ -12,9 +12,7 @@ pub struct FallbackOsuMod {
     pub speed: Option<f32>,
 }
 
-pub fn deserialize<'de, D: Deserializer<'de>>(
-    d: D,
-) -> Result<Option<f32>, D::Error> {
+pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
     d.deserialize_any(FallbackOsuModVisitor)
 }
 

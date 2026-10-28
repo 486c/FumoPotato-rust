@@ -31,9 +31,7 @@ pub mod deserialize {
 
     use super::LocalDateTimeVisitor;
 
-    pub fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<DateTime<Utc>, D::Error> {
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<DateTime<Utc>, D::Error> {
         d.deserialize_any(LocalDateTimeVisitor)
     }
 }

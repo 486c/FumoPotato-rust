@@ -2,7 +2,7 @@ pub mod osu_leaderboard;
 pub mod osu_matches;
 pub mod osu_mods;
 
-use crate::datetime;
+use crate::{datetime, models::osu_mods::OsuModsLazer};
 
 use crate::error::OsuApiError;
 
@@ -15,6 +15,7 @@ use serde::{
 };
 use thiserror::Error;
 
+use std::ops;
 use std::{
     fmt::{self, Display},
     str::FromStr,
@@ -46,6 +47,20 @@ pub enum RankStatus {
     Approved = 2,
     Qualified = 3,
     Loved = 4,
+}
+
+impl Display for RankStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RankStatus::Graveyard => write!(f, "Graveyard"),
+            RankStatus::Wip => write!(f, "Wip"),
+            RankStatus::Pending => write!(f, "Pending"),
+            RankStatus::Ranked => write!(f, "Ranked"),
+            RankStatus::Approved => write!(f, "Approved"),
+            RankStatus::Qualified => write!(f, "Qualified"),
+            RankStatus::Loved => write!(f, "Loved"),
+        }
+    }
 }
 
 struct RankStatusVisitor;
@@ -387,10 +402,7 @@ impl<'de> Visitor<'de> for OsuModsVisitor {
         f.write_str("valid sequence, string with valid acronyms")
     }
 
-    fn visit_seq<A: SeqAccess<'de>>(
-        self,
-        mut seq: A,
-    ) -> Result<Self::Value, A::Error> {
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let mut mods = OsuMods::default();
 
         while let Some(next) = seq.next_element()? {
@@ -437,6 +449,17 @@ pub enum OsuGameMode {
     Mania,
     Osu,
     Taiko,
+}
+
+impl From<OsuGameMode> for rosu_mods::GameMode {
+    fn from(val: OsuGameMode) -> Self {
+        match val {
+            OsuGameMode::Fruits => rosu_mods::GameMode::Catch,
+            OsuGameMode::Mania => rosu_mods::GameMode::Mania,
+            OsuGameMode::Osu => rosu_mods::GameMode::Osu,
+            OsuGameMode::Taiko => rosu_mods::GameMode::Taiko,
+        }
+    }
 }
 
 impl fmt::Display for OsuGameMode {
@@ -495,10 +518,7 @@ impl Visitor<'_> for OsuGameModeVisitor {
             1 => Ok(OsuGameMode::Taiko),
             2 => Ok(OsuGameMode::Fruits),
             3 => Ok(OsuGameMode::Mania),
-            _ => Err(Error::invalid_value(
-                Unexpected::Unsigned(v),
-                &"0, 1, 2, 3",
-            )),
+            _ => Err(Error::invalid_value(Unexpected::Unsigned(v), &"0, 1, 2, 3")),
         }
     }
 
@@ -633,9 +653,137 @@ impl OsuBeatmap {
     // Returns `{Artist} - {Title} [{Version}]`
     pub fn metadata(&self) -> String {
         format!(
-            "{} - {} [{}]",
+            "{} \\- {} [{}]",
             self.beatmapset.artist, self.beatmapset.title, self.version
         )
+    }
+
+    pub fn attributes(
+        &self,
+        mods: &OsuModsLazer,
+        gamemode: OsuGameMode,
+    ) -> Option<BeatmapAttributes> {
+        let b_ar = self.ar?;
+        let b_cs = self.cs?;
+        let b_hp = self.drain?;
+        let b_od = self.accuracy?;
+
+        let mut attributes = BeatmapAttributes {
+            mode: gamemode,
+            ar: b_ar,
+            cs: b_cs,
+            od: b_od,
+            hp: b_hp,
+        };
+
+        attributes.calc_ar(mods);
+        attributes.calc_od(mods);
+        attributes.calc_hp(mods);
+        attributes.calc_cs(mods);
+
+        Some(attributes)
+    }
+}
+
+pub struct BeatmapAttributes {
+    mode: OsuGameMode,
+
+    pub ar: f32,
+    pub cs: f32,
+    pub od: f32,
+    pub hp: f32,
+}
+
+impl BeatmapAttributes {
+    pub fn calc_ar(&mut self, mods: &OsuModsLazer) {
+        let mut ar = self.ar;
+        if mods.contains("EZ") {
+            ar /= 2.0;
+        }
+
+        if mods.contains("HR") {
+            ar = (ar * 1.4).min(10.0);
+        }
+
+        let mut ms = ar_to_ms(ar);
+
+        if let Some(speed_change) = mods.speed_changes() {
+            ms /= speed_change;
+
+            self.ar = ms_to_ar(ms);
+        }
+
+        if mods.contains("DT") || mods.contains("NC") {
+            ms /= 1.5;
+        }
+
+        if mods.contains("HT") {
+            ms /= 0.75;
+        }
+
+        self.ar = ms_to_ar(ms);
+    }
+
+    pub fn calc_od(&mut self, mods: &OsuModsLazer) {
+        let mut od = self.od as f64;
+
+        if self.mode == OsuGameMode::Fruits {
+            return;
+        }
+
+        if mods.contains("EZ") {
+            od /= 2.0;
+        }
+
+        if mods.contains("HR") {
+            od = (od * 1.4).min(10.0);
+        }
+
+        let mut hit_window = hit_window(od, &self.mode);
+
+        if let Some(speed_change) = mods.speed_changes() {
+            hit_window = hit_window / speed_change as f64;
+
+            self.od = hit_window.to_od() as f32;
+        }
+
+        if mods.contains("DT") || mods.contains("NC") {
+            hit_window = hit_window / 1.5;
+        }
+
+        if mods.contains("HT") {
+            hit_window = hit_window / 0.75;
+        }
+
+        self.od = hit_window.to_od() as f32
+    }
+
+    pub fn calc_cs(&mut self, mods: &OsuModsLazer) {
+        let mut cs = self.cs;
+
+        if mods.contains("HR") {
+            cs = (cs * 1.3).min(10.0);
+        };
+
+        if mods.contains("EZ") {
+            cs /= 2.0;
+        };
+
+        self.cs = cs;
+    }
+
+    pub fn calc_hp(&mut self, mods: &OsuModsLazer) {
+        let mut hp = self.hp;
+
+        if mods.contains("EZ") {
+            hp /= 2.0;
+        };
+
+        if mods.contains("HR") {
+            hp = (hp * 1.4).min(10.0);
+        };
+
+        self.hp = hp;
     }
 }
 
@@ -828,11 +976,31 @@ pub struct OsuUserStatistics {
     pub user: OsuUser,
 }
 
+#[derive(Deserialize, Debug, Clone, Copy)]
+pub struct OsuUserExtendedStatisticsLevel {
+    pub current: u32,
+    pub progress: u32,
+}
+
+#[derive(Deserialize, Debug, Clone, Copy)]
+pub struct OsuUserExtendedStatisticsGradeCounts {
+    pub ss: u32,
+    pub ssh: u32,
+    pub s: u32,
+    pub sh: u32,
+    pub a: u32,
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct OsuUserExtendedStatistics {
     pub global_rank: Option<u32>,
     pub country_rank: Option<u32>,
+    pub play_count: Option<u32>,
+    pub hit_accuracy: Option<f32>,
     pub pp: f32,
+    pub level: OsuUserExtendedStatisticsLevel,
+    pub play_time: u32,
+    pub grade_counts: OsuUserExtendedStatisticsGradeCounts,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -855,6 +1023,20 @@ pub struct OsuUserExtended {
     pub occupation: Option<String>,
     pub playmode: OsuGameMode,
     pub statistics: OsuUserExtendedStatistics,
+    pub rank_highest: Option<OsuUserExtendedRankHighest>,
+    pub user_achievements: Vec<OsuUserExtendedAchievement>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct OsuUserExtendedAchievement {
+    #[serde(deserialize_with = "datetime::deserialize::deserialize")]
+    pub achieved_at: DateTime<Utc>,
+    pub achievement_id: u32,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct OsuUserExtendedRankHighest {
+    pub rank: u32,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -887,10 +1069,10 @@ mod utils {
             if source.is_empty() {
                 None
             } else {
-                let end_idx = source.char_indices().nth(n - 1).map_or_else(
-                    || source.len(),
-                    |(idx, c)| idx + c.len_utf8(),
-                );
+                let end_idx = source
+                    .char_indices()
+                    .nth(n - 1)
+                    .map_or_else(|| source.len(), |(idx, c)| idx + c.len_utf8());
 
                 let (split, rest) = source.split_at(end_idx);
 
@@ -933,6 +1115,7 @@ pub enum ScoresType {
     Best,
     Firsts,
     Recent,
+    Pinned,
 }
 
 impl fmt::Display for ScoresType {
@@ -941,6 +1124,7 @@ impl fmt::Display for ScoresType {
             ScoresType::Best => write!(f, "best"),
             ScoresType::Firsts => write!(f, "firsts"),
             ScoresType::Recent => write!(f, "recent"),
+            ScoresType::Pinned => write!(f, "pinned"),
         }
     }
 }
@@ -968,6 +1152,12 @@ impl GetUserScores {
 
     pub fn limit(mut self, limit: i32) -> Self {
         self.limit = Some(limit);
+
+        self
+    }
+
+    pub fn mode(mut self, mode: OsuGameMode) -> Self {
+        self.mode = Some(mode);
 
         self
     }
@@ -1029,8 +1219,7 @@ pub struct Rankings {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct BeatmapUserScore {
-    pub position: u32,
-    pub score: OsuScore,
+    pub scores: Vec<OsuScoreLazer>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -1054,4 +1243,85 @@ fn test_userid_conversion() {
         UserId::from("32178318LoPiJ"),
         UserId::Username("32178318LoPiJ".to_owned())
     );
+}
+
+#[inline]
+pub fn ar_to_ms(ar: f32) -> f32 {
+    if ar > 5.0 {
+        1200.0 - 750.0 * (ar - 5.0) / 5.0
+    } else if ar < 5.0 {
+        1200.0 + 600.0 * (5.0 - ar) / 5.0
+    } else {
+        1200.0
+    }
+}
+
+#[inline]
+pub fn ms_to_ar(ms: f32) -> f32 {
+    if ms < 1200.0 {
+        ((ms * 5.0 - 1200.0 * 5.0) / (450.0 - 1200.0)) + 5.0
+    } else if ms > 1200.0 {
+        5.0 - ((1200.0 * 5.0 - ms * 5.0) / (1200.0 - 1800.0))
+    } else {
+        5.0
+    }
+}
+
+pub enum HitWindow {
+    Osu(f64, f64, f64),
+    Mania(f64, f64, f64, f64, f64),
+    Taiko(f64, f64, f64),
+    Fruits,
+}
+
+#[inline]
+pub fn hit_window(od: f64, mode: &OsuGameMode) -> HitWindow {
+    match mode {
+        OsuGameMode::Fruits => HitWindow::Fruits,
+        OsuGameMode::Mania => HitWindow::Mania(
+            16.0,
+            64.0 - 3.0 * od,
+            97.0 - 3.0 * od,
+            127.0 - 3.0 * od,
+            151.0 - 3.0 * od,
+        ),
+        OsuGameMode::Osu => HitWindow::Osu(80.0 - 6.0 * od, 140.0 - 8.0 * od, 200.0 - 10.0 * od),
+        OsuGameMode::Taiko => {
+            let great = 50.0 - 3.0 * od;
+
+            let (ok, miss) = if od <= 5.0 {
+                (120.0 - 8.0 * od, 135.0 - 8.0 * od)
+            } else {
+                (110.0 - 6.0 * od, 120.0 - 5.0 * od)
+            };
+
+            HitWindow::Taiko(great, ok, miss)
+        }
+    }
+}
+
+impl HitWindow {
+    pub fn to_od(&self) -> f64 {
+        match self {
+            HitWindow::Osu(c300, _, _) => (c300 - 80.0) / -6.0,
+            HitWindow::Mania(_, c300, _, _, _) => (c300 - 64.0) / -3.0,
+            HitWindow::Taiko(great, _, _) => (great - 50.0) / -3.0,
+            HitWindow::Fruits => 0.0,
+        }
+    }
+}
+
+impl ops::Div<f64> for HitWindow {
+    type Output = Self;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        match self {
+            HitWindow::Osu(c300, c100, c50) => Self::Osu(c300 / rhs, c100 / rhs, c50 / rhs),
+            HitWindow::Mania(max, c300, c200, c100, c50) => {
+                Self::Mania(max / rhs, c300 / rhs, c200 / rhs, c100 / rhs, c50 / rhs)
+            }
+            HitWindow::Taiko(great, ok, miss) => Self::Taiko(great / rhs, ok / rhs, miss / rhs),
+            HitWindow::Fruits => Self::Fruits,
+        }
+    }
 }

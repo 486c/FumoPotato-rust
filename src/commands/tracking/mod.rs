@@ -1,3 +1,5 @@
+mod settings;
+
 use fumo_twilight::message::MessageBuilder;
 use rosu_pp::{
     model::mods::rosu_mods::{GameMod, GameMods},
@@ -479,13 +481,9 @@ async fn osu_track_checker(
                 .iter()
                 .enumerate()
                 .find(|(_i, x)| {
-                    if let Some(beatmap) = &x.beatmap {
-                        beatmap.id == score.beatmap_id as i32
-                            && x.created_at == score.ended_at
-                            && x.pp == score.pp
-                    } else {
-                        false
-                    }
+                    x.beatmap_id == score.beatmap_id
+                        && x.ended_at == score.ended_at
+                        && x.pp == score.pp
                 })
                 .map(|(i, _x)| i + 1);
 
@@ -673,7 +671,6 @@ pub struct OsuTrackingRemove {
 }
 
 impl OsuTrackingRemove {
-
     pub async fn run(
         &self,
         ctx: &FumoContext,
