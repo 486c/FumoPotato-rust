@@ -60,7 +60,8 @@ twilight-model = "0.15.2"
 twilight-standby = "0.15.2"
 twilight-util = { version = "0.15.2", features = ["builder"] }
 time = "0.3.36"
-rosu-pp = "4.0.1"
+#rosu-pp = "4.0.1"
+rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp.git", branch = "pp-update" }
 metrics-exporter-prometheus = "0.18.3"
 rosu-map = "0.2.1"
 
